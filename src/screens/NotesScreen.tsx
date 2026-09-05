@@ -1,7 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
 import {
@@ -36,6 +36,7 @@ export function NotesScreen() {
   const [query, setQuery] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>();
+  const [deletingNote, setDeletingNote] = useState<Note | undefined>();
 
   const notes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('vi-VN');
@@ -70,14 +71,7 @@ export function NotesScreen() {
   }
 
   function confirmDelete(note: Note) {
-    Alert.alert('Xóa ghi chú?', `“${note.title}” sẽ bị xóa.`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => dispatch({ type: 'delete_note', payload: { id: note.id } }),
-      },
-    ]);
+    setDeletingNote(note);
   }
 
   return (
@@ -177,6 +171,19 @@ export function NotesScreen() {
           onSubmit={handleSave}
         />
       ) : null}
+
+      <ConfirmModal
+        visible={Boolean(deletingNote)}
+        title="Xóa ghi chú?"
+        message={`“${deletingNote?.title ?? ''}” sẽ bị xóa.`}
+        onConfirm={() => {
+          if (deletingNote) {
+            dispatch({ type: 'delete_note', payload: { id: deletingNote.id } });
+            setDeletingNote(undefined);
+          }
+        }}
+        onCancel={() => setDeletingNote(undefined)}
+      />
     </View>
   );
 }

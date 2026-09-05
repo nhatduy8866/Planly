@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalendarPanel } from '../components/CalendarPanel';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
 import { TaskCard } from '../components/TaskCard';
@@ -28,6 +28,7 @@ import {
   formatLongDate,
   formatMonthTitle,
   fromDateKey,
+  timeToMinutes,
   toDateKey,
   todayKey,
 } from '../utils/date';
@@ -51,12 +52,18 @@ export function ScheduleScreen() {
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [deletingTask, setDeletingTask] = useState<Task | undefined>();
 
   const dayTasks = useMemo(
     () =>
       state.tasks
         .filter((task) => task.date === selectedDate)
-        .sort((a, b) => a.order - b.order),
+        .sort(
+          (a, b) =>
+            (a.order ?? 0) - (b.order ?? 0) ||
+            timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
+            a.createdAt.localeCompare(b.createdAt),
+        ),
     [selectedDate, state.tasks],
   );
 
@@ -95,14 +102,7 @@ export function ScheduleScreen() {
   }
 
   function confirmDelete(task: Task) {
-    Alert.alert('Xóa công việc?', `“${task.title}” sẽ bị xóa khỏi lịch.`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: () => void deleteTask(task),
-      },
-    ]);
+    setDeletingTask(task);
   }
 
   return (
@@ -190,12 +190,14 @@ export function ScheduleScreen() {
               onEdit={() => openEdit(task)}
               onDuplicate={() => void duplicateTask(task)}
               onDelete={() => confirmDelete(task)}
-              onMoveUp={() =>
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: -1 } })
-              }
-              onMoveDown={() =>
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: 1 } })
-              }
+              onMoveUp={() => {
+                dispatch({ type: 'move_task', payload: { id: task.id, direction: -1 } });
+                void Haptics.selectionAsync();
+              }}
+              onMoveDown={() => {
+                dispatch({ type: 'move_task', payload: { id: task.id, direction: 1 } });
+                void Haptics.selectionAsync();
+              }}
               disableMoveUp={index === 0}
               disableMoveDown={index === dayTasks.length - 1}
             />
@@ -233,6 +235,20 @@ export function ScheduleScreen() {
           onSubmit={handleSave}
         />
       ) : null}
+
+      <ConfirmModal
+        visible={Boolean(deletingTask)}
+        title="Xóa công việc?"
+        message={`“${deletingTask?.title ?? ''}” sẽ bị xóa khỏi lịch.`}
+        onConfirm={() => {
+          if (deletingTask) {
+            void deleteTask(deletingTask);
+            setDeletingTask(undefined);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        }}
+        onCancel={() => setDeletingTask(undefined)}
+      />
     </View>
   );
 }

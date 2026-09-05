@@ -5,6 +5,25 @@ node_modules/
 dist/
 build/
 .expo/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Generated native projects
+android/
+ios/
+
+# Native credentials and signing
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Metro / Kotlin
+.metro-health-check*
+.kotlin/
 
 # Environment variables
 .env
@@ -19,4 +38,3 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
-

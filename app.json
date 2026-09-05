@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Planly",
+    "slug": "planly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "planly",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "androidStatusBar": {
+      "backgroundColor": "#F7F8F4",
+      "barStyle": "dark-content",
+      "translucent": false
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.planly.app",
+      "permissions": [
+        "SCHEDULE_EXACT_ALARM"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "color": "#46664A",
+          "defaultChannel": "planly-reminders"
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}

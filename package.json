@@ -1,0 +1,52 @@
+{
+  "name": "planly",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "expo": "~57.0.20",
+    "expo-font": "~57.0.3",
+    "expo-haptics": "~57.0.2",
+    "expo-notifications": "~57.0.17",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@types/jest": "29.5.14",
+    "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "expo-doctor": "^1.20.4",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.5",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest --runInBand",
+    "doctor": "expo-doctor"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/android/",
+      "/ios/"
+    ]
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "private": true
+}

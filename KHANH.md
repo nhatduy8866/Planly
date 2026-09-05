@@ -5,9 +5,13 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 ---
 
 ## 1. Thông tin nhánh và Commit
-- **Nhánh làm việc (Branch)**: `feature/web-support-and-form-pickers`
-- **Mã commit chính**: `626962c` (`feat: add web support and improve task date time pickers`)
-- **Tình trạng**: Đã push lên GitHub, sẵn sàng để tạo Pull Request và merge vào `main`.
+- **Nhánh làm việc (Branches)**:
+  - `feature/web-support-and-form-pickers`: Hỗ trợ Web & nâng cấp bộ chọn ngày/giờ/thời lượng.
+  - `fix/sort-and-delete-actions`: Sửa triệt để lỗi Xóa và Sắp xếp công việc/ghi chú trên Web & Mobile.
+- **Mã commit chính**:
+  - `626962c` (`feat: add web support and improve task date time pickers`)
+  - `c33a2a1` (`docs: add handover documentation in KHANH.md`)
+- **Tình trạng**: Sẵn sàng tạo Pull Request cho từng nhánh theo đúng quy chuẩn git workflow.
 
 ---
 
@@ -65,25 +69,63 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 
 ---
 
+### D. Khắc phục triệt để tính năng Xóa và Sắp xếp (Deletion & Sorting)
+
+#### 1. Khắc phục tính năng Xóa công việc và Ghi chú (Web & Mobile)
+- **Nguyên nhân lỗi**:
+  - Trước đây app sử dụng `Alert.alert(...)` có sẵn của React Native để hỏi xác nhận khi xóa. Trên môi trường `react-native-web`, `Alert.alert` chỉ là giả lập hoặc `window.alert` không thực thi callback `onPress` của các nút hành động (Cancel / Delete). Do đó khi bấm Xóa trên Web, ứng dụng hoàn toàn không phản hồi.
+  - Trong `useTaskActions.ts`, hàm `deleteTask` bị chặn bởi lệnh `await cancelTaskReminder(id)`. Nếu dịch vụ notification bị treo hoặc gặp lỗi thì hành động xóa sẽ bị tắc nghẽn.
+- **Giải pháp**:
+  - **Tạo component xác nhận đa nền tảng**: Xây dựng `src/components/ConfirmModal.tsx` dựa trên React Native `Modal` thuần, có overlay mờ, hiển thị rõ tiêu đề, nội dung tên công việc/ghi chú và 2 nút bấm rõ ràng (Hủy và nút Xóa cảnh báo màu đỏ).
+  - **Thay thế triệt để**: Cập nhật cả 3 màn hình `ScheduleScreen.tsx`, `TasksScreen.tsx`, và `NotesScreen.tsx` chuyển sang dùng `ConfirmModal`. Hoạt động đồng nhất, mượt mà 100% trên cả Web, Android và iOS.
+  - **Tối ưu xóa phản hồi tức thì (Optimistic UI)**: Trong `useTaskActions.ts`, cập nhật State `dispatch({ type: 'delete_task', payload: { id } })` ngay lập tức để giao diện xóa ngay, sau đó việc hủy notification được bọc trong try/catch xử lý ngầm trong nền mà không làm chậm UI.
+
+#### 2. Khắc phục tính năng Sắp xếp (Sorting & Reordering)
+- **Tại màn hình Lịch trình (`ScheduleScreen.tsx`)**:
+  - *Nguyên nhân*: Reducer xử lý `move_task` và `sort_day` dựa vào phép trừ `a.order - b.order`. Khi các task được thêm mới có cùng giá trị `order` (hoặc `undefined`), phép trừ ra `NaN` dẫn đến việc hoán đổi vị trí bị lỗi hoặc nhảy sai vị trí.
+  - *Giải pháp*:
+    - Viết lại reducer `move_task` trong `plannerReducer.ts`: Lấy danh sách task của ngày đó, sắp xếp ổn định, hoán đổi phần tử trực tiếp trong mảng (`[tasks[from], tasks[to]] = [tasks[to], tasks[from]]`), sau đó re-index lại `order` tuần tự `0, 1, 2...` cho từng task thông qua một `orderMap`.
+    - Viết lại `sort_day`: Sắp xếp các task theo `startTime` tăng dần, sau đó cũng re-index lại `order` tuần tự `0..N-1`.
+    - Bổ sung rung xúc giác nhẹ (`haptics.selection()`) khi bấm nút mũi tên lên/xuống trên mobile.
+- **Tại màn hình Công việc (`TasksScreen.tsx`)**:
+  - *Nguyên nhân*: Màn hình này trước đây chỉ có bộ lọc trạng thái (Tất cả, Đang làm, Hoàn thành), hoàn toàn không có tính năng sắp xếp danh sách.
+  - *Giải pháp*:
+    - Bổ sung thanh công cụ sắp xếp (Sort Bar) với 3 tùy chọn: **`Theo giờ` (Giờ bắt đầu tăng dần)**, **`Tên A-Z` (Bảng chữ cái)**, và **`Mới nhất` (Thời gian tạo)**.
+    - Xử lý sắp xếp kết hợp với bộ lọc trạng thái mượt mà bằng `useMemo`.
+
+#### 3. Bổ sung Unit Test
+- Cập nhật `src/store/plannerReducer.test.ts`:
+  - Thêm test case kiểm tra `delete_task` xóa chuẩn xác task được chỉ định và không ảnh hưởng đến các task khác.
+  - Thêm test case kiểm tra `move_task` khi các task ban đầu có cùng chỉ số `order`, đảm bảo việc hoán đổi và re-index diễn ra chính xác tuyệt đối.
+
+---
+
 ## 3. Các file đã thay đổi trong đợt này
 1. `package.json` & `package-lock.json`: Thêm các thư viện Web.
 2. `App.tsx`: Căn giữa container desktop web.
 3. `src/services/notifications.ts`: Bổ sung kiểm tra an toàn cho Web.
 4. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày, giờ, thời lượng chips, fix lỗi iOS và fix kích thước web modal.
 5. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
+6. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng (Web/iOS/Android).
+7. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
+8. `src/screens/ScheduleScreen.tsx`: Thay thế ConfirmModal và tăng độ tin cậy khi di chuyển/sắp xếp công việc.
+9. `src/screens/TasksScreen.tsx`: Thay thế ConfirmModal và bổ sung thanh công cụ sắp xếp (Sort Bar).
+10. `src/screens/NotesScreen.tsx`: Thay thế ConfirmModal cho việc xóa ghi chú.
+11. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` với cơ chế re-index sequential `orderMap`.
+12. `src/store/plannerReducer.test.ts`: Thêm unit tests cho `delete_task` và `move_task`.
 
 ---
 
 ## 4. Trạng thái kiểm thử (Quality Checks)
-Trước khi push, toàn bộ mã nguồn đã vượt qua các bài kiểm tra nghiêm ngặt:
+Toàn bộ mã nguồn đã vượt qua các bài kiểm tra nghiêm ngặt:
 - `npm run typecheck`: ✅ **0 lỗi TypeScript**.
 - `npm run lint`: ✅ **0 warning / error ESLint**.
-- `npm test`: ✅ **8/8 unit tests passed** (Jest).
+- `npm test`: ✅ **10/10 unit tests passed** (Jest).
 - Kiểm tra thực tế:
-  - Trên **Web**: Hoạt động mượt mà tại `http://localhost:8081`.
-  - Trên **iPhone (Expo Go)**: Hiển thị đúng màu, không lỗi layout, bộ chọn ngày/giờ hoạt động chuẩn chỉ.
+  - **Xóa**: Bấm xóa trên Web và Mobile đều mở modal xác nhận đẹp mắt, xác nhận xóa là item biến mất ngay lập tức.
+  - **Sắp xếp**: Mũi tên lên/xuống và nút sắp xếp theo giờ ở Lịch trình hoạt động chính xác 100%, không bị nhảy task; thanh sort ở màn hình Công việc lọc và sắp xếp mượt mà.
 
 ---
 
 *Người thực hiện: Khanh*  
-*Mọi thắc mắc hoặc cần phối hợp tiếp, vui lòng xem Pull Request trên nhánh `feature/web-support-and-form-pickers`.*
+*Mọi thắc mắc hoặc cần phối hợp tiếp, vui lòng xem các nhánh và Pull Request tương ứng trên GitHub.*

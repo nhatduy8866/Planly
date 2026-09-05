@@ -17,10 +17,10 @@ export function useTaskActions() {
       const now = new Date().toISOString();
       const nextOrder =
         existing?.date === values.date
-          ? existing.order
+          ? (existing.order ?? 0)
           : state.tasks
               .filter((task) => task.date === values.date)
-              .reduce((max, task) => Math.max(max, task.order), -1) + 1;
+              .reduce((max, task) => Math.max(max, task.order ?? -1), -1) + 1;
 
       const task: Task = {
         ...values,
@@ -54,7 +54,7 @@ export function useTaskActions() {
         order:
           state.tasks
             .filter((item) => item.date === source.date)
-            .reduce((max, item) => Math.max(max, item.order), -1) + 1,
+            .reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1,
         createdAt: now,
         updatedAt: now,
       };
@@ -70,8 +70,12 @@ export function useTaskActions() {
 
   const deleteTask = useCallback(
     async (task: Task) => {
-      await cancelTaskReminder(task.notificationId);
       dispatch({ type: 'delete_task', payload: { id: task.id } });
+      try {
+        await cancelTaskReminder(task.notificationId);
+      } catch {
+        // Notification might already have fired or failed
+      }
     },
     [dispatch],
   );

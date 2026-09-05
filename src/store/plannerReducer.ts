@@ -17,14 +17,6 @@ export type PlannerAction =
   | { type: 'upsert_note'; payload: Note }
   | { type: 'delete_note'; payload: { id: string } };
 
-function normalizeDayOrder(tasks: Task[], date: string): Task[] {
-  const dayTasks = tasks
-    .filter((task) => task.date === date)
-    .sort((a, b) => a.order - b.order)
-    .map((task, order) => ({ ...task, order }));
-  const normalized = new Map(dayTasks.map((task) => [task.id, task]));
-  return tasks.map((task) => normalized.get(task.id) ?? task);
-}
 
 export function plannerReducer(
   state: PlannerState,
@@ -69,17 +61,24 @@ export function plannerReducer(
       if (!current) return state;
       const dayTasks = state.tasks
         .filter((task) => task.date === current.date)
-        .sort((a, b) => a.order - b.order);
+        .sort(
+          (a, b) =>
+            (a.order ?? 0) - (b.order ?? 0) ||
+            a.createdAt.localeCompare(b.createdAt),
+        );
       const currentIndex = dayTasks.findIndex((task) => task.id === current.id);
+      if (currentIndex === -1) return state;
       const targetIndex = currentIndex + action.payload.direction;
       if (targetIndex < 0 || targetIndex >= dayTasks.length) return state;
-      [dayTasks[currentIndex], dayTasks[targetIndex]] = [
-        dayTasks[targetIndex],
-        dayTasks[currentIndex],
-      ];
-      const orderById = new Map(
-        dayTasks.map((task, order) => [task.id, order] as const),
-      );
+
+      const itemToMove = dayTasks[currentIndex];
+      dayTasks.splice(currentIndex, 1);
+      dayTasks.splice(targetIndex, 0, itemToMove);
+
+      const orderById = new Map<string, number>();
+      dayTasks.forEach((task, order) => {
+        orderById.set(task.id, order);
+      });
       return {
         ...state,
         tasks: state.tasks.map((task) =>
@@ -95,20 +94,19 @@ export function plannerReducer(
         .sort(
           (a, b) =>
             timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
-            a.order - b.order,
+            (a.order ?? 0) - (b.order ?? 0) ||
+            a.createdAt.localeCompare(b.createdAt),
         );
-      const orderById = new Map(
-        sortedDay.map((task, order) => [task.id, order] as const),
-      );
+      const orderById = new Map<string, number>();
+      sortedDay.forEach((task, order) => {
+        orderById.set(task.id, order);
+      });
       return {
         ...state,
-        tasks: normalizeDayOrder(
-          state.tasks.map((task) =>
-            orderById.has(task.id)
-              ? { ...task, order: orderById.get(task.id)! }
-              : task,
-          ),
-          action.payload.date,
+        tasks: state.tasks.map((task) =>
+          orderById.has(task.id)
+            ? { ...task, order: orderById.get(task.id)! }
+            : task,
         ),
       };
     }

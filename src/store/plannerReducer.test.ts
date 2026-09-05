@@ -95,4 +95,39 @@ describe('plannerReducer', () => {
     expect(result.tasks.find((item) => item.id === 'target')?.completed).toBe(true);
     expect(result.tasks.find((item) => item.id === 'other')?.completed).toBe(false);
   });
+
+  it('deletes a task by id', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [task({ id: 'task-1' }), task({ id: 'task-2' })],
+    };
+    const result = plannerReducer(state, {
+      type: 'delete_task',
+      payload: { id: 'task-1' },
+    });
+
+    expect(result.tasks).toHaveLength(1);
+    expect(result.tasks[0].id).toBe('task-2');
+  });
+
+  it('handles move_task safely when initial order values are duplicated', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'a', order: 0, createdAt: '2026-09-05T01:00:00.000Z' }),
+        task({ id: 'b', order: 0, createdAt: '2026-09-05T02:00:00.000Z' }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'move_task',
+      payload: { id: 'b', direction: -1 },
+    });
+
+    const b = result.tasks.find((item) => item.id === 'b');
+    const a = result.tasks.find((item) => item.id === 'a');
+    expect(b?.order).toBe(0);
+    expect(a?.order).toBe(1);
+  });
 });

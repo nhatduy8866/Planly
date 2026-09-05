@@ -1,7 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { TaskCard } from '../components/TaskCard';
 import {
@@ -24,6 +24,7 @@ import type { Task } from '../types';
 import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
 
 type TaskFilter = 'pending' | 'all' | 'completed';
+type TaskSort = 'time' | 'title' | 'created';
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: 'pending', label: 'Cần làm' },
@@ -31,14 +32,22 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: 'completed', label: 'Đã xong' },
 ];
 
+const SORTS: { key: TaskSort; label: string }[] = [
+  { key: 'time', label: 'Theo giờ' },
+  { key: 'title', label: 'Tên A-Z' },
+  { key: 'created', label: 'Mới nhất' },
+];
+
 export function TasksScreen() {
   const insets = useSafeAreaInsets();
   const { state } = usePlanner();
   const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskFilter>('pending');
+  const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [deletingTask, setDeletingTask] = useState<Task | undefined>();
 
   const groupedTasks = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('vi-VN');
@@ -51,11 +60,20 @@ export function TasksScreen() {
           .toLocaleLowerCase('vi-VN')
           .includes(normalizedQuery);
       })
-      .sort(
-        (a, b) =>
+      .sort((a, b) => {
+        if (sortBy === 'title') {
+          return a.title.localeCompare(b.title, 'vi-VN');
+        }
+        if (sortBy === 'created') {
+          return b.createdAt.localeCompare(a.createdAt);
+        }
+        // Default: Theo ngày & giờ & thứ tự
+        return (
           a.date.localeCompare(b.date) ||
-          timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
-      );
+          timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
+          (a.order ?? 0) - (b.order ?? 0)
+        );
+      });
 
     return filtered.reduce<{ date: string; tasks: Task[] }[]>((groups, task) => {
       const last = groups.at(-1);
@@ -63,7 +81,7 @@ export function TasksScreen() {
       else groups.push({ date: task.date, tasks: [task] });
       return groups;
     }, []);
-  }, [filter, query, state.tasks]);
+  }, [filter, query, sortBy, state.tasks]);
 
   function openCreate() {
     setEditingTask(undefined);
@@ -71,10 +89,7 @@ export function TasksScreen() {
   }
 
   function confirmDelete(task: Task) {
-    Alert.alert('Xóa công việc?', `“${task.title}” sẽ bị xóa khỏi lịch.`, [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa', style: 'destructive', onPress: () => void deleteTask(task) },
-    ]);
+    setDeletingTask(task);
   }
 
   async function handleSave(values: TaskFormValues) {
@@ -132,6 +147,29 @@ export function TasksScreen() {
           })}
         </View>
 
+        <View style={styles.sortBar}>
+          <View style={styles.sortHeader}>
+            <MaterialIcons name="sort" size={16} color={colors.textMuted} />
+            <Text style={styles.sortTitle}>Sắp xếp:</Text>
+          </View>
+          <View style={styles.sortChips}>
+            {SORTS.map((item) => {
+              const active = sortBy === item.key;
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => setSortBy(item.key)}
+                  style={[styles.sortChip, active && styles.sortChipActive]}
+                >
+                  <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         {groupedTasks.length ? (
           groupedTasks.map((group) => (
             <View key={group.date} style={styles.group}>
@@ -181,6 +219,19 @@ export function TasksScreen() {
           onSubmit={handleSave}
         />
       ) : null}
+
+      <ConfirmModal
+        visible={Boolean(deletingTask)}
+        title="Xóa công việc?"
+        message={`“${deletingTask?.title ?? ''}” sẽ bị xóa khỏi danh sách.`}
+        onConfirm={() => {
+          if (deletingTask) {
+            void deleteTask(deletingTask);
+            setDeletingTask(undefined);
+          }
+        }}
+        onCancel={() => setDeletingTask(undefined)}
+      />
     </View>
   );
 }
@@ -222,6 +273,47 @@ const styles = StyleSheet.create({
   filterActive: { backgroundColor: colors.primarySoft },
   filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   filterTextActive: { color: colors.primaryDark },
+  sortBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  sortHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  sortTitle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sortChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sortChip: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  sortChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sortChipText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  sortChipTextActive: {
+    color: colors.white,
+  },
   group: { marginTop: 22 },
   groupHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 9 },
   groupTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: '800' },

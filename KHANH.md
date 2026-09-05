@@ -85,18 +85,25 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
   - *Nguyên nhân*: Reducer xử lý `move_task` và `sort_day` dựa vào phép trừ `a.order - b.order`. Khi các task được thêm mới có cùng giá trị `order` (hoặc `undefined`), phép trừ ra `NaN` dẫn đến việc hoán đổi vị trí bị lỗi hoặc nhảy sai vị trí.
   - *Giải pháp*:
     - Viết lại reducer `move_task` trong `plannerReducer.ts`: Lấy danh sách task của ngày đó, sắp xếp ổn định, hoán đổi phần tử trực tiếp trong mảng (`[tasks[from], tasks[to]] = [tasks[to], tasks[from]]`), sau đó re-index lại `order` tuần tự `0, 1, 2...` cho từng task thông qua một `orderMap`.
-    - Viết lại `sort_day`: Sắp xếp các task theo `startTime` tăng dần, sau đó cũng re-index lại `order` tuần tự `0..N-1`.
-    - Bổ sung rung xúc giác nhẹ (`haptics.selection()`) khi bấm nút mũi tên lên/xuống trên mobile.
+    - Viết lại `sort_day`: Hỗ trợ 2 chế độ sắp xếp linh hoạt qua tham số `by`:
+      * **`Theo giờ` (`by: 'time'`)**: Sắp xếp các task theo `startTime` tăng dần.
+      * **`Theo tên` (`by: 'title'`)**: Sắp xếp tên các task theo thứ tự bảng chữ cái tiếng Việt (`vi-VN`).
+      * Sau khi sắp xếp đều tự động re-index lại thứ tự `order` tuần tự `0..N-1` cho ngày đó.
+    - **Tạo component menu sổ xuống `src/components/SortDropdown.tsx`**:
+      * Đóng gói toàn bộ logic và giao diện nút sắp xếp dạng sổ xuống (dropdown) đa nền tảng (Web/Android/iOS).
+      * Nút hiển thị gọn gàng gồm icon `sort`, nhãn chế độ đang chọn, và mũi tên `arrow-drop-down`.
+      * Khi bấm vào, bung menu nổi (overlay) với các tùy chọn có icon và dấu tích checkmark cho lựa chọn hiện tại.
+      * Bấm ra ngoài menu sẽ tự động đóng lại nhẹ nhàng.
+    - **Tối ưu giao diện Lịch trình (`ScheduleScreen.tsx`)**: Thay vì hiển thị 2 nút bấm dàn hàng ngang gây rối mắt và chật chội, tích hợp `SortDropdown` giữ nguyên phong cách 1 nút bấm tinh gọn của UI ban đầu, người dùng chạm vào để chọn sắp xếp "Theo giờ" hoặc "Theo tên".
 - **Tại màn hình Công việc (`TasksScreen.tsx`)**:
-  - *Nguyên nhân*: Màn hình này trước đây chỉ có bộ lọc trạng thái (Tất cả, Đang làm, Hoàn thành), hoàn toàn không có tính năng sắp xếp danh sách.
-  - *Giải pháp*:
-    - Bổ sung thanh công cụ sắp xếp (Sort Bar) với 3 tùy chọn: **`Theo giờ` (Giờ bắt đầu tăng dần)**, **`Tên A-Z` (Bảng chữ cái)**, và **`Mới nhất` (Thời gian tạo)**.
-    - Xử lý sắp xếp kết hợp với bộ lọc trạng thái mượt mà bằng `useMemo`.
+  - Tích hợp `SortDropdown` nằm cùng hàng với các chip lọc trạng thái, loại bỏ hàng Sort Bar cồng kềnh giúp tiết kiệm không gian màn hình và giao diện đồng bộ, sạch sẽ.
+  - Tối ưu bộ sắp xếp theo ngày kết hợp tên để các nhóm ngày luôn đồng nhất.
 
 #### 3. Bổ sung Unit Test
 - Cập nhật `src/store/plannerReducer.test.ts`:
   - Thêm test case kiểm tra `delete_task` xóa chuẩn xác task được chỉ định và không ảnh hưởng đến các task khác.
   - Thêm test case kiểm tra `move_task` khi các task ban đầu có cùng chỉ số `order`, đảm bảo việc hoán đổi và re-index diễn ra chính xác tuyệt đối.
+  - Thêm test case kiểm tra `sort_day` với `by: 'title'`, đảm bảo sắp xếp danh sách theo tên A-Z chuẩn xác.
 
 ---
 
@@ -107,12 +114,13 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 4. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày, giờ, thời lượng chips, fix lỗi iOS và fix kích thước web modal.
 5. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
 6. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng (Web/iOS/Android).
-7. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
-8. `src/screens/ScheduleScreen.tsx`: Thay thế ConfirmModal và tăng độ tin cậy khi di chuyển/sắp xếp công việc.
-9. `src/screens/TasksScreen.tsx`: Thay thế ConfirmModal và bổ sung thanh công cụ sắp xếp (Sort Bar).
-10. `src/screens/NotesScreen.tsx`: Thay thế ConfirmModal cho việc xóa ghi chú.
-11. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` với cơ chế re-index sequential `orderMap`.
-12. `src/store/plannerReducer.test.ts`: Thêm unit tests cho `delete_task` và `move_task`.
+7. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn, đẹp mắt.
+8. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
+9. `src/screens/ScheduleScreen.tsx`: Dùng ConfirmModal và SortDropdown dạng sổ xuống.
+10. `src/screens/TasksScreen.tsx`: Dùng ConfirmModal và SortDropdown cùng hàng với filter.
+11. `src/screens/NotesScreen.tsx`: Dùng ConfirmModal cho việc xóa ghi chú.
+12. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` với cơ chế re-index sequential `orderMap` và hỗ trợ sắp xếp theo tên/giờ.
+13. `src/store/plannerReducer.test.ts`: Thêm unit tests cho `delete_task` và `move_task`, `sort_day` theo tên.
 
 ---
 
@@ -120,10 +128,13 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 Toàn bộ mã nguồn đã vượt qua các bài kiểm tra nghiêm ngặt:
 - `npm run typecheck`: ✅ **0 lỗi TypeScript**.
 - `npm run lint`: ✅ **0 warning / error ESLint**.
-- `npm test`: ✅ **10/10 unit tests passed** (Jest).
+- `npm test`: ✅ **11/11 unit tests passed** (Jest).
 - Kiểm tra thực tế:
   - **Xóa**: Bấm xóa trên Web và Mobile đều mở modal xác nhận đẹp mắt, xác nhận xóa là item biến mất ngay lập tức.
-  - **Sắp xếp**: Mũi tên lên/xuống và nút sắp xếp theo giờ ở Lịch trình hoạt động chính xác 100%, không bị nhảy task; thanh sort ở màn hình Công việc lọc và sắp xếp mượt mà.
+  - **Sắp xếp**:
+    - Menu sổ xuống (dropdown) tại màn hình Lịch biểu (`ScheduleScreen`) cho phép chuyển đổi mượt mà giữa 'Theo giờ' và 'Theo tên', tự động re-index thứ tự chuẩn xác 100%.
+    - Mũi tên lên/xuống di chuyển mượt mà, re-index thứ tự ổn định.
+    - Menu sổ xuống sắp xếp tại màn hình Công việc (`TasksScreen`) chuyển đổi giữa 'Theo giờ', 'Theo tên', và 'Mới nhất' tức thì, nằm gọn gàng cạnh các bộ lọc trạng thái.
 
 ---
 

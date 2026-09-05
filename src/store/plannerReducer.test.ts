@@ -63,6 +63,26 @@ describe('plannerReducer', () => {
     expect(orderedIds).toEqual(['early', 'late']);
   });
 
+  it('sorts a day by task title alphabetically when by is title', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'task-b', title: 'Đi mua sắm', order: 0 }),
+        task({ id: 'task-a', title: 'Ăn sáng', order: 1 }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'sort_day',
+      payload: { date: '2026-09-05', by: 'title' },
+    });
+
+    const orderedIds = [...result.tasks]
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.id);
+    expect(orderedIds).toEqual(['task-a', 'task-b']);
+  });
+
   it('moves a task manually within the selected day', () => {
     const state = {
       ...initialPlannerState,

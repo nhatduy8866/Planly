@@ -14,6 +14,7 @@ import { CalendarPanel } from '../components/CalendarPanel';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
+import { SortDropdown } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
 import {
   TaskFormModal,
@@ -51,6 +52,7 @@ export function ScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
+  const [sortMode, setSortMode] = useState<'time' | 'title'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
 
@@ -168,16 +170,22 @@ export function ScheduleScreen() {
             </Text>
           </View>
           {dayTasks.length > 1 ? (
-            <Pressable
-              onPress={() => {
-                dispatch({ type: 'sort_day', payload: { date: selectedDate } });
+            <SortDropdown
+              options={[
+                { key: 'time', label: 'Theo giờ', icon: 'schedule' },
+                { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
+              ]}
+              selectedKey={sortMode}
+              onSelect={(key) => {
+                const nextSort = key as 'time' | 'title';
+                setSortMode(nextSort);
+                dispatch({
+                  type: 'sort_day',
+                  payload: { date: selectedDate, by: nextSort },
+                });
                 void Haptics.selectionAsync();
               }}
-              style={({ pressed }) => [styles.sortButton, pressed && styles.pressed]}
-            >
-              <MaterialIcons name="sort" size={18} color={colors.primary} />
-              <Text style={styles.sortText}>Theo giờ</Text>
-            </Pressable>
+            />
           ) : null}
         </View>
 
@@ -287,20 +295,16 @@ const styles = StyleSheet.create({
   },
   calendarHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },
   monthTitle: { color: colors.text, flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
-  listHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 12, marginTop: 24 },
+  listHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    marginTop: 24,
+  },
   listTitleWrap: { flex: 1 },
   dayTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   taskCount: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
-  sortButton: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 11,
-    flexDirection: 'row',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  sortText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   fab: {
     alignItems: 'center',
     backgroundColor: colors.primary,

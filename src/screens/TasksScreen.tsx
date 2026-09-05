@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
+import { SortDropdown, type SortOption } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
 import {
   TaskFormModal,
@@ -32,10 +33,10 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: 'completed', label: 'Đã xong' },
 ];
 
-const SORTS: { key: TaskSort; label: string }[] = [
-  { key: 'time', label: 'Theo giờ' },
-  { key: 'title', label: 'Tên A-Z' },
-  { key: 'created', label: 'Mới nhất' },
+const SORTS: SortOption<TaskSort>[] = [
+  { key: 'time', label: 'Theo giờ', icon: 'schedule' },
+  { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
+  { key: 'created', label: 'Mới nhất', icon: 'access-time' },
 ];
 
 export function TasksScreen() {
@@ -62,10 +63,17 @@ export function TasksScreen() {
       })
       .sort((a, b) => {
         if (sortBy === 'title') {
-          return a.title.localeCompare(b.title, 'vi-VN');
+          return (
+            a.date.localeCompare(b.date) ||
+            a.title.localeCompare(b.title, 'vi-VN') ||
+            timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+          );
         }
         if (sortBy === 'created') {
-          return b.createdAt.localeCompare(a.createdAt);
+          return (
+            a.date.localeCompare(b.date) ||
+            b.createdAt.localeCompare(a.createdAt)
+          );
         }
         // Default: Theo ngày & giờ & thứ tự
         return (
@@ -130,44 +138,29 @@ export function TasksScreen() {
           ) : null}
         </View>
 
-        <View style={styles.filters}>
-          {FILTERS.map((item) => {
-            const active = filter === item.key;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => setFilter(item.key)}
-                style={[styles.filter, active && styles.filterActive]}
-              >
-                <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.sortBar}>
-          <View style={styles.sortHeader}>
-            <MaterialIcons name="sort" size={16} color={colors.textMuted} />
-            <Text style={styles.sortTitle}>Sắp xếp:</Text>
-          </View>
-          <View style={styles.sortChips}>
-            {SORTS.map((item) => {
-              const active = sortBy === item.key;
+        <View style={styles.filterRow}>
+          <View style={styles.filters}>
+            {FILTERS.map((item) => {
+              const active = filter === item.key;
               return (
                 <Pressable
                   key={item.key}
-                  onPress={() => setSortBy(item.key)}
-                  style={[styles.sortChip, active && styles.sortChipActive]}
+                  onPress={() => setFilter(item.key)}
+                  style={[styles.filter, active && styles.filterActive]}
                 >
-                  <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                  <Text style={[styles.filterText, active && styles.filterTextActive]}>
                     {item.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+
+          <SortDropdown<TaskSort>
+            options={SORTS}
+            selectedKey={sortBy}
+            onSelect={setSortBy}
+          />
         </View>
 
         {groupedTasks.length ? (
@@ -262,58 +255,35 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 13,
   },
-  searchInput: { color: colors.text, flex: 1, fontSize: 14, paddingHorizontal: 9, paddingVertical: 12 },
-  filters: { flexDirection: 'row', gap: 8, marginTop: 13 },
-  filter: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+  searchInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 12,
   },
-  filterActive: { backgroundColor: colors.primarySoft },
-  filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
-  filterTextActive: { color: colors.primaryDark },
-  sortBar: {
+  filterRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginTop: 10,
+    justifyContent: 'space-between',
+    marginTop: 13,
   },
-  sortHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-  },
-  sortTitle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sortChips: {
+  filters: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
   },
-  sortChip: {
-    backgroundColor: 'transparent',
-    borderColor: colors.border,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  filter: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  sortChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  sortChipText: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  sortChipTextActive: {
-    color: colors.white,
-  },
+  filterActive: { backgroundColor: colors.primarySoft },
+  filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
+  filterTextActive: { color: colors.primaryDark },
   group: { marginTop: 22 },
   groupHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 9 },
   groupTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: '800' },

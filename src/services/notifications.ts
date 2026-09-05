@@ -6,16 +6,19 @@ import { taskDateTime } from '../utils/date';
 
 const CHANNEL_ID = 'planly-reminders';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 async function ensurePermission(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
       name: 'Nhắc lịch Planly',
@@ -31,7 +34,7 @@ async function ensurePermission(): Promise<boolean> {
 }
 
 export async function cancelTaskReminder(notificationId?: string): Promise<void> {
-  if (!notificationId) return;
+  if (Platform.OS === 'web' || !notificationId) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch {
@@ -42,7 +45,7 @@ export async function cancelTaskReminder(notificationId?: string): Promise<void>
 export async function scheduleTaskReminder(
   task: Task,
 ): Promise<string | undefined> {
-  if (task.reminderMinutes === null) return undefined;
+  if (Platform.OS === 'web' || task.reminderMinutes === null) return undefined;
 
   const triggerDate = taskDateTime(task.date, task.startTime);
   triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);

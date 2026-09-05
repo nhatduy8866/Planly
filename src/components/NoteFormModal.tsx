@@ -53,55 +53,84 @@ export function NoteFormModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
-      >
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
-          <IconButton
-            icon="close"
-            accessibilityLabel="Đóng"
-            onPress={onClose}
-            backgroundColor="transparent"
-          />
-          <Text style={styles.headerTitle}>{note ? 'Sửa ghi chú' : 'Ghi chú mới'}</Text>
-          <Pressable
-            onPress={handleSubmit}
-            style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={Platform.OS === 'web'}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardWrap}
           >
-            <Text style={styles.saveText}>Lưu</Text>
-          </Pressable>
+            <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 16 : Math.max(insets.top, 16) }]}>
+              <IconButton
+                icon="close"
+                accessibilityLabel="Đóng"
+                onPress={onClose}
+                backgroundColor="transparent"
+              />
+              <Text style={styles.headerTitle}>{note ? 'Sửa ghi chú' : 'Ghi chú mới'}</Text>
+              <Pressable
+                onPress={handleSubmit}
+                style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.saveText}>Lưu</Text>
+              </Pressable>
+            </View>
+            <View style={styles.form}>
+              <TextInput
+                autoFocus={!note}
+                maxLength={120}
+                onChangeText={setTitle}
+                placeholder="Tiêu đề"
+                placeholderTextColor="#9AA19B"
+                style={styles.titleInput}
+                value={title}
+              />
+              <TextInput
+                maxLength={5000}
+                multiline
+                onChangeText={setContent}
+                placeholder="Viết ghi chú của bạn..."
+                placeholderTextColor="#9AA19B"
+                style={styles.contentInput}
+                textAlignVertical="top"
+                value={content}
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </View>
+          </KeyboardAvoidingView>
         </View>
-        <View style={styles.form}>
-          <TextInput
-            autoFocus={!note}
-            maxLength={120}
-            onChangeText={setTitle}
-            placeholder="Tiêu đề"
-            placeholderTextColor="#9AA19B"
-            style={styles.titleInput}
-            value={title}
-          />
-          <TextInput
-            maxLength={5000}
-            multiline
-            onChangeText={setContent}
-            placeholder="Viết ghi chú của bạn..."
-            placeholderTextColor="#9AA19B"
-            style={styles.contentInput}
-            textAlignVertical="top"
-            value={content}
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: colors.background, flex: 1 },
+  modalBackdrop: {
+    backgroundColor: Platform.OS === 'web' ? 'rgba(23, 32, 25, 0.45)' : colors.background,
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    backgroundColor: colors.background,
+    flex: Platform.OS === 'web' ? undefined : 1,
+    width: Platform.OS === 'web' ? '92%' : '100%',
+    maxWidth: Platform.OS === 'web' ? 480 : undefined,
+    height: Platform.OS === 'web' ? '80%' : '100%',
+    maxHeight: Platform.OS === 'web' ? 620 : undefined,
+    borderRadius: Platform.OS === 'web' ? 24 : 0,
+    overflow: 'hidden',
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: colors.border,
+  },
+  keyboardWrap: { flex: 1, width: '100%' },
   header: {
     alignItems: 'center',
     backgroundColor: colors.surface,

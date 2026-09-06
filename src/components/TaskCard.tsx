@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
-import type { Task } from '../types';
+import type { Task, TaskPriority } from '../types';
 import { formatDuration } from '../utils/date';
 import { IconButton } from './IconButton';
 
@@ -19,6 +19,12 @@ interface TaskCardProps {
   compact?: boolean;
 }
 
+const PRIORITY_COLORS: Record<Exclude<TaskPriority, 'none'>, string> = {
+  high: colors.priorityHigh,
+  medium: colors.priorityMedium,
+  low: colors.priorityLow,
+};
+
 export function TaskCard({
   task,
   onToggle,
@@ -31,8 +37,30 @@ export function TaskCard({
   disableMoveDown,
   compact = false,
 }: TaskCardProps) {
+  const priorityColor =
+    task.priority && task.priority !== 'none'
+      ? PRIORITY_COLORS[task.priority]
+      : null;
+
+  const priorityBorder =
+    !task.completed && task.priority === 'high'
+      ? styles.cardPriorityHigh
+      : !task.completed && task.priority === 'medium'
+        ? styles.cardPriorityMedium
+        : !task.completed && task.priority === 'low'
+          ? styles.cardPriorityLow
+          : null;
+
+  const timeColor = task.completed
+    ? colors.textMuted
+    : priorityColor ?? colors.primary;
+
+  const bellColor = task.completed
+    ? colors.textMuted
+    : priorityColor ?? colors.warning;
+
   return (
-    <View style={[styles.card, task.completed && styles.cardCompleted]}>
+    <View style={[styles.card, task.completed && styles.cardCompleted, priorityBorder]}>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.completed }}
@@ -49,10 +77,10 @@ export function TaskCard({
 
       <Pressable onPress={onEdit} style={styles.content}>
         <View style={styles.timeRow}>
-          <Text style={styles.time}>{task.startTime}</Text>
+          <Text style={[styles.time, { color: timeColor }]}>{task.startTime}</Text>
           <Text style={styles.meta}>· {formatDuration(task.durationMinutes)}</Text>
           {task.reminderMinutes !== null ? (
-            <MaterialIcons name="notifications-none" size={15} color={colors.warning} />
+            <MaterialIcons name="notifications" size={14} color={bellColor} />
           ) : null}
         </View>
         <Text
@@ -126,7 +154,7 @@ const styles = StyleSheet.create({
   checkButton: { paddingRight: 10, paddingTop: 2 },
   content: { flex: 1 },
   timeRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
-  time: { color: colors.primary, fontSize: 13, fontWeight: '800' },
+  time: { fontSize: 13, fontWeight: '800' },
   meta: { color: colors.textMuted, fontSize: 12 },
   title: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
   completedText: { color: colors.textMuted, textDecorationLine: 'line-through' },
@@ -135,4 +163,16 @@ const styles = StyleSheet.create({
   moveActions: { flexDirection: 'row', gap: 4 },
   secondaryActions: { flexDirection: 'row', gap: 4, marginTop: 6 },
   smallButton: { borderRadius: 9, height: 30, width: 30 },
+  cardPriorityHigh: {
+    borderLeftColor: colors.priorityHigh,
+    borderLeftWidth: 4.5,
+  },
+  cardPriorityMedium: {
+    borderLeftColor: colors.priorityMedium,
+    borderLeftWidth: 4.5,
+  },
+  cardPriorityLow: {
+    borderLeftColor: colors.priorityLow,
+    borderLeftWidth: 4.5,
+  },
 });

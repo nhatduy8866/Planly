@@ -24,20 +24,29 @@ import { colors } from '../theme/colors';
 import type { Task } from '../types';
 import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
 
-type TaskFilter = 'pending' | 'all' | 'completed';
-type TaskSort = 'time' | 'title' | 'created';
+type TaskFilter = 'pending' | 'high' | 'all' | 'completed';
+type TaskSort = 'time' | 'priority' | 'title' | 'created';
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: 'pending', label: 'Cần làm' },
+  { key: 'high', label: 'Ưu tiên cao' },
   { key: 'all', label: 'Tất cả' },
   { key: 'completed', label: 'Đã xong' },
 ];
 
 const SORTS: SortOption<TaskSort>[] = [
   { key: 'time', label: 'Theo giờ', icon: 'schedule' },
+  { key: 'priority', label: 'Theo ưu tiên', icon: 'flag' },
   { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
   { key: 'created', label: 'Mới nhất', icon: 'access-time' },
 ];
+
+const PRIORITY_WEIGHT: Record<string, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  none: 0,
+};
 
 export function TasksScreen() {
   const insets = useSafeAreaInsets();
@@ -55,6 +64,7 @@ export function TasksScreen() {
     const filtered = state.tasks
       .filter((task) => {
         if (filter === 'pending' && task.completed) return false;
+        if (filter === 'high' && (task.priority !== 'high' || task.completed)) return false;
         if (filter === 'completed' && !task.completed) return false;
         if (!normalizedQuery) return true;
         return `${task.title} ${task.description}`
@@ -62,6 +72,15 @@ export function TasksScreen() {
           .includes(normalizedQuery);
       })
       .sort((a, b) => {
+        if (sortBy === 'priority') {
+          const weightA = PRIORITY_WEIGHT[a.priority ?? 'none'] ?? 0;
+          const weightB = PRIORITY_WEIGHT[b.priority ?? 'none'] ?? 0;
+          return (
+            a.date.localeCompare(b.date) ||
+            weightB - weightA ||
+            timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+          );
+        }
         if (sortBy === 'title') {
           return (
             a.date.localeCompare(b.date) ||

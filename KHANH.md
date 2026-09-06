@@ -99,11 +99,31 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
   - Tích hợp `SortDropdown` nằm cùng hàng với các chip lọc trạng thái, loại bỏ hàng Sort Bar cồng kềnh giúp tiết kiệm không gian màn hình và giao diện đồng bộ, sạch sẽ.
   - Tối ưu bộ sắp xếp theo ngày kết hợp tên để các nhóm ngày luôn đồng nhất.
 
-#### 3. Bổ sung Unit Test
-- Cập nhật `src/store/plannerReducer.test.ts`:
-  - Thêm test case kiểm tra `delete_task` xóa chuẩn xác task được chỉ định và không ảnh hưởng đến các task khác.
-  - Thêm test case kiểm tra `move_task` khi các task ban đầu có cùng chỉ số `order`, đảm bảo việc hoán đổi và re-index diễn ra chính xác tuyệt đối.
-  - Thêm test case kiểm tra `sort_day` với `by: 'title'`, đảm bảo sắp xếp danh sách theo tên A-Z chuẩn xác.
+---
+
+### E. Triển khai tính năng Mức độ ưu tiên công việc (Task Priority)
+
+#### 1. Mô hình dữ liệu & Bảng màu
+- **Kiểu dữ liệu (`src/types/index.ts`)**: Định nghĩa `type TaskPriority = 'low' | 'medium' | 'high' | 'none'`. Trường `priority?: TaskPriority` trên `Task` đảm bảo tương thích ngược 100% với dữ liệu cũ đã lưu trong máy.
+- **Bảng màu chuẩn (`src/theme/colors.ts`)**: Bổ sung `warningSoft`, `info`, `infoSoft` theo đúng ngôn ngữ thiết kế tối giản, tone màu tự nhiên đất và lá cây của Planly.
+
+#### 2. Trải nghiệm chọn ưu tiên khi tạo/sửa việc (`src/components/TaskFormModal.tsx`)
+- Bổ sung bộ chọn 4 mức độ ưu tiên dạng nút bấm ngang: **`Thường`** (mặc định), **`Thấp`** (cờ xanh), **`Vừa`** (cờ vàng hổ phách), **`Cao`** (cờ đỏ đất).
+- Thao tác 1 chạm nhanh chóng kèm phản hồi rung xúc giác `Haptics.selectionAsync()`.
+
+#### 3. Hiển thị trực quan trên thẻ công việc (`src/components/TaskCard.tsx`)
+- **Viền nhấn mép trái cong bo góc (Accent Left Border)**: Thẻ có độ ưu tiên Cao có dải viền mép trái dày 4.5px màu đỏ đậm (`#DC2626`), Vừa viền cam hổ phách (`#D97706`), Thấp viền xanh dương (`#2563EB`), uốn cong mượt mà theo góc bo 16px của thẻ.
+- **Đồng bộ màu giờ và chuông thông báo**: Giờ bắt đầu và icon chuông nhắc việc tự động đổi màu theo mức độ ưu tiên (Đỏ cho Cao, Cam cho Vừa, Xanh dương cho Thấp), giúp người dùng dễ dàng nhận diện ngay mức độ khẩn cấp trong nháy mắt.
+- **Tối giản hóa giao diện**: Theo yêu cầu thẩm mỹ, đã loại bỏ các nút/huy hiệu chữ "Cao, Vừa, Thấp" cạnh cụm nút thao tác để thẻ công việc luôn thoáng đãng, tinh tế và không bị chật chội. Cảnh báo mức độ ưu tiên được thể hiện trọn vẹn qua viền màu bên trái và màu chữ giờ/chuông.
+- Khi đánh dấu hoàn thành (completed): Màu giờ, icon chuông và viền thẻ tự động chuyển màu xám mờ đồng bộ để làm nổi bật các công việc chưa hoàn thành.
+
+#### 4. Tích hợp Sắp xếp & Lọc theo ưu tiên
+- **Màn hình Lịch biểu & Công việc**: Menu sổ xuống `SortDropdown` có thêm tùy chọn **`Theo ưu tiên`** (icon cờ). Khi chọn, các việc quan trọng nhất (Cao ➔ Vừa ➔ Thấp) sẽ tự động nhảy lên trên đầu ngày.
+- **Màn hình Công việc (`TasksScreen.tsx`)**: Bổ sung nút lọc nhanh **`Ưu tiên cao`** ngay cạnh *Cần làm*, *Tất cả*, *Đã xong* giúp người dùng lọc riêng các nhiệm vụ khẩn cấp chỉ bằng 1 chạm.
+
+#### 5. Bổ sung Unit Test & Đồng bộ Form
+- Đồng bộ bộ chọn trong `TaskFormModal.tsx` sử dụng cùng bộ icon (`error`, `drag-handle`, `arrow-downward`) và màu sắc nhận diện.
+- Bổ sung test case kiểm tra `sort_day` với `by: 'priority'` trong `src/store/plannerReducer.test.ts`.
 
 ---
 
@@ -111,16 +131,19 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 1. `package.json` & `package-lock.json`: Thêm các thư viện Web.
 2. `App.tsx`: Căn giữa container desktop web.
 3. `src/services/notifications.ts`: Bổ sung kiểm tra an toàn cho Web.
-4. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày, giờ, thời lượng chips, fix lỗi iOS và fix kích thước web modal.
-5. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
-6. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng (Web/iOS/Android).
-7. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn, đẹp mắt.
-8. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
-9. `src/screens/ScheduleScreen.tsx`: Dùng ConfirmModal và SortDropdown dạng sổ xuống.
-10. `src/screens/TasksScreen.tsx`: Dùng ConfirmModal và SortDropdown cùng hàng với filter.
-11. `src/screens/NotesScreen.tsx`: Dùng ConfirmModal cho việc xóa ghi chú.
-12. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` với cơ chế re-index sequential `orderMap` và hỗ trợ sắp xếp theo tên/giờ.
-13. `src/store/plannerReducer.test.ts`: Thêm unit tests cho `delete_task` và `move_task`, `sort_day` theo tên.
+4. `src/theme/colors.ts`: Bổ sung màu sắc cho badge ưu tiên (warningSoft, info, infoSoft).
+5. `src/types/index.ts`: Bổ sung TaskPriority vào Task model.
+6. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày/giờ/thời lượng, bổ sung bộ chọn Mức độ ưu tiên.
+7. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
+8. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng.
+9. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn.
+10. `src/components/TaskCard.tsx`: Hiển thị viền màu và badge mức độ ưu tiên.
+11. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
+12. `src/screens/ScheduleScreen.tsx`: Tích hợp ConfirmModal, SortDropdown và sắp xếp theo ưu tiên.
+13. `src/screens/TasksScreen.tsx`: Tích hợp SortDropdown, lọc nhanh và sắp xếp theo ưu tiên.
+14. `src/screens/NotesScreen.tsx`: Dùng ConfirmModal cho việc xóa ghi chú.
+15. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` hỗ trợ sắp xếp theo giờ/tên/ưu tiên.
+16. `src/store/plannerReducer.test.ts`: Thêm unit tests cho xóa, di chuyển, sắp xếp theo tên và ưu tiên.
 
 ---
 
@@ -128,13 +151,11 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 Toàn bộ mã nguồn đã vượt qua các bài kiểm tra nghiêm ngặt:
 - `npm run typecheck`: ✅ **0 lỗi TypeScript**.
 - `npm run lint`: ✅ **0 warning / error ESLint**.
-- `npm test`: ✅ **11/11 unit tests passed** (Jest).
+- `npm test`: ✅ **12/12 unit tests passed** (Jest).
 - Kiểm tra thực tế:
+  - **Mức độ ưu tiên**: Tạo công việc có mức Cao, Vừa, Thấp, Thường đều hiển thị màu viền và badge chuẩn xác, tinh tế.
   - **Xóa**: Bấm xóa trên Web và Mobile đều mở modal xác nhận đẹp mắt, xác nhận xóa là item biến mất ngay lập tức.
-  - **Sắp xếp**:
-    - Menu sổ xuống (dropdown) tại màn hình Lịch biểu (`ScheduleScreen`) cho phép chuyển đổi mượt mà giữa 'Theo giờ' và 'Theo tên', tự động re-index thứ tự chuẩn xác 100%.
-    - Mũi tên lên/xuống di chuyển mượt mà, re-index thứ tự ổn định.
-    - Menu sổ xuống sắp xếp tại màn hình Công việc (`TasksScreen`) chuyển đổi giữa 'Theo giờ', 'Theo tên', và 'Mới nhất' tức thì, nằm gọn gàng cạnh các bộ lọc trạng thái.
+  - **Sắp xếp**: Chuyển đổi mượt mà giữa "Theo giờ", "Theo ưu tiên" và "Theo tên" qua menu sổ xuống.
 
 ---
 

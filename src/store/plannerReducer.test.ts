@@ -83,6 +83,27 @@ describe('plannerReducer', () => {
     expect(orderedIds).toEqual(['task-a', 'task-b']);
   });
 
+  it('sorts a day by task priority from high to low when by is priority', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'low-task', priority: 'low', order: 0 }),
+        task({ id: 'high-task', priority: 'high', order: 1 }),
+        task({ id: 'med-task', priority: 'medium', order: 2 }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'sort_day',
+      payload: { date: '2026-09-05', by: 'priority' },
+    });
+
+    const orderedIds = [...result.tasks]
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.id);
+    expect(orderedIds).toEqual(['high-task', 'med-task', 'low-task']);
+  });
+
   it('moves a task manually within the selected day', () => {
     const state = {
       ...initialPlannerState,

@@ -16,8 +16,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import * as Haptics from 'expo-haptics';
 import { colors } from '../theme/colors';
-import type { ReminderMinutes, Task } from '../types';
+import type { ReminderMinutes, Task, TaskPriority } from '../types';
 import { fromDateKey, taskDateTime, toDateKey } from '../utils/date';
 import { IconButton } from './IconButton';
 
@@ -28,6 +29,7 @@ export interface TaskFormValues {
   startTime: string;
   durationMinutes: number;
   reminderMinutes: ReminderMinutes;
+  priority: TaskPriority;
 }
 
 interface TaskFormModalProps {
@@ -37,6 +39,19 @@ interface TaskFormModalProps {
   onClose: () => void;
   onSubmit: (values: TaskFormValues) => Promise<void> | void;
 }
+
+const PRIORITY_OPTIONS: {
+  label: string;
+  value: TaskPriority;
+  icon?: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+  activeBg: string;
+}[] = [
+  { label: 'Thường', value: 'none', color: colors.textMuted, activeBg: colors.surfaceMuted },
+  { label: 'Thấp', value: 'low', icon: 'arrow-downward', color: colors.priorityLow, activeBg: colors.priorityLowSoft },
+  { label: 'Vừa', value: 'medium', icon: 'drag-handle', color: colors.priorityMedium, activeBg: colors.priorityMediumSoft },
+  { label: 'Cao', value: 'high', icon: 'error', color: colors.priorityHigh, activeBg: colors.priorityHighSoft },
+];
 
 const REMINDERS: { label: string; value: ReminderMinutes }[] = [
   { label: 'Không', value: null },
@@ -82,6 +97,9 @@ export function TaskFormModal({
   const [reminder, setReminder] = useState<ReminderMinutes>(
     task?.reminderMinutes ?? null,
   );
+  const [priority, setPriority] = useState<TaskPriority>(
+    task?.priority ?? 'none',
+  );
   const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -115,6 +133,7 @@ export function TaskFormModal({
         startTime,
         durationMinutes: Math.round(parsedDuration),
         reminderMinutes: reminder,
+        priority,
       });
       onClose();
     } catch {
@@ -329,6 +348,46 @@ export function TaskFormModal({
               })}
             </View>
 
+            <Text style={styles.label}>Mức độ ưu tiên</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITY_OPTIONS.map((item) => {
+                const active = item.value === priority;
+                return (
+                  <Pressable
+                    key={item.value}
+                    onPress={() => {
+                      setPriority(item.value);
+                      void Haptics.selectionAsync();
+                    }}
+                    style={({ pressed }) => [
+                      styles.priorityChip,
+                      active && {
+                        backgroundColor: item.activeBg,
+                        borderColor: item.color,
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    {item.icon ? (
+                      <MaterialIcons
+                        name={item.icon}
+                        size={14}
+                        color={active ? item.color : colors.textMuted}
+                      />
+                    ) : null}
+                    <Text
+                      style={[
+                        styles.priorityChipText,
+                        active && { color: item.color, fontWeight: '800' },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             {Platform.OS === 'android' && picker ? (
@@ -496,6 +555,28 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   chipTextActive: { color: colors.white },
+  priorityRow: {
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 4,
+  },
+  priorityChip: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  priorityChipText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   error: { color: colors.danger, fontSize: 13, marginTop: 16 },
   pressed: { opacity: 0.7 },
 });

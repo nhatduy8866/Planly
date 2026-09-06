@@ -7,13 +7,20 @@ export const initialPlannerState: PlannerState = {
   hydrated: false,
 };
 
+const PRIORITY_WEIGHT: Record<string, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  none: 0,
+};
+
 export type PlannerAction =
   | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
   | { type: 'upsert_task'; payload: Task }
   | { type: 'delete_task'; payload: { id: string } }
   | { type: 'toggle_task'; payload: { id: string } }
   | { type: 'move_task'; payload: { id: string; direction: -1 | 1 } }
-  | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' } }
+  | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' | 'priority' } }
   | { type: 'upsert_note'; payload: Note }
   | { type: 'delete_note'; payload: { id: string } };
 
@@ -93,6 +100,15 @@ export function plannerReducer(
       const sortedDay = state.tasks
         .filter((task) => task.date === action.payload.date)
         .sort((a, b) => {
+          if (by === 'priority') {
+            const weightA = PRIORITY_WEIGHT[a.priority ?? 'none'] ?? 0;
+            const weightB = PRIORITY_WEIGHT[b.priority ?? 'none'] ?? 0;
+            return (
+              weightB - weightA ||
+              timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
+              (a.order ?? 0) - (b.order ?? 0)
+            );
+          }
           if (by === 'title') {
             return (
               a.title.localeCompare(b.title, 'vi-VN') ||

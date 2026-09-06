@@ -52,7 +52,7 @@ export function ScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
-  const [sortMode, setSortMode] = useState<'time' | 'title'>('time');
+  const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
 
@@ -173,11 +173,12 @@ export function ScheduleScreen() {
             <SortDropdown
               options={[
                 { key: 'time', label: 'Theo giờ', icon: 'schedule' },
+                { key: 'priority', label: 'Theo ưu tiên', icon: 'flag' },
                 { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
               ]}
               selectedKey={sortMode}
               onSelect={(key) => {
-                const nextSort = key as 'time' | 'title';
+                const nextSort = key as 'time' | 'title' | 'priority';
                 setSortMode(nextSort);
                 dispatch({
                   type: 'sort_day',

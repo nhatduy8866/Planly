@@ -2,6 +2,8 @@ export type CalendarMode = 'week' | 'month';
 
 export type ReminderMinutes = null | 0 | 5 | 10 | 15 | 30 | 60;
 
+export type TaskPriority = 'low' | 'medium' | 'high' | 'none';
+
 export interface Task {
   id: string;
   title: string;
@@ -13,6 +15,7 @@ export interface Task {
   notificationId?: string;
   completed: boolean;
   order: number;
+  priority?: TaskPriority;
   createdAt: string;
   updatedAt: string;
 }

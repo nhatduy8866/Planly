@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Note } from '../types';
 import { IconButton } from './IconButton';
 
@@ -34,6 +36,8 @@ export function NoteFormModal({
   onSubmit,
 }: NoteFormModalProps) {
   const insets = useSafeAreaInsets();
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [title, setTitle] = useState(note?.title ?? '');
   const [content, setContent] = useState(note?.content ?? '');
   const [error, setError] = useState('');
@@ -42,11 +46,11 @@ export function NoteFormModal({
     const cleanTitle = title.trim();
     const cleanContent = content.trim();
     if (!cleanTitle && !cleanContent) {
-      setError('Hãy nhập tiêu đề hoặc nội dung ghi chú.');
+      setError(t('notes.validation'));
       return;
     }
     onSubmit({
-      title: cleanTitle || 'Ghi chú không tiêu đề',
+      title: cleanTitle || t('notes.untitled'),
       content: cleanContent,
     });
     onClose();
@@ -68,16 +72,18 @@ export function NoteFormModal({
             <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 16 : Math.max(insets.top, 16) }]}>
               <IconButton
                 icon="close"
-                accessibilityLabel="Đóng"
+                accessibilityLabel={t('common.close')}
                 onPress={onClose}
                 backgroundColor="transparent"
               />
-              <Text style={styles.headerTitle}>{note ? 'Sửa ghi chú' : 'Ghi chú mới'}</Text>
+              <Text style={styles.headerTitle}>
+                {t(note ? 'notes.editTitle' : 'notes.newTitle')}
+              </Text>
               <Pressable
                 onPress={handleSubmit}
                 style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
               >
-                <Text style={styles.saveText}>Lưu</Text>
+                <Text style={styles.saveText}>{t('common.save')}</Text>
               </Pressable>
             </View>
             <View style={styles.form}>
@@ -85,8 +91,8 @@ export function NoteFormModal({
                 autoFocus={!note}
                 maxLength={120}
                 onChangeText={setTitle}
-                placeholder="Tiêu đề"
-                placeholderTextColor="#9AA19B"
+                placeholder={t('notes.titlePlaceholder')}
+                placeholderTextColor={colors.placeholder}
                 style={styles.titleInput}
                 value={title}
               />
@@ -94,8 +100,8 @@ export function NoteFormModal({
                 maxLength={5000}
                 multiline
                 onChangeText={setContent}
-                placeholder="Viết ghi chú của bạn..."
-                placeholderTextColor="#9AA19B"
+                placeholder={t('notes.contentPlaceholder')}
+                placeholderTextColor={colors.placeholder}
                 style={styles.contentInput}
                 textAlignVertical="top"
                 value={content}
@@ -109,9 +115,9 @@ export function NoteFormModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalBackdrop: {
-    backgroundColor: Platform.OS === 'web' ? 'rgba(23, 32, 25, 0.45)' : colors.background,
+    backgroundColor: Platform.OS === 'web' ? colors.overlay : colors.background,
     flex: 1,
     width: '100%',
     height: '100%',

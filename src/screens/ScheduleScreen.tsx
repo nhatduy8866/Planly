@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalendarPanel } from '../components/CalendarPanel';
+import { AppMenu } from '../components/AppMenu';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
@@ -23,8 +24,10 @@ import {
 import { AiScheduleModal } from '../components/ai/AiScheduleModal';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
-import { colors } from '../theme/colors';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
 import {
   addDays,
@@ -49,6 +52,8 @@ function shiftMonth(date: Date, amount: number): Date {
 export function ScheduleScreen() {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = usePlanner();
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
   const [mode, setMode] = useState<CalendarMode>('week');
   const [menuExpanded, setMenuExpanded] = useState(false);
@@ -122,7 +127,7 @@ export function ScheduleScreen() {
         <View style={styles.navigationBar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={menuExpanded ? 'Đóng chọn kiểu lịch' : 'Mở chọn kiểu lịch'}
+            accessibilityLabel={t(menuExpanded ? 'menu.close' : 'menu.open')}
             accessibilityState={{ expanded: menuExpanded }}
             onPress={() => {
               setMenuExpanded((expanded) => !expanded);
@@ -144,35 +149,16 @@ export function ScheduleScreen() {
           </View>
 
           <Pressable onPress={goToday} style={styles.todayButton}>
-            <Text style={styles.todayText}>Hôm nay</Text>
+            <Text style={styles.todayText}>{t('schedule.today')}</Text>
           </Pressable>
         </View>
 
-        {menuExpanded ? (
-          <View style={styles.navigationDropdown}>
-            <View style={styles.segment}>
-              {(['week', 'month'] as const).map((item) => {
-                const active = mode === item;
-                return (
-                  <Pressable
-                    key={item}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      setMode(item);
-                      void Haptics.selectionAsync();
-                    }}
-                    style={[styles.segmentItem, active && styles.segmentItemActive]}
-                  >
-                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                      {item === 'week' ? 'Tuần' : 'Tháng'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
+        <AppMenu
+          mode={mode}
+          onModeChange={setMode}
+          onRequestClose={() => setMenuExpanded(false)}
+          visible={menuExpanded}
+        />
       </View>
 
       <ScrollView
@@ -183,14 +169,14 @@ export function ScheduleScreen() {
           <View style={styles.calendarHeader}>
             <IconButton
               icon="chevron-left"
-              accessibilityLabel="Kỳ trước"
+              accessibilityLabel={t('schedule.previous')}
               onPress={() => navigate(-1)}
               backgroundColor="transparent"
             />
-            <Text style={styles.monthTitle}>{formatMonthTitle(cursor)}</Text>
+            <Text style={styles.monthTitle}>{formatMonthTitle(cursor, locale)}</Text>
             <IconButton
               icon="chevron-right"
-              accessibilityLabel="Kỳ sau"
+              accessibilityLabel={t('schedule.next')}
               onPress={() => navigate(1)}
               backgroundColor="transparent"
             />
@@ -206,17 +192,19 @@ export function ScheduleScreen() {
 
         <View style={styles.listHeader}>
           <View style={styles.listTitleWrap}>
-            <Text style={styles.dayTitle}>{formatLongDate(selectedDate)}</Text>
+            <Text style={styles.dayTitle}>{formatLongDate(selectedDate, locale)}</Text>
             <Text style={styles.taskCount}>
-              {dayTasks.length ? `${dayTasks.length} công việc` : 'Chưa có công việc'}
+              {dayTasks.length
+                ? t('schedule.taskCount', { count: dayTasks.length })
+                : t('schedule.noTasks')}
             </Text>
           </View>
           {dayTasks.length > 1 ? (
             <SortDropdown
               options={[
-                { key: 'time', label: 'Theo giờ', icon: 'schedule' },
-                { key: 'priority', label: 'Theo ưu tiên', icon: 'flag' },
-                { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
+                { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
               ]}
               selectedKey={sortMode}
               onSelect={(key) => {
@@ -256,12 +244,12 @@ export function ScheduleScreen() {
         ) : (
           <EmptyState
             icon="event-available"
-            title="Ngày này đang trống"
-            description="Bạn muốn lên kế hoạch cho ngày này?"
-            primaryActionLabel="Lên lịch với AI"
+            title={t('schedule.emptyTitle')}
+            description={t('schedule.emptyDescription')}
+            primaryActionLabel={t('schedule.aiAction')}
             primaryActionIcon="auto-awesome"
             onPrimaryAction={aiScheduler.openDirectPrompt}
-            actionLabel="Thêm công việc"
+            actionLabel={t('schedule.addTask')}
             onAction={openCreate}
           />
         )}
@@ -269,7 +257,7 @@ export function ScheduleScreen() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Thêm công việc"
+        accessibilityLabel={t('schedule.addTask')}
         onPress={aiScheduler.openActionSheet}
         style={({ pressed }) => [
           styles.fab,
@@ -298,8 +286,8 @@ export function ScheduleScreen() {
 
       <ConfirmModal
         visible={Boolean(deletingTask)}
-        title="Xóa công việc?"
-        message={`“${deletingTask?.title ?? ''}” sẽ bị xóa khỏi lịch.`}
+        title={t('schedule.deleteTitle')}
+        message={t('schedule.deleteMessage', { title: deletingTask?.title ?? '' })}
         onConfirm={() => {
           if (deletingTask) {
             void deleteTask(deletingTask);
@@ -313,7 +301,7 @@ export function ScheduleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 96, paddingHorizontal: 16 },
   navigationShell: {
@@ -366,17 +354,6 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   todayText: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
-  navigationDropdown: { paddingBottom: 12, paddingHorizontal: 16 },
-  segment: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 13,
-    flexDirection: 'row',
-    padding: 3,
-  },
-  segmentItem: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 9 },
-  segmentItemActive: { backgroundColor: colors.surface },
-  segmentText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
-  segmentTextActive: { color: colors.primaryDark },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

@@ -1,21 +1,25 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiAnalyzingViewProps {
   currentStep: number; // 1 to 4
   onCancel: () => void;
 }
 
-const CHECKLIST_STEPS = [
-  { step: 1, label: 'Phân tích nội dung' },
-  { step: 2, label: 'Nhận diện thời gian' },
-  { step: 3, label: 'Tạo danh sách công việc' },
-  { step: 4, label: 'Tối ưu lịch trình...' },
-];
-
 export function AiAnalyzingView({ currentStep, onCancel }: AiAnalyzingViewProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+  const checklistSteps = [
+    { step: 1, label: t('ai.analyzingContent') },
+    { step: 2, label: t('ai.analyzingTime') },
+    { step: 3, label: t('ai.analyzingTasks') },
+    { step: 4, label: t('ai.analyzingOptimize') },
+  ];
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -23,13 +27,13 @@ export function AiAnalyzingView({ currentStep, onCancel }: AiAnalyzingViewProps)
         <View style={styles.headerSpacer} />
         <View style={styles.logoRow}>
           <MaterialIcons name="auto-awesome" size={18} color={colors.primary} />
-          <Text style={styles.headerTitle}>Planly AI</Text>
+          <Text style={styles.headerTitle}>{t('ai.planly')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.title}>Đang hiểu kế hoạch của bạn...</Text>
+        <Text style={styles.title}>{t('ai.analyzingTitle')}</Text>
 
         {/* Central Illustration */}
         <View style={styles.illustrationWrap}>
@@ -52,7 +56,7 @@ export function AiAnalyzingView({ currentStep, onCancel }: AiAnalyzingViewProps)
 
         {/* Checklist Steps */}
         <View style={styles.checklistContainer}>
-          {CHECKLIST_STEPS.map((item) => {
+          {checklistSteps.map((item) => {
             const isCompleted = currentStep > item.step;
             const isCurrent = currentStep === item.step;
 
@@ -92,8 +96,8 @@ export function AiAnalyzingView({ currentStep, onCancel }: AiAnalyzingViewProps)
         <View style={styles.tipBox}>
           <MaterialIcons name="lightbulb-outline" size={22} color={colors.warning} />
           <Text style={styles.tipText}>
-            <Text style={styles.tipBold}>Mẹo: </Text>
-            {'Bạn có thể viết tự nhiên, ví dụ "ngày mai", "chiều", "tối"... Planly sẽ tự hiểu.'}
+            <Text style={styles.tipBold}>{t('ai.tip')} </Text>
+            {t('ai.tipText')}
           </Text>
         </View>
       </View>
@@ -101,7 +105,7 @@ export function AiAnalyzingView({ currentStep, onCancel }: AiAnalyzingViewProps)
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,

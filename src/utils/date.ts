@@ -43,20 +43,30 @@ export function getMonthGrid(date: Date): Date[] {
   return Array.from({ length: 42 }, (_, index) => addDays(gridStart, index));
 }
 
-export function getWeekdayShort(date: Date): string {
-  return VIETNAMESE_WEEKDAYS_SHORT[date.getDay()];
+export function getWeekdayShort(
+  date: Date,
+  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+): string {
+  if (locale === 'vi-VN') return VIETNAMESE_WEEKDAYS_SHORT[date.getDay()];
+  return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date).slice(0, 2);
 }
 
-export function formatMonthTitle(date: Date): string {
-  const text = new Intl.DateTimeFormat('vi-VN', {
+export function formatMonthTitle(
+  date: Date,
+  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+): string {
+  const text = new Intl.DateTimeFormat(locale, {
     month: 'long',
     year: 'numeric',
   }).format(date);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function formatLongDate(dateKey: string): string {
-  const text = new Intl.DateTimeFormat('vi-VN', {
+export function formatLongDate(
+  dateKey: string,
+  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+): string {
+  const text = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -64,8 +74,11 @@ export function formatLongDate(dateKey: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function formatCompactDate(dateKey: string): string {
-  return new Intl.DateTimeFormat('vi-VN', {
+export function formatCompactDate(
+  dateKey: string,
+  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+): string {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -84,13 +97,19 @@ export function timeToMinutes(time: string): number {
   return hours * 60 + minutes;
 }
 
-export function formatDuration(minutes: number): string {
+export function formatDuration(
+  minutes: number,
+  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+): string {
   if (minutes < 60) {
-    return `${minutes} phút`;
+    return locale === 'vi-VN' ? `${minutes} phút` : `${minutes} min`;
   }
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
-  return remainder ? `${hours}g ${remainder}p` : `${hours} giờ`;
+  if (locale === 'vi-VN') {
+    return remainder ? `${hours}g ${remainder}p` : `${hours} giờ`;
+  }
+  return remainder ? `${hours}h ${remainder}m` : `${hours} hr`;
 }
 
 export function minutesToTime(totalMinutes: number): string {

@@ -4,6 +4,7 @@ import {
   cancelTaskReminder,
   scheduleTaskReminder,
 } from '../services/notifications';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { Task } from '../types';
 import { createId } from '../utils/id';
@@ -11,6 +12,7 @@ import type { TaskFormValues } from '../components/TaskFormModal';
 
 export function useTaskActions() {
   const { state, dispatch } = usePlanner();
+  const { language, t } = usePreferences();
 
   const saveTask = useCallback(
     async (values: TaskFormValues, existing?: Task) => {
@@ -33,13 +35,13 @@ export function useTaskActions() {
 
       await cancelTaskReminder(existing?.notificationId);
       try {
-        task.notificationId = await scheduleTaskReminder(task);
+        task.notificationId = await scheduleTaskReminder(task, language);
       } catch {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, state.tasks],
+    [dispatch, language, state.tasks],
   );
 
   const duplicateTask = useCallback(
@@ -48,7 +50,7 @@ export function useTaskActions() {
       const task: Task = {
         ...source,
         id: createId('task'),
-        title: `${source.title} (bản sao)`,
+        title: `${source.title} (${t('task.copySuffix')})`,
         notificationId: undefined,
         completed: false,
         order:
@@ -59,13 +61,13 @@ export function useTaskActions() {
         updatedAt: now,
       };
       try {
-        task.notificationId = await scheduleTaskReminder(task);
+        task.notificationId = await scheduleTaskReminder(task, language);
       } catch {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, state.tasks],
+    [dispatch, language, state.tasks, t],
   );
 
   const deleteTask = useCallback(
@@ -92,14 +94,14 @@ export function useTaskActions() {
       await cancelTaskReminder(source.notificationId);
       if (!task.completed) {
         try {
-          task.notificationId = await scheduleTaskReminder(task);
+          task.notificationId = await scheduleTaskReminder(task, language);
         } catch {
           task.notificationId = undefined;
         }
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch],
+    [dispatch, language],
   );
 
   return { deleteTask, duplicateTask, saveTask, toggleTask };

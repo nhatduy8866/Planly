@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 
+import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
@@ -15,6 +16,7 @@ export function useAiScheduler(
   onNavigateDate?: (date: string) => void,
 ) {
   const { state, dispatch } = usePlanner();
+  const { language, locale, t } = usePreferences();
 
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<AiModalStep>('menu_action_sheet');
@@ -29,13 +31,13 @@ export function useAiScheduler(
     const realToday = todayKey();
     return {
       realToday,
-      realTodayDayName: formatLongDate(realToday),
+      realTodayDayName: formatLongDate(realToday, locale),
       targetDate,
-      currentDayName: formatLongDate(targetDate),
+      currentDayName: formatLongDate(targetDate, locale),
       existingTasks: state.tasks.filter((t) => t.date === targetDate),
       allTasks: state.tasks,
     };
-  }, [targetDate, state.tasks]);
+  }, [locale, targetDate, state.tasks]);
 
   const openActionSheet = useCallback(() => {
     setInfoMessage(null);
@@ -83,9 +85,7 @@ export function useAiScheduler(
 
         // Nếu không có công việc nào (ví dụ: ngày trống mà yêu cầu sắp xếp lại, hoặc không nhận diện được việc)
         if (!parsedDrafts || parsedDrafts.length === 0) {
-          setInfoMessage(
-            'Ngày này chưa có công việc nào để sắp xếp lại (hoặc yêu cầu chưa rõ nội dung). Bạn hãy thêm công việc vào lịch trước nhé!',
-          );
+          setInfoMessage(t('ai.noTasksToReorder'));
           setStep('input_prompt');
           return;
         }
@@ -121,7 +121,7 @@ export function useAiScheduler(
         clearTimeout(timer3);
       }
     },
-    [context, state.tasks],
+    [context, state.tasks, t],
   );
 
   // Người dùng đồng ý tự động sắp xếp giờ cho các việc chưa có giờ (Màn 8 -> 9 hoặc 5)
@@ -132,9 +132,7 @@ export function useAiScheduler(
 
     setDraftTasks(slotted);
     if (unscheduledCount > 0) {
-      setInfoMessage(
-        `Không còn đủ khung giờ trống cho ${unscheduledCount} công việc. Hãy rút ngắn thời lượng, bớt công việc hoặc chọn ngày khác.`,
-      );
+      setInfoMessage(t('ai.noSlots', { count: unscheduledCount }));
       setStep('auto_slotting');
       return;
     }
@@ -148,7 +146,7 @@ export function useAiScheduler(
     } else {
       setStep('draft_preview');
     }
-  }, [draftTasks, context, state.tasks]);
+  }, [draftTasks, context, state.tasks, t]);
 
   // Người dùng từ chối tự xếp giờ, giữ nguyên (Màn 8 -> 5)
   const handleDeclineAutoSlotting = useCallback(() => {
@@ -254,9 +252,7 @@ export function useAiScheduler(
 
     const unscheduledCount = draftTasks.filter((draft) => !draft.startTime).length;
     if (unscheduledCount > 0) {
-      setInfoMessage(
-        `Còn ${unscheduledCount} công việc chưa có giờ. Planly sẽ không lưu cho đến khi tất cả công việc được xếp hợp lệ.`,
-      );
+      setInfoMessage(t('ai.unscheduledSave', { count: unscheduledCount }));
       setStep('auto_slotting');
       return;
     }
@@ -304,14 +300,14 @@ export function useAiScheduler(
     dispatch({ type: 'create_batch_tasks', payload: tasksToSave });
 
     // Lên lịch thông báo nền (nếu có reminder)
-    for (const t of tasksToSave) {
-      if (t.reminderMinutes !== null) {
-        void scheduleTaskReminder(t);
+    for (const task of tasksToSave) {
+      if (task.reminderMinutes !== null) {
+        void scheduleTaskReminder(task, language);
       }
     }
 
     setStep('success'); // Màn 10
-  }, [draftTasks, dispatch, state.tasks]);
+  }, [draftTasks, dispatch, language, state.tasks, t]);
 
   const handleViewSchedule = useCallback(() => {
     const createdDate = draftTasks[0]?.date;

@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 export interface SortOption<T extends string = string> {
   key: T;
@@ -28,6 +30,8 @@ export function SortDropdown<T extends string = string>({
   selectedKey,
   onSelect,
 }: SortDropdownProps<T>) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const anchorRef = useRef<View>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [menuCoords, setMenuCoords] = useState<{ top: number; left: number }>({
@@ -63,7 +67,7 @@ export function SortDropdown<T extends string = string>({
       <View ref={anchorRef} collapsable={false}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Tùy chọn sắp xếp"
+          accessibilityLabel={t('common.sort')}
           onPress={handleOpen}
           style={({ pressed }) => [
             styles.button,
@@ -72,7 +76,7 @@ export function SortDropdown<T extends string = string>({
           ]}
         >
           <MaterialIcons name="sort" size={16} color={colors.primary} />
-          <Text style={styles.buttonText}>{selectedOption?.label ?? 'Sắp xếp'}</Text>
+          <Text style={styles.buttonText}>{selectedOption?.label ?? t('common.sort')}</Text>
           <MaterialIcons
             name={isOpen ? 'arrow-drop-up' : 'arrow-drop-down'}
             size={18}
@@ -141,7 +145,7 @@ export function SortDropdown<T extends string = string>({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   button: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   buttonActive: {
-    backgroundColor: '#D1DEC9',
+    backgroundColor: colors.primarySoft,
   },
   buttonText: {
     color: colors.primary,
@@ -163,7 +167,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   backdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: colors.subtleOverlay,
     flex: 1,
   },
   menu: {

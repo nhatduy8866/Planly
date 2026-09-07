@@ -1,7 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -17,11 +19,14 @@ export function ConfirmModal({
   visible,
   title,
   message,
-  confirmText = 'Xóa',
-  cancelText = 'Hủy',
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Modal
       transparent
@@ -41,13 +46,13 @@ export function ConfirmModal({
               onPress={onCancel}
               style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed]}
             >
-              <Text style={styles.cancelText}>{cancelText}</Text>
+              <Text style={styles.cancelText}>{cancelText ?? t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               style={({ pressed }) => [styles.button, styles.confirmButton, pressed && styles.pressed]}
             >
-              <Text style={styles.confirmText}>{confirmText}</Text>
+              <Text style={styles.confirmText}>{confirmText ?? t('common.delete')}</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -56,10 +61,10 @@ export function ConfirmModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 32, 25, 0.45)',
+    backgroundColor: colors.overlay,
     flex: 1,
     justifyContent: 'center',
     padding: 24,

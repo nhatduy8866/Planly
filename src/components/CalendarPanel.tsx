@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
 import {
   getMonthGrid,
@@ -17,9 +19,13 @@ interface CalendarPanelProps {
   onSelectDate: (date: string) => void;
 }
 
-const MONDAY_FIRST_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
-function TaskDots({ count }: { count: number }) {
+function TaskDots({
+  count,
+  styles,
+}: {
+  count: number;
+  styles: ReturnType<typeof createStyles>;
+}) {
   if (!count) return <View style={styles.dotSpacer} />;
   return (
     <View style={styles.dots}>
@@ -37,6 +43,11 @@ export function CalendarPanel({
   tasks,
   onSelectDate,
 }: CalendarPanelProps) {
+  const { locale } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+  const mondayFirstLabels = locale === 'vi-VN'
+    ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+    : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
   const taskCount = tasks.reduce<Record<string, number>>((count, task) => {
     count[task.date] = (count[task.date] ?? 0) + 1;
     return count;
@@ -61,12 +72,12 @@ export function CalendarPanel({
               ]}
             >
               <Text style={[styles.weekLabel, selected && styles.selectedText]}>
-                {getWeekdayShort(date)}
+                {getWeekdayShort(date, locale)}
               </Text>
               <Text style={[styles.weekNumber, selected && styles.selectedText]}>
                 {date.getDate()}
               </Text>
-              <TaskDots count={taskCount[key] ?? 0} />
+              <TaskDots count={taskCount[key] ?? 0} styles={styles} />
             </Pressable>
           );
         })}
@@ -77,7 +88,7 @@ export function CalendarPanel({
   return (
     <View>
       <View style={styles.monthHeader}>
-        {MONDAY_FIRST_LABELS.map((label) => (
+        {mondayFirstLabels.map((label) => (
           <Text key={label} style={styles.monthHeaderText}>
             {label}
           </Text>
@@ -109,7 +120,7 @@ export function CalendarPanel({
               >
                 {date.getDate()}
               </Text>
-              <TaskDots count={taskCount[key] ?? 0} />
+              <TaskDots count={taskCount[key] ?? 0} styles={styles} />
             </Pressable>
           );
         })}
@@ -118,7 +129,7 @@ export function CalendarPanel({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
   weekDay: {
     alignItems: 'center',
@@ -158,6 +169,6 @@ const styles = StyleSheet.create({
     width: '14.2857%',
   },
   monthNumber: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  outsideMonth: { color: '#B6BDB7' },
+  outsideMonth: { color: colors.placeholder },
   pressed: { opacity: 0.65 },
 });

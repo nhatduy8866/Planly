@@ -4,18 +4,22 @@ import { Platform, ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BottomNavigation } from './src/components/BottomNavigation';
+import { PreferencesProvider, usePreferences } from './src/preferences/PreferencesContext';
 import { NotesScreen } from './src/screens/NotesScreen';
 import { ScheduleScreen } from './src/screens/ScheduleScreen';
 import { TasksScreen } from './src/screens/TasksScreen';
 import { PlannerProvider, usePlanner } from './src/store/PlannerContext';
-import { colors } from './src/theme/colors';
+import type { ThemeColors } from './src/theme/colors';
+import { useThemedStyles } from './src/theme/useThemedStyles';
 import type { RootTab } from './src/types';
 
 function PlanlyApp() {
   const { state } = usePlanner();
+  const { colors, hydrated: preferencesHydrated, theme } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [activeTab, setActiveTab] = useState<RootTab>('schedule');
 
-  if (!state.hydrated) {
+  if (!state.hydrated || !preferencesHydrated) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -24,37 +28,41 @@ function PlanlyApp() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.screen, activeTab !== 'schedule' && styles.hidden]}>
-        <ScheduleScreen />
+    <>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <View style={styles.outer}>
+        <View style={styles.container}>
+          <View style={[styles.screen, activeTab !== 'schedule' && styles.hidden]}>
+            <ScheduleScreen />
+          </View>
+          <View style={[styles.screen, activeTab !== 'tasks' && styles.hidden]}>
+            <TasksScreen />
+          </View>
+          <View style={[styles.screen, activeTab !== 'notes' && styles.hidden]}>
+            <NotesScreen />
+          </View>
+          <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
+        </View>
       </View>
-      <View style={[styles.screen, activeTab !== 'tasks' && styles.hidden]}>
-        <TasksScreen />
-      </View>
-      <View style={[styles.screen, activeTab !== 'notes' && styles.hidden]}>
-        <NotesScreen />
-      </View>
-      <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
-    </View>
+    </>
   );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <PlannerProvider>
-        <StatusBar style="dark" />
-        <View style={styles.outer}>
+      <PreferencesProvider>
+        <PlannerProvider>
           <PlanlyApp />
-        </View>
-      </PlannerProvider>
+        </PlannerProvider>
+      </PreferencesProvider>
     </SafeAreaProvider>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   outer: {
-    backgroundColor: Platform.OS === 'web' ? '#E7EBE4' : colors.background,
+    backgroundColor: Platform.OS === 'web' ? colors.surfaceMuted : colors.background,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

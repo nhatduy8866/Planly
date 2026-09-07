@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiInputViewProps {
   initialPrompt?: string;
@@ -20,21 +22,22 @@ interface AiInputViewProps {
   onClose: () => void;
 }
 
-const QUICK_PROMPTS = [
-  { id: 'today', icon: 'auto-awesome', label: 'Lên lịch hôm nay', prompt: 'Hôm nay 9h họp team 1 tiếng, chiều 14h làm báo cáo 90 phút, tối 8h học tiếng Trung. Nhắc trước 15 phút.' },
-  { id: 'tomorrow', icon: 'auto-awesome', label: 'Lên lịch ngày mai', prompt: 'Mai 9h họp team 1 tiếng, chiều 2h làm báo cáo 90 phút, tối 8h học tiếng Trung. Nhắc trước 15 phút.' },
-  { id: 'multi', icon: 'auto-awesome', label: 'Thêm nhiều công việc', prompt: 'Làm báo cáo 2 giờ mức ưu tiên cao, Gym 1 giờ, Học tiếng Trung 45 phút, Gọi khách hàng 30 phút.' },
-  { id: 'reorder', icon: 'refresh', label: 'Sắp xếp cả ngày', prompt: 'Sắp xếp lại các công việc trong ngày theo thứ tự ưu tiên và tránh trùng giờ.' },
-];
-
 export function AiInputView({
   initialPrompt = '',
   infoMessage = null,
   onSubmit,
   onClose,
 }: AiInputViewProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [text, setText] = useState(initialPrompt);
   const [isRecording, setIsRecording] = useState(false);
+  const quickPrompts = [
+    { id: 'today', icon: 'auto-awesome', label: t('ai.suggestionToday'), prompt: t('ai.promptToday') },
+    { id: 'tomorrow', icon: 'auto-awesome', label: t('ai.suggestionTomorrow'), prompt: t('ai.promptTomorrow') },
+    { id: 'multi', icon: 'auto-awesome', label: t('ai.suggestionMultiple'), prompt: t('ai.promptMultiple') },
+    { id: 'reorder', icon: 'refresh', label: t('ai.suggestionReorder'), prompt: t('ai.promptReorder') },
+  ];
 
   function handleVoicePress() {
     void Haptics.selectionAsync();
@@ -44,7 +47,7 @@ export function AiInputView({
       // Giả lập giọng nói tiếng Việt mẫu nếu môi trường web/demo
       setTimeout(() => {
         setText(
-          'Mai 9h họp team 1 tiếng, chiều 2h làm báo cáo 90 phút, tối 8h học tiếng Trung. Nhắc trước 15 phút.',
+          t('ai.promptTomorrow'),
         );
         setIsRecording(false);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -74,9 +77,9 @@ export function AiInputView({
         <View style={styles.headerTitleWrap}>
           <View style={styles.logoRow}>
             <MaterialIcons name="auto-awesome" size={18} color={colors.primary} />
-            <Text style={styles.headerTitle}>Planly AI</Text>
+            <Text style={styles.headerTitle}>{t('ai.planly')}</Text>
           </View>
-          <Text style={styles.headerSubtitle}>Lên lịch chỉ bằng một câu</Text>
+          <Text style={styles.headerSubtitle}>{t('ai.inputSubtitle')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -86,14 +89,12 @@ export function AiInputView({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Bạn muốn lên kế hoạch gì?</Text>
-        <Text style={styles.description}>
-          Viết hoặc nói những việc bạn cần làm, Planly sẽ giúp bạn sắp xếp.
-        </Text>
+        <Text style={styles.title}>{t('ai.inputTitle')}</Text>
+        <Text style={styles.description}>{t('ai.inputDescription')}</Text>
 
         {infoMessage ? (
           <View style={styles.infoBanner}>
-            <MaterialIcons name="info-outline" size={18} color="#D97706" />
+            <MaterialIcons name="info-outline" size={18} color={colors.warning} />
             <Text style={styles.infoBannerText}>{infoMessage}</Text>
           </View>
         ) : null}
@@ -105,8 +106,8 @@ export function AiInputView({
             numberOfLines={5}
             maxLength={1000}
             onChangeText={setText}
-            placeholder="Ví dụ: Mai 9h họp team 1 tiếng, chiều 2h làm báo cáo 90 phút, tối 8h học tiếng Trung. Nhắc trước 15 phút."
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('ai.inputPlaceholder')}
+            placeholderTextColor={colors.placeholder}
             style={styles.textInput}
             value={text}
           />
@@ -120,16 +121,16 @@ export function AiInputView({
                 size={22}
                 color={isRecording ? colors.danger : colors.primary}
               />
-              {isRecording ? <Text style={styles.recordingText}>Đang nghe...</Text> : null}
+              {isRecording ? <Text style={styles.recordingText}>{t('ai.listening')}</Text> : null}
             </Pressable>
             <Text style={styles.charCount}>{text.length}/1000</Text>
           </View>
         </View>
 
         {/* Gợi ý nhanh */}
-        <Text style={styles.sectionLabel}>Gợi ý nhanh</Text>
+        <Text style={styles.sectionLabel}>{t('ai.quickSuggestions')}</Text>
         <View style={styles.quickPromptsGrid}>
-          {QUICK_PROMPTS.map((item) => (
+          {quickPrompts.map((item) => (
             <Pressable
               key={item.id}
               onPress={() => handleQuickPrompt(item.prompt)}
@@ -154,14 +155,14 @@ export function AiInputView({
           ]}
         >
           <MaterialIcons name="auto-awesome" size={20} color={colors.white} />
-          <Text style={styles.submitText}>Tạo kế hoạch</Text>
+          <Text style={styles.submitText}>{t('ai.createPlan')}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,
@@ -316,8 +317,8 @@ const styles = StyleSheet.create({
   },
   infoBanner: {
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FCD34D',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   infoBannerText: {
-    color: '#92400E',
+    color: colors.warning,
     flex: 1,
     fontSize: 13,
     fontWeight: '500',

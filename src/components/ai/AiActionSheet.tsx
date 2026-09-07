@@ -1,7 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiActionSheetProps {
   onSelectAi: () => void;
@@ -14,9 +16,12 @@ export function AiActionSheet({
   onSelectManual,
   onCancel,
 }: AiActionSheetProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bạn muốn thêm gì?</Text>
+      <Text style={styles.title}>{t('ai.addQuestion')}</Text>
 
       <Pressable
         accessibilityRole="button"
@@ -27,8 +32,8 @@ export function AiActionSheet({
           <MaterialIcons name="auto-awesome" size={24} color={colors.primary} />
         </View>
         <View style={styles.textWrap}>
-          <Text style={styles.optionTitle}>Thêm nhanh với AI</Text>
-          <Text style={styles.optionSubtitle}>Viết hoặc nói tự nhiên</Text>
+          <Text style={styles.optionTitle}>{t('ai.quickAdd')}</Text>
+          <Text style={styles.optionSubtitle}>{t('ai.quickAddSubtitle')}</Text>
         </View>
       </Pressable>
 
@@ -41,8 +46,8 @@ export function AiActionSheet({
           <MaterialIcons name="add" size={24} color={colors.text} />
         </View>
         <View style={styles.textWrap}>
-          <Text style={styles.optionTitle}>Thêm công việc</Text>
-          <Text style={styles.optionSubtitle}>Nhập thông tin thủ công</Text>
+          <Text style={styles.optionTitle}>{t('ai.manualAdd')}</Text>
+          <Text style={styles.optionSubtitle}>{t('ai.manualAddSubtitle')}</Text>
         </View>
       </Pressable>
 
@@ -51,13 +56,13 @@ export function AiActionSheet({
         onPress={onCancel}
         style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
       >
-        <Text style={styles.cancelText}>Hủy</Text>
+        <Text style={styles.cancelText}>{t('common.cancel')}</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingTop: 16,

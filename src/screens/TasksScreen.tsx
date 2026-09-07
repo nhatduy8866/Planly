@@ -19,27 +19,15 @@ import {
   type TaskFormValues,
 } from '../components/TaskFormModal';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
-import { colors } from '../theme/colors';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
 import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
 
 type TaskFilter = 'pending' | 'high' | 'all' | 'completed';
 type TaskSort = 'time' | 'priority' | 'title' | 'created';
-
-const FILTERS: { key: TaskFilter; label: string }[] = [
-  { key: 'pending', label: 'Cần làm' },
-  { key: 'high', label: 'Ưu tiên cao' },
-  { key: 'all', label: 'Tất cả' },
-  { key: 'completed', label: 'Đã xong' },
-];
-
-const SORTS: SortOption<TaskSort>[] = [
-  { key: 'time', label: 'Theo giờ', icon: 'schedule' },
-  { key: 'priority', label: 'Theo ưu tiên', icon: 'flag' },
-  { key: 'title', label: 'Theo tên', icon: 'sort-by-alpha' },
-  { key: 'created', label: 'Mới nhất', icon: 'access-time' },
-];
 
 const PRIORITY_WEIGHT: Record<string, number> = {
   high: 3,
@@ -51,6 +39,8 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 export function TasksScreen() {
   const insets = useSafeAreaInsets();
   const { state } = usePlanner();
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskFilter>('pending');
   const [sortBy, setSortBy] = useState<TaskSort>('time');
@@ -58,9 +48,21 @@ export function TasksScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const filters: { key: TaskFilter; label: string }[] = [
+    { key: 'pending', label: t('tasks.filterPending') },
+    { key: 'high', label: t('tasks.filterHigh') },
+    { key: 'all', label: t('tasks.filterAll') },
+    { key: 'completed', label: t('tasks.filterCompleted') },
+  ];
+  const sorts: SortOption<TaskSort>[] = [
+    { key: 'time', label: t('sort.time'), icon: 'schedule' },
+    { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+    { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+    { key: 'created', label: t('sort.created'), icon: 'access-time' },
+  ];
 
   const groupedTasks = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('vi-VN');
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale);
     const filtered = state.tasks
       .filter((task) => {
         if (filter === 'pending' && task.completed) return false;
@@ -68,7 +70,7 @@ export function TasksScreen() {
         if (filter === 'completed' && !task.completed) return false;
         if (!normalizedQuery) return true;
         return `${task.title} ${task.description}`
-          .toLocaleLowerCase('vi-VN')
+          .toLocaleLowerCase(locale)
           .includes(normalizedQuery);
       })
       .sort((a, b) => {
@@ -84,7 +86,7 @@ export function TasksScreen() {
         if (sortBy === 'title') {
           return (
             a.date.localeCompare(b.date) ||
-            a.title.localeCompare(b.title, 'vi-VN') ||
+            a.title.localeCompare(b.title, locale) ||
             timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
           );
         }
@@ -108,7 +110,7 @@ export function TasksScreen() {
       else groups.push({ date: task.date, tasks: [task] });
       return groups;
     }, []);
-  }, [filter, query, sortBy, state.tasks]);
+  }, [filter, locale, query, sortBy, state.tasks]);
 
   function openCreate() {
     setEditingTask(undefined);
@@ -132,12 +134,12 @@ export function TasksScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>TẬP TRUNG HÔM NAY</Text>
-            <Text style={styles.screenTitle}>Công việc</Text>
+            <Text style={styles.eyebrow}>{t('tasks.eyebrow')}</Text>
+            <Text style={styles.screenTitle}>{t('tasks.title')}</Text>
           </View>
           <Pressable onPress={openCreate} style={styles.addButton}>
             <MaterialIcons name="add" size={21} color={colors.white} />
-            <Text style={styles.addText}>Thêm</Text>
+            <Text style={styles.addText}>{t('common.add')}</Text>
           </Pressable>
         </View>
 
@@ -145,8 +147,8 @@ export function TasksScreen() {
           <MaterialIcons name="search" size={21} color={colors.textMuted} />
           <TextInput
             onChangeText={setQuery}
-            placeholder="Tìm công việc"
-            placeholderTextColor="#969E97"
+            placeholder={t('tasks.search')}
+            placeholderTextColor={colors.placeholder}
             style={styles.searchInput}
             value={query}
           />
@@ -159,7 +161,7 @@ export function TasksScreen() {
 
         <View style={styles.filterRow}>
           <View style={styles.filters}>
-            {FILTERS.map((item) => {
+            {filters.map((item) => {
               const active = filter === item.key;
               return (
                 <Pressable
@@ -176,7 +178,7 @@ export function TasksScreen() {
           </View>
 
           <SortDropdown<TaskSort>
-            options={SORTS}
+            options={sorts}
             selectedKey={sortBy}
             onSelect={setSortBy}
           />
@@ -186,9 +188,9 @@ export function TasksScreen() {
           groupedTasks.map((group) => (
             <View key={group.date} style={styles.group}>
               <View style={styles.groupHeader}>
-                <Text style={styles.groupTitle}>{formatLongDate(group.date)}</Text>
+                <Text style={styles.groupTitle}>{formatLongDate(group.date, locale)}</Text>
                 {group.date < todayKey() ? (
-                  <Text style={styles.overdue}>Đã qua</Text>
+                  <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
                 ) : null}
               </View>
               {group.tasks.map((task) => (
@@ -210,13 +212,11 @@ export function TasksScreen() {
         ) : (
           <EmptyState
             icon="task-alt"
-            title={query ? 'Không tìm thấy công việc' : 'Danh sách đang trống'}
+            title={t(query ? 'tasks.noResultsTitle' : 'tasks.emptyTitle')}
             description={
-              query
-                ? 'Thử một từ khóa khác hoặc đổi bộ lọc.'
-                : 'Tạo công việc đầu tiên để bắt đầu kế hoạch.'
+              t(query ? 'tasks.noResultsDescription' : 'tasks.emptyDescription')
             }
-            actionLabel={query ? undefined : 'Tạo công việc'}
+            actionLabel={query ? undefined : t('schedule.addTask')}
             onAction={query ? undefined : openCreate}
           />
         )}
@@ -234,8 +234,8 @@ export function TasksScreen() {
 
       <ConfirmModal
         visible={Boolean(deletingTask)}
-        title="Xóa công việc?"
-        message={`“${deletingTask?.title ?? ''}” sẽ bị xóa khỏi danh sách.`}
+        title={t('schedule.deleteTitle')}
+        message={t('tasks.deleteMessage', { title: deletingTask?.title ?? '' })}
         onConfirm={() => {
           if (deletingTask) {
             void deleteTask(deletingTask);
@@ -248,7 +248,7 @@ export function TasksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16 },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

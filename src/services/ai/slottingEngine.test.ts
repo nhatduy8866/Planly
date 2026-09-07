@@ -103,4 +103,26 @@ describe('slottingEngine', () => {
     expect(unscheduled.every((draft) => draft.startTime === '')).toBe(true);
     expect(slotted.filter((draft) => draft.startTime === '20:00')).toHaveLength(1);
   });
+
+  it('leaves every new task unscheduled when adjacent tasks fill the whole day', () => {
+    const existing = [
+      makeTask({ id: 'morning', startTime: '08:00', durationMinutes: 240 }),
+      makeTask({ id: 'afternoon', startTime: '12:00', durationMinutes: 270 }),
+      makeTask({ id: 'evening', startTime: '16:30', durationMinutes: 300 }),
+    ];
+    const drafts = [
+      makeUnscheduledDraft('Việc gấp', 15, 'high'),
+      makeUnscheduledDraft('Việc thường', 30, 'medium'),
+    ];
+
+    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
+
+    expect(slotted).toHaveLength(2);
+    expect(
+      slotted.every(
+        (draft) =>
+          draft.startTime === '' && draft.slottingStatus === 'unscheduled',
+      ),
+    ).toBe(true);
+  });
 });

@@ -7,7 +7,7 @@ import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } 
 import { defaultAiProvider } from '../services/ai/aiProvider';
 import { detectConflicts } from '../services/ai/conflictDetector';
 import { autoSlotTasks } from '../services/ai/slottingEngine';
-import { scheduleTaskReminder } from '../services/notifications';
+import { replaceTaskReminders } from '../services/reminderTransaction';
 import { formatLongDate, todayKey } from '../utils/date';
 
 export function useAiScheduler(
@@ -261,8 +261,6 @@ export function useAiScheduler(
       return;
     }
 
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
     const nowIso = new Date().toISOString();
     const existingMap = new Map(state.tasks.map((t) => [t.id, t]));
 
@@ -300,16 +298,14 @@ export function useAiScheduler(
       };
     });
 
-    // Lưu hàng loạt vào Reducer
-    dispatch({ type: 'create_batch_tasks', payload: tasksToSave });
+    // Đồng bộ reminder trước khi lưu để notificationId trong state luôn là ID mới.
+    const tasksWithReminders = await replaceTaskReminders(
+      tasksToSave,
+      state.tasks,
+    );
+    dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
 
-    // Lên lịch thông báo nền (nếu có reminder)
-    for (const t of tasksToSave) {
-      if (t.reminderMinutes !== null) {
-        void scheduleTaskReminder(t);
-      }
-    }
-
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setStep('success'); // Màn 10
   }, [draftTasks, dispatch, state.tasks]);
 

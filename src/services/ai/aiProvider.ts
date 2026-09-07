@@ -1,6 +1,7 @@
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
-import { addDays, fromDateKey, toDateKey } from '../../utils/date';
+import { isValidDateKey, resolveScheduleDate } from './dateIntent';
 import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
+import { isReorderIntent } from './scheduleIntent';
 
 /**
  * Giao diện nhà cung cấp dịch vụ AI (Interface Segregation Principle)
@@ -36,6 +37,12 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     prompt: string,
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]> {
+    // Reorder phải giữ đúng ID task hiện có, nên dùng luồng deterministic thay vì
+    // phụ thuộc vào việc model có tuân thủ prompt hay không.
+    if (isReorderIntent(prompt)) {
+      return parseVietnameseScheduleText(prompt, context);
+    }
+
     const key = this.getApiKey();
     // Nếu có API key, gọi trực tiếp Gemini API
     if (key) {
@@ -86,15 +93,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const realToday = context.realToday || context.targetDate;
     const realTodayDayName = context.realTodayDayName || context.currentDayName;
 
-    // Xác định ngày dự kiến của câu lệnh
-    let effectiveDate = context.targetDate;
-    if (/ngày mai|\bmai\b/i.test(prompt)) {
-      effectiveDate = toDateKey(addDays(fromDateKey(realToday), 1));
-    } else if (/ngày kia|\bmốt\b|ngày mốt/i.test(prompt)) {
-      effectiveDate = toDateKey(addDays(fromDateKey(realToday), 2));
-    } else if (/hôm nay/i.test(prompt)) {
-      effectiveDate = realToday;
-    }
+    const effectiveDate = resolveScheduleDate(prompt, context).date;
 
     const tasksForDate = (context.allTasks || context.existingTasks).filter(
       (t) => t.date === effectiveDate && !t.completed,
@@ -183,7 +182,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           return {
             id: matchedTask ? matchedTask.id : (item.id || `ai-gemini-${Date.now()}-${index}`),
             title: item.title || `Công việc ${index + 1}`,
-            date: item.date || effectiveDate,
+            date: isValidDateKey(item.date) ? item.date : effectiveDate,
             startTime: item.startTime || '',
             durationMinutes: Number(item.durationMinutes) || 30,
             reminderMinutes: item.reminderMinutes ?? 15,

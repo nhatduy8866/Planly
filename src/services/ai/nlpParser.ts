@@ -6,6 +6,8 @@ import {
 } from './dateIntent';
 import { isReorderIntent } from './scheduleIntent';
 import { autoSlotTasks } from './slottingEngine';
+import { resolveExistingTaskUpdate } from './taskUpdateIntent';
+import { parseVietnameseTime } from './timeIntent';
 
 export { isReorderIntent } from './scheduleIntent';
 
@@ -47,6 +49,9 @@ export function parseVietnameseScheduleText(
 
     return autoSlotTasks(draftsToReorder, [], targetDayKey);
   }
+
+  const existingTaskUpdate = resolveExistingTaskUpdate(normalized, context);
+  if (existingTaskUpdate !== null) return existingTaskUpdate;
 
   // 1. Tìm reminder chung nếu có (ví dụ: "nhắc tôi trước 30p nhé", "báo trước 15 phút")
   let globalReminder: ReminderMinutes = 15;
@@ -121,34 +126,11 @@ export function parseVietnameseScheduleText(
     // 2. Phân tích Giờ bắt đầu (startTime)
     let startTime = '';
     let remainingSeg = seg;
-    const timeMatch =
-      seg.match(/(?:lúc|vào lúc)?\s*(\d{1,2})[h:](\d{2})?\s*(sáng|chiều|tối)?/i) ||
-      seg.match(/(chiều|tối|sáng)\s*(\d{1,2})\s*h(?:(\d{2}))?/i);
+    const parsedTime = parseVietnameseTime(seg);
 
-    if (timeMatch) {
-      let hours: number;
-      let minutes: number = 0;
-      if (timeMatch[1] && isNaN(Number(timeMatch[1]))) {
-        // Định dạng "chiều 2h"
-        hours = Number(timeMatch[2]);
-        minutes = timeMatch[3] ? Number(timeMatch[3]) : 0;
-      } else {
-        // Định dạng "9h", "9:30", "14h chiều"
-        hours = Number(timeMatch[1]);
-        minutes = timeMatch[2] ? Number(timeMatch[2]) : 0;
-      }
-
-      const isAfternoonOrEvening = /chiều|tối/i.test(seg);
-      const isMorning = /sáng/i.test(seg);
-
-      if (hours < 12 && isAfternoonOrEvening) {
-        hours += 12;
-      } else if (hours === 12 && isMorning) {
-        hours = 0;
-      }
-
-      startTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      remainingSeg = seg.replace(timeMatch[0], ' ');
+    if (parsedTime) {
+      startTime = parsedTime.startTime;
+      remainingSeg = seg.replace(parsedTime.matchedText, ' ');
     } else {
       // Phân tích theo buổi trong ngày nếu không có số giờ cụ thể
       if (/buổi\s*sáng|\bsáng\b/i.test(seg)) {
@@ -301,12 +283,8 @@ export function refineVietnameseSchedule(
       let newDur = task.durationMinutes;
 
       // Tìm giờ mới
-      const newTimeMatch = norm.match(/(?:sang|vào|lúc)\s*(\d{1,2})\s*h(?:(\d{2}))?/i);
-      if (newTimeMatch) {
-        const h = Number(newTimeMatch[1]);
-        const m = newTimeMatch[2] ? Number(newTimeMatch[2]) : 0;
-        newStart = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      }
+      const parsedTime = parseVietnameseTime(norm, true);
+      if (parsedTime) newStart = parsedTime.startTime;
 
       // Tìm thời lượng mới
       const newDurMatch = norm.match(/(?:thành|làm)\s*(\d+)\s*(?:tiếng|giờ)/i);

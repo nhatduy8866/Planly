@@ -2,6 +2,7 @@ import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
 import { isValidDateKey, resolveScheduleDate } from './dateIntent';
 import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
 import { isReorderIntent } from './scheduleIntent';
+import { isTaskUpdateIntent } from './taskUpdateIntent';
 
 /**
  * Giao diện nhà cung cấp dịch vụ AI (Interface Segregation Principle)
@@ -139,7 +140,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
   ): Promise<AiDraftTask[]> {
     // Reorder phải giữ đúng ID task hiện có, nên dùng luồng deterministic thay vì
     // phụ thuộc vào việc model có tuân thủ prompt hay không.
-    if (isReorderIntent(prompt)) {
+    if (isReorderIntent(prompt) || isTaskUpdateIntent(prompt)) {
       return parseVietnameseScheduleText(prompt, context);
     }
 

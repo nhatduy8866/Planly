@@ -189,4 +189,25 @@ describe('plannerReducer', () => {
     expect(result.tasks).toHaveLength(3);
     expect(result.tasks.map((t) => t.id)).toEqual(['existing-1', 'ai-1', 'ai-2']);
   });
+
+  it('replaces an AI-updated task with the same ID instead of duplicating it', () => {
+    const existing = task({
+      id: 'football-task',
+      title: 'Lịch đá bóng',
+      startTime: '02:00',
+    });
+    const result = plannerReducer(
+      { ...initialPlannerState, hydrated: true, tasks: [existing] },
+      {
+        type: 'create_batch_tasks',
+        payload: [{ ...existing, startTime: '14:00' }],
+      },
+    );
+
+    expect(result.tasks).toHaveLength(1);
+    expect(result.tasks[0]).toMatchObject({
+      id: 'football-task',
+      startTime: '14:00',
+    });
+  });
 });

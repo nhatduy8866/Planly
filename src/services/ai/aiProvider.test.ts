@@ -58,6 +58,30 @@ describe('PlanlyAiProvider', () => {
     expect(result[0].date).toBe('2026-09-09');
   });
 
+  it('updates an existing task locally instead of asking Gemini to create another one', async () => {
+    const fetchMock = jest.fn<typeof fetch>();
+    global.fetch = fetchMock;
+    const footballTask = makeTask({
+      id: 'football-task',
+      title: 'Lịch đá bóng',
+      date: '2026-09-07',
+      startTime: '02:00',
+    });
+
+    const result = await new PlanlyAiProvider(
+      'test-key',
+    ).parseScheduleRequest('Chỉnh lịch đá bóng lại thành 14h', {
+      ...context,
+      existingTasks: [footballTask],
+      allTasks: [footballTask],
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('football-task');
+    expect(result[0].startTime).toBe('14:00');
+  });
+
   it('normalizes an invalid cloud date to the resolved prompt date', async () => {
     const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
       ok: true,

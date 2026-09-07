@@ -171,4 +171,22 @@ describe('plannerReducer', () => {
     expect(b?.order).toBe(0);
     expect(a?.order).toBe(1);
   });
+
+  it('creates multiple tasks in batch with create_batch_tasks', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [task({ id: 'existing-1', title: 'Việc cũ' })],
+    };
+    const result = plannerReducer(state, {
+      type: 'create_batch_tasks',
+      payload: [
+        task({ id: 'ai-1', title: 'Họp team' }),
+        task({ id: 'ai-2', title: 'Làm báo cáo' }),
+      ],
+    });
+
+    expect(result.tasks).toHaveLength(3);
+    expect(result.tasks.map((t) => t.id)).toEqual(['existing-1', 'ai-1', 'ai-2']);
+  });
 });

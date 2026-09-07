@@ -127,23 +127,70 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 
 ---
 
-## 3. Các file đã thay đổi trong đợt này
+### F. Triển khai trọn bộ tính năng "Planly AI - Lên lịch chỉ bằng một câu" (10 Màn hình Concept UI/UX)
+
+#### 1. Kiến trúc tổng thể & Nguyên tắc thiết kế (Clean Architecture - No Hardcode)
+- **Thiết kế theo phân tầng chuẩn**:
+  - **Tầng Domain & Thuật toán (`src/services/ai/`)**: Độc lập với UI, viết bằng pure TypeScript và có unit test cho các luồng cốt lõi.
+    - `nlpParser.ts`: Bộ phân tích xử lý ngôn ngữ tự nhiên offline tiếng Việt (nhận diện ngày mai/hôm nay/thứ X, giờ giấc "chiều 2h, tối 8h", thời lượng "1 tiếng, 90p", mức độ ưu tiên, lời nhắc và các lệnh hiệu chỉnh như "dời...", "bỏ...", "thêm...").
+    - `conflictDetector.ts`: Thuật toán phát hiện xung đột lịch trình và tự động đề xuất khung giờ thay thế thông minh (ngay sau lịch cũ, dời buổi chiều, hoặc giữ nguyên).
+    - `slottingEngine.ts`: Thuật toán tự động tìm slot trống thông minh cho các công việc không có giờ cố định dựa trên độ ưu tiên (Việc quan trọng ưu tiên buổi sáng, vừa ưu tiên đầu giờ chiều, thấp ưu tiên tối).
+    - `promptEngine.ts`: Template nền cho System Prompt và ngữ cảnh lập lịch.
+    - `aiProvider.ts`: `PlanlyAiProvider` triển khai mẫu thiết kế Provider linh hoạt: hỗ trợ gọi Google Gemini API trực tiếp (khi có `EXPO_PUBLIC_GEMINI_API_KEY`) và tự động fallback sang `nlpParser` offline siêu tốc khi offline hoặc không có API key.
+  - **Tầng Điều phối State Machine (`src/hooks/useAiScheduler.ts`)**: Quản lý toàn bộ 10 bước chuyển màn hình, đồng bộ với dữ liệu lịch hiện tại của ngày đang chọn, tự động kiểm tra slotting và xung đột.
+  - **Tầng Hiển thị UI (`src/components/ai/`)**: Tách biệt thành các component con độc lập, kế thừa bảng màu thương hiệu của Planly và các design token AI mới (`aiPrimary`, `aiSoft`, `aiTag`,...).
+  - **Tầng Lưu trữ (`src/store/plannerReducer.ts`)**: Bổ sung action `create_batch_tasks` lưu đồng loạt danh sách công việc AI tạo ra trong một chu kỳ state duy nhất, lập lịch notification tự động.
+
+#### 2. Chi tiết 10 Màn hình Concept theo đúng thiết kế
+1. **Màn hình 1 - Empty State Lịch trình**: Cập nhật `EmptyState.tsx` với nút chính màu xanh thương hiệu kèm icon lấp lánh **`✨ Lên lịch với AI`** và nút phụ **`Thêm công việc`**.
+2. **Màn hình 2 - Action Sheet "Bạn muốn thêm gì?" (`AiActionSheet.tsx`)**: Trượt từ dưới lên khi bấm FAB `+`, có hai tùy chọn: lên lịch bằng AI hoặc thêm công việc thủ công.
+3. **Màn hình 3 - Nhập yêu cầu bằng giọng nói / văn bản (`AiInputView.tsx`)**: Khung nhập liệu hỗ trợ đếm ký tự (tối đa 1000 ký tự), nút Mic, các gợi ý nhanh (chips) như: *"Sáng mai họp 9h rồi ăn trưa với Nam"*, *"Hôm nay cần tập gym và đọc sách"*. Nút "Tạo kế hoạch" chuyển màu nổi bật khi có nội dung.
+4. **Màn hình 4 - Đang phân tích kế hoạch (`AiAnalyzingView.tsx`)**: Hiệu ứng động 4 bước kiểm tra trực quan (Đọc yêu cầu ➔ Phân bổ thời gian ➔ Kiểm tra trùng lịch ➔ Hoàn thiện kế hoạch) kèm mẹo hữu ích.
+5. **Màn hình 5 - Xem trước kế hoạch (`AiDraftPreviewView.tsx`)**: Danh sách thẻ công việc được bóc tách với các tag trạng thái (`Từ yêu cầu`, `Đã cập nhật`, `Không đổi`), thông tin thời gian và độ ưu tiên. Người dùng có thể tinh chỉnh bằng AI hoặc thêm kế hoạch vào lịch.
+6. **Màn hình 6 - Tinh chỉnh bằng AI (`AiRefinementView.tsx`)**: Thanh chat tương tác với AI bên dưới danh sách draft, có các chip gợi ý nhanh như *"Dời gym sang chiều"*, *"Thêm 15p giải lao"*, *"Xóa việc..."*.
+7. **Màn hình 7 - Cập nhật sau tinh chỉnh (`AiDraftPreviewView.tsx`)**: Thể hiện các thay đổi vừa áp dụng với badge "Đã cập nhật" màu cam nổi bật.
+8. **Màn hình 8 - Tự động xếp lịch cho việc chưa có giờ (`AiAutoSlottingView.tsx`)**: Tự động phát hiện các việc chưa có khung giờ cụ thể, hiển thị danh sách và cung cấp nút "Tự sắp xếp cho tôi" để thuật toán `slottingEngine` tính toán lấp vào các khoảng trống trong ngày.
+9. **Màn hình 9 - Xử lý trùng lịch (`AiConflictView.tsx`)**: Hộp cảnh báo xung đột giờ màu cam/đỏ, chỉ rõ công việc bị trùng và hiển thị radio list các phương án giờ thay thế được tính toán tự động.
+10. **Màn hình 10 - Thêm lịch thành công (`AiSuccessView.tsx`)**: Hiệu ứng chúc mừng với vòng tròn checkmark xanh lá, icon pháo hoa confetti, thông báo số lượng công việc đã thêm vào ngày cụ thể, và 2 nút: "Xem lịch của tôi" (mở ngay ngày đó trên màn hình chính) và "Thêm kế hoạch khác".
+
+---
+
+## 3. Các file đã thay đổi / tạo mới trong dự án
 1. `package.json` & `package-lock.json`: Thêm các thư viện Web.
 2. `App.tsx`: Căn giữa container desktop web.
 3. `src/services/notifications.ts`: Bổ sung kiểm tra an toàn cho Web.
-4. `src/theme/colors.ts`: Bổ sung màu sắc cho badge ưu tiên (warningSoft, info, infoSoft).
+4. `src/theme/colors.ts`: Bổ sung màu sắc cho badge ưu tiên và bộ màu AI tokens.
 5. `src/types/index.ts`: Bổ sung TaskPriority vào Task model.
-6. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày/giờ/thời lượng, bổ sung bộ chọn Mức độ ưu tiên.
-7. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
-8. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng.
-9. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn.
-10. `src/components/TaskCard.tsx`: Hiển thị viền màu và badge mức độ ưu tiên.
-11. `src/hooks/useTaskActions.ts`: Tối ưu hóa xóa task tức thì (Optimistic UI).
-12. `src/screens/ScheduleScreen.tsx`: Tích hợp ConfirmModal, SortDropdown và sắp xếp theo ưu tiên.
-13. `src/screens/TasksScreen.tsx`: Tích hợp SortDropdown, lọc nhanh và sắp xếp theo ưu tiên.
-14. `src/screens/NotesScreen.tsx`: Dùng ConfirmModal cho việc xóa ghi chú.
-15. `src/store/plannerReducer.ts`: Viết lại logic `move_task` và `sort_day` hỗ trợ sắp xếp theo giờ/tên/ưu tiên.
-16. `src/store/plannerReducer.test.ts`: Thêm unit tests cho xóa, di chuyển, sắp xếp theo tên và ưu tiên.
+6. `src/types/ai.ts`: *(Mới)* Kiểu dữ liệu chuyên biệt cho AI (bước modal, draft task, xung đột, context).
+7. `src/utils/date.ts`: Bổ sung tiện ích `minutesToTime` chuyển đổi phút trong ngày thành chuỗi `HH:mm`.
+8. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày/giờ/thời lượng, bổ sung bộ chọn Mức độ ưu tiên.
+9. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
+10. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng.
+11. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn.
+12. `src/components/TaskCard.tsx`: Hiển thị viền màu và badge mức độ ưu tiên.
+13. `src/components/EmptyState.tsx`: Bổ sung nút bấm chính với icon "✨ Lên lịch với AI".
+14. `src/components/ai/`: *(Mới)* Trọn bộ 8 components hiển thị cho 10 màn hình:
+    - `AiActionSheet.tsx` (Màn hình 2)
+    - `AiInputView.tsx` (Màn hình 3)
+    - `AiAnalyzingView.tsx` (Màn hình 4)
+    - `AiDraftPreviewView.tsx` (Màn hình 5 & 7)
+    - `AiRefinementView.tsx` (Màn hình 6)
+    - `AiAutoSlottingView.tsx` (Màn hình 8)
+    - `AiConflictView.tsx` (Màn hình 9)
+    - `AiSuccessView.tsx` (Màn hình 10)
+    - `AiScheduleModal.tsx`: Modal master quản lý và chuyển đổi mượt mà giữa các bước.
+15. `src/services/ai/`: *(Mới)* Bộ 5 module thuật toán và xử lý AI:
+    - `conflictDetector.ts` & `conflictDetector.test.ts`
+    - `slottingEngine.ts` & `slottingEngine.test.ts`
+    - `nlpParser.ts` & `nlpParser.test.ts`
+    - `promptEngine.ts`
+    - `aiProvider.ts`
+16. `src/hooks/useAiScheduler.ts`: *(Mới)* Hook điều phối toàn bộ vòng đời và logic AI Scheduler.
+17. `src/screens/ScheduleScreen.tsx`: Tích hợp `useAiScheduler`, nút EmptyState, ActionSheet và modal AI.
+18. `src/screens/TasksScreen.tsx`: Tích hợp SortDropdown, lọc nhanh và sắp xếp theo ưu tiên.
+19. `src/screens/NotesScreen.tsx`: Dùng ConfirmModal cho việc xóa ghi chú.
+20. `src/store/plannerReducer.ts`: Hỗ trợ sắp xếp theo giờ/tên/ưu tiên và action `create_batch_tasks`.
+21. `src/store/plannerReducer.test.ts`: Thêm unit tests cho xóa, sắp xếp và `create_batch_tasks`.
 
 ---
 
@@ -151,10 +198,11 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 Toàn bộ mã nguồn đã vượt qua các bài kiểm tra nghiêm ngặt:
 - `npm run typecheck`: ✅ **0 lỗi TypeScript**.
 - `npm run lint`: ✅ **0 warning / error ESLint**.
-- `npm test`: ✅ **12/12 unit tests passed** (Jest).
+- `npm test`: ✅ **33/33 unit tests passed** trên 5 test suites (Jest).
 - Kiểm tra thực tế:
-  - **Mức độ ưu tiên**: Tạo công việc có mức Cao, Vừa, Thấp, Thường đều hiển thị màu viền và badge chuẩn xác, tinh tế.
-  - **Xóa**: Bấm xóa trên Web và Mobile đều mở modal xác nhận đẹp mắt, xác nhận xóa là item biến mất ngay lập tức.
+  - **Planly AI 10 Màn hình**: Đã triển khai luồng từ Empty State / FAB ➔ Action Sheet ➔ Nhập prompt ➔ Phân tích ➔ Xem trước ➔ Tinh chỉnh ➔ Tự xếp lịch ➔ Xử lý xung đột ➔ Lưu vào lịch.
+  - **Mức độ ưu tiên**: Tạo công việc có mức Cao, Vừa, Thấp, Thường đều hiển thị màu viền và badge chuẩn xác.
+  - **Xóa**: Bấm xóa trên Web và Mobile đều mở modal xác nhận đẹp mắt, xóa phản hồi tức thì.
   - **Sắp xếp**: Chuyển đổi mượt mà giữa "Theo giờ", "Theo ưu tiên" và "Theo tên" qua menu sổ xuống.
 
 ---

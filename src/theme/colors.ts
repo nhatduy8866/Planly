@@ -21,6 +21,12 @@ export const colors = {
   priorityMediumSoft: '#FEF3C7',
   priorityLow: '#2563EB',
   priorityLowSoft: '#E0F2FE',
+  aiPrimary: '#2D5A43',
+  aiSoft: '#E8F2EC',
+  aiTag: '#EBF5EE',
+  aiTagText: '#2E6B4B',
+  aiUpdatedTag: '#DEF7EC',
+  aiUpdatedTagText: '#03543F',
   white: '#FFFFFF',
   shadow: '#172019',
 } as const;

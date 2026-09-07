@@ -1,0 +1,261 @@
+import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
+import { addDays, fromDateKey, toDateKey } from '../../utils/date';
+import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
+
+/**
+ * Giao diện nhà cung cấp dịch vụ AI (Interface Segregation Principle)
+ */
+export interface AiSchedulingProvider {
+  parseScheduleRequest(
+    prompt: string,
+    context: AiSchedulingContext,
+  ): Promise<AiDraftTask[]>;
+
+  refineSchedule(
+    currentDrafts: AiDraftTask[],
+    instruction: string,
+    context: AiSchedulingContext,
+  ): Promise<AiDraftTask[]>;
+}
+
+/**
+ * Triển khai mặc định: Hỗ trợ Offline Heuristic NLP và Gemini Cloud LLM
+ */
+export class PlanlyAiProvider implements AiSchedulingProvider {
+  private apiKey: string | undefined;
+
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey;
+  }
+
+  private getApiKey(): string | undefined {
+    return this.apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  }
+
+  async parseScheduleRequest(
+    prompt: string,
+    context: AiSchedulingContext,
+  ): Promise<AiDraftTask[]> {
+    const key = this.getApiKey();
+    // Nếu có API key, gọi trực tiếp Gemini API
+    if (key) {
+      try {
+        const cloudResult = await this.callGeminiApi(prompt, context, key);
+        if (cloudResult && cloudResult.length > 0) {
+          return cloudResult;
+        }
+      } catch (err) {
+        console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
+      }
+    }
+
+    // Luôn có bộ phân tích Offline NLP chất lượng cao sẵn sàng
+    return parseVietnameseScheduleText(prompt, context);
+  }
+
+  async refineSchedule(
+    currentDrafts: AiDraftTask[],
+    instruction: string,
+    context: AiSchedulingContext,
+  ): Promise<AiDraftTask[]> {
+    const key = this.getApiKey();
+    if (key) {
+      try {
+        const cloudResult = await this.callGeminiRefineApi(
+          currentDrafts,
+          instruction,
+          context,
+          key,
+        );
+        if (cloudResult && cloudResult.length > 0) {
+          return cloudResult;
+        }
+      } catch (err) {
+        console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
+      }
+    }
+    return refineVietnameseSchedule(currentDrafts, instruction, context);
+  }
+
+  private async callGeminiApi(
+    prompt: string,
+    context: AiSchedulingContext,
+    apiKey: string,
+  ): Promise<AiDraftTask[] | null> {
+    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const realToday = context.realToday || context.targetDate;
+    const realTodayDayName = context.realTodayDayName || context.currentDayName;
+
+    // Xác định ngày dự kiến của câu lệnh
+    let effectiveDate = context.targetDate;
+    if (/ngày mai|\bmai\b/i.test(prompt)) {
+      effectiveDate = toDateKey(addDays(fromDateKey(realToday), 1));
+    } else if (/ngày kia|\bmốt\b|ngày mốt/i.test(prompt)) {
+      effectiveDate = toDateKey(addDays(fromDateKey(realToday), 2));
+    } else if (/hôm nay/i.test(prompt)) {
+      effectiveDate = realToday;
+    }
+
+    const tasksForDate = (context.allTasks || context.existingTasks).filter(
+      (t) => t.date === effectiveDate && !t.completed,
+    );
+
+    const existingTasksSummary = tasksForDate.map((t) => ({
+      id: t.id,
+      title: t.title,
+      startTime: t.startTime,
+      durationMinutes: t.durationMinutes,
+      priority: t.priority,
+    }));
+
+    const promptText = `Bạn là trợ lý lập lịch thông minh của ứng dụng Planly. Phân tích yêu cầu lập lịch của người dùng:
+Ngữ cảnh thời gian:
+- Ngày thực tế hôm nay của thiết bị: ${realToday} (${realTodayDayName})
+- Ngày người dùng đang mở xem trên màn hình: ${context.targetDate} (${context.currentDayName})
+- Danh sách công việc hiện có trong ngày (${tasksForDate.length} việc): ${JSON.stringify(existingTasksSummary)}
+Yêu cầu của người dùng: "${prompt}"
+
+Quy tắc quan trọng:
+1. NẾU YÊU CẦU LÀ SẮP XẾP LẠI CÁC VIỆC TRONG NGÀY (Reorder / Reschedule cả ngày):
+   - Tuyệt đối KHÔNG tạo một công việc mới mang tên "Sắp xếp các công việc" hay "Sắp xếp lại các công việc".
+   - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại khung giờ (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
+   - BẮT BUỘC giữ nguyên trường "id" của các công việc hiện có để hệ thống cập nhật giờ mà không bị trùng lặp công việc.
+   - Nếu trong ngày chưa có công việc nào để sắp xếp, trả về mảng rỗng [].
+2. "date": Ngày diễn ra công việc (định dạng YYYY-MM-DD):
+   - Mọi từ chỉ thời gian tương đối như "hôm nay", "mai", "ngày mai", "ngày kia", "ngày mốt", "tuần này": BẮT BUỘC PHẢI TÍNH THEO NGÀY THỰC TẾ HÔM NAY (${realToday}).
+     Ví dụ: Nếu hôm nay là ${realToday} (${realTodayDayName}), thì "ngày mai" hoặc "mai" BẮT BUỘC là ngày kế tiếp (+1 ngày).
+   - Nếu người dùng nói thứ cụ thể (ví dụ "thứ 4", "thứ 6"): tính thứ gần nhất tới đây tính từ ${realToday}.
+   - CHỈ KHI người dùng KHÔNG hề nhắc đến bất kỳ từ chỉ ngày nào (ví dụ: "dọn nhà lúc 8h", "họp team"): mới gán "date" bằng ngày đang xem (${context.targetDate}).
+3. "title": Chỉ lấy nội dung hành động chính (ví dụ: "Đi chơi", "Họp nhóm", "Đọc sách"), tuyệt đối không để các từ đệm ("tôi muốn", "hãy tạo", "lên lịch", "nhắc tôi").
+4. "startTime": Định dạng 24h "HH:mm":
+   - Nếu có giờ cụ thể (ví dụ 4h chiều -> "16:00", 9h30 -> "09:30").
+   - NẾU NGƯỜI DÙNG NÓI BUỔI (không nói số giờ cụ thể), HÃY TỰ ĐỘNG GÁN GIỜ HỢP LÝ PHÂN BỔ TRONG NGÀY:
+     + Buổi sáng ("sáng", "buổi sáng"): gán "08:30" hoặc "09:00".
+     + Buổi trưa ("trưa", "buổi trưa"): gán "12:00".
+     + Buổi chiều ("chiều", "buổi chiều"): gán "14:30" hoặc "15:00".
+     + Buổi tối ("tối", "buổi tối" - lưu ý nhận diện lỗi gõ thiếu dấu "tôi" thành "tối" trong chuỗi: "sáng..., chiều..., tôi..."): gán "19:30" hoặc "20:00".
+   - Chỉ để "" nếu hoàn toàn không có thông tin buổi hay giờ nào.
+5. "durationMinutes": Số phút làm việc (mặc định 30).
+6. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
+7. "priority": "high", "medium", "low", hoặc "none".
+
+Trả về duy nhất mảng JSON hợp lệ:
+[
+  {
+    "id": "string (nếu sắp xếp từ việc cũ thì giữ nguyên id cũ)",
+    "title": "string",
+    "date": "YYYY-MM-DD",
+    "startTime": "HH:mm",
+    "durationMinutes": 30,
+    "priority": "none",
+    "reminderMinutes": 15
+  }
+]`;
+
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) continue;
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) continue;
+
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) continue;
+
+        return parsed.map((item, index) => {
+          const matchedTask = tasksForDate.find(
+            (t) =>
+              t.id === item.id ||
+              t.title.trim().toLowerCase() === String(item.title).trim().toLowerCase(),
+          );
+          return {
+            id: matchedTask ? matchedTask.id : (item.id || `ai-gemini-${Date.now()}-${index}`),
+            title: item.title || `Công việc ${index + 1}`,
+            date: item.date || effectiveDate,
+            startTime: item.startTime || '',
+            durationMinutes: Number(item.durationMinutes) || 30,
+            reminderMinutes: item.reminderMinutes ?? 15,
+            priority: item.priority || 'none',
+            source: matchedTask ? 'auto_slotted' : 'direct_request',
+            changeStatus: matchedTask ? 'updated' : 'unchanged',
+          };
+        });
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  private async callGeminiRefineApi(
+    currentDrafts: AiDraftTask[],
+    instruction: string,
+    context: AiSchedulingContext,
+    apiKey: string,
+  ): Promise<AiDraftTask[] | null> {
+    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const promptText = `Bạn là trợ lý lập lịch AI của Planly. Cập nhật danh sách công việc dự thảo hiện tại dựa trên câu lệnh tinh chỉnh của người dùng:
+Danh sách hiện tại: ${JSON.stringify(currentDrafts)}
+Câu lệnh tinh chỉnh: "${instruction}"
+Ngữ cảnh ngày: ${context.targetDate}
+
+Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc, hoặc dời giờ/thời lượng).
+Nếu công việc bị thay đổi, gán changeStatus: "updated".`;
+
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const payload = {
+          contents: [{ role: 'user', parts: [{ text: promptText }] }],
+          generationConfig: { responseMimeType: 'application/json' },
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) continue;
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) continue;
+
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) continue;
+
+        return parsed.map((item, index) => ({
+          id: item.id || `ai-gemini-${Date.now()}-${index}`,
+          title: item.title || `Công việc ${index + 1}`,
+          date: item.date || context.targetDate,
+          startTime: item.startTime || '',
+          durationMinutes: Number(item.durationMinutes) || 30,
+          reminderMinutes: item.reminderMinutes ?? 15,
+          priority: item.priority || 'none',
+          source: item.source || 'direct_request',
+          changeStatus: item.changeStatus || 'updated',
+        }));
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Singleton instance của AI Provider để toàn app sử dụng
+ */
+export const defaultAiProvider: AiSchedulingProvider = new PlanlyAiProvider();

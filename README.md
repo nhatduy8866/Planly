@@ -12,6 +12,9 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 - Tạo, chỉnh sửa, hoàn thành, nhân bản và xóa công việc.
 - Đổi thứ tự công việc trong ngày bằng tay hoặc tự sắp theo giờ bắt đầu.
 - Đặt thông báo local đúng giờ hoặc trước 5, 15, 30, 60 phút.
+- Tạo hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên.
+- Tự tìm khoảng trống, phát hiện xung đột và đề xuất giờ thay thế.
+- Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
 
 ### Công việc
 
@@ -26,7 +29,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 
 Dữ liệu task và note được lưu cục bộ trên thiết bị bằng AsyncStorage, không cần tài khoản hoặc backend.
 
-> Phần AI xếp lịch và nhập giọng nói chưa nằm trong phạm vi triển khai hiện tại.
+> Nhập giọng nói hiện mới là luồng demo, chưa tích hợp Speech-to-Text thật.
 
 ## Công nghệ
 
@@ -90,7 +93,7 @@ Planly/
 
 ## Phạm vi tiếp theo
 
-- AI tiếp nhận yêu cầu bằng văn bản/giọng nói và đề xuất lịch.
+- Tích hợp Speech-to-Text thật cho Planly AI.
 - Đồng bộ nhiều thiết bị và sao lưu tài khoản.
 - Task lặp lại và các quy tắc nhắc lịch nâng cao.
 - Widget Android và tích hợp lịch hệ thống.

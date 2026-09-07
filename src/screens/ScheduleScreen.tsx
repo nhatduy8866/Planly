@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -20,6 +20,8 @@ import {
   TaskFormModal,
   type TaskFormValues,
 } from '../components/TaskFormModal';
+import { AiScheduleModal } from '../components/ai/AiScheduleModal';
+import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { usePlanner } from '../store/PlannerContext';
 import { colors } from '../theme/colors';
@@ -55,6 +57,13 @@ export function ScheduleScreen() {
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+
+  const handleAiNavigateDate = useCallback((date: string) => {
+    setSelectedDate(date);
+    setCursor(fromDateKey(date));
+  }, []);
+
+  const aiScheduler = useAiScheduler(selectedDate, handleAiNavigateDate);
 
   const dayTasks = useMemo(
     () =>
@@ -215,7 +224,10 @@ export function ScheduleScreen() {
           <EmptyState
             icon="event-available"
             title="Ngày này đang trống"
-            description="Thêm một công việc để bắt đầu sắp xếp ngày của bạn."
+            description="Bạn muốn lên kế hoạch cho ngày này?"
+            primaryActionLabel="Lên lịch với AI"
+            primaryActionIcon="auto-awesome"
+            onPrimaryAction={aiScheduler.openDirectPrompt}
             actionLabel="Thêm công việc"
             onAction={openCreate}
           />
@@ -225,7 +237,7 @@ export function ScheduleScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Thêm công việc"
-        onPress={openCreate}
+        onPress={aiScheduler.openActionSheet}
         style={({ pressed }) => [
           styles.fab,
           { bottom: 18 },
@@ -234,6 +246,12 @@ export function ScheduleScreen() {
       >
         <MaterialIcons name="add" size={27} color={colors.white} />
       </Pressable>
+
+      <AiScheduleModal
+        scheduler={aiScheduler}
+        targetDate={selectedDate}
+        onOpenManualTaskModal={openCreate}
+      />
 
       {formVisible ? (
         <TaskFormModal

@@ -204,4 +204,27 @@ describe('useAiScheduler', () => {
     });
     expect(scheduler.step).toBe('success');
   });
+
+  it('rechecks conflicts introduced by refinement before previewing', async () => {
+    mockPlannerState.tasks = [makeTask({ startTime: '09:00' })];
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ startTime: '11:00' }),
+    ]);
+    await submitPrompt();
+    expect(scheduler.step).toBe('draft_preview');
+
+    mockRefineSchedule.mockResolvedValue([
+      makeDraft({ startTime: '09:30' }),
+    ]);
+    await act(async () => {
+      const pending = scheduler.submitRefinement('Dời việc AI sang 9h30');
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(1200);
+      await pending;
+    });
+
+    expect(scheduler.step).toBe('conflict_resolution');
+    expect(scheduler.conflicts).toHaveLength(1);
+    expect(scheduler.conflicts[0].conflictingTask.id).toBe('existing-task');
+  });
 });

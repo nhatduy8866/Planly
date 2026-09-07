@@ -7,6 +7,15 @@ interface TimeWindow {
   end: number;
 }
 
+function preferStartWithinGap(
+  gap: TimeWindow,
+  preferredStart: number,
+  duration: number,
+): number {
+  const candidate = Math.max(gap.start, preferredStart);
+  return candidate + duration <= gap.end ? candidate : gap.start;
+}
+
 const PRIORITY_RANK: Record<TaskPriority, number> = {
   high: 3,
   medium: 2,
@@ -128,12 +137,24 @@ function findBestSlot(
   // 1. Kiểm tra từ khóa gợi ý buổi trong tiêu đề
   if (/chiều|buổi chiều/i.test(titleLower)) {
     const afternoonGap = validGaps.find((g) => g.start >= AFTERNOON && g.start < EVENING);
-    if (afternoonGap) return Math.max(afternoonGap.start, 14 * 60 + 30);
+    if (afternoonGap) {
+      return preferStartWithinGap(
+        afternoonGap,
+        14 * 60 + 30,
+        duration,
+      );
+    }
     const anyAfternoon = validGaps.find((g) => g.start >= AFTERNOON);
     if (anyAfternoon) return anyAfternoon.start;
   } else if (/tối|buổi tối/i.test(titleLower)) {
     const eveningGap = validGaps.find((g) => g.start >= EVENING);
-    if (eveningGap) return Math.max(eveningGap.start, 19 * 60 + 30);
+    if (eveningGap) {
+      return preferStartWithinGap(
+        eveningGap,
+        19 * 60 + 30,
+        duration,
+      );
+    }
     const anyLate = validGaps.find((g) => g.start >= 17 * 60);
     if (anyLate) return anyLate.start;
   } else if (/trưa|buổi trưa/i.test(titleLower)) {

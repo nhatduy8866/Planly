@@ -48,6 +48,7 @@ export function ScheduleScreen() {
   const { state, dispatch } = usePlanner();
   const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
   const [mode, setMode] = useState<CalendarMode>('week');
+  const [menuExpanded, setMenuExpanded] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
@@ -88,17 +89,16 @@ export function ScheduleScreen() {
     selectDate(toDateKey(next));
   }
 
-  function goToday() {
-    const today = todayKey();
-    setSelectedDate(today);
-    setCursor(new Date());
-  }
-
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
     setSelectedDate(values.date);
     setCursor(fromDateKey(values.date));
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  function goToday() {
+    setSelectedDate(todayKey());
+    setCursor(new Date());
   }
 
   function confirmDelete(task: Task) {
@@ -107,34 +107,67 @@ export function ScheduleScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.topRow}>
-          <View>
-            <Text style={styles.eyebrow}>KẾ HOẠCH CỦA BẠN</Text>
-            <Text style={styles.screenTitle}>Lịch biểu</Text>
+      <View style={[styles.navigationShell, { paddingTop: insets.top }]}>
+        <View style={styles.navigationBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={menuExpanded ? 'Đóng chọn kiểu lịch' : 'Mở chọn kiểu lịch'}
+            accessibilityState={{ expanded: menuExpanded }}
+            onPress={() => {
+              setMenuExpanded((expanded) => !expanded);
+              void Haptics.selectionAsync();
+            }}
+            style={({ pressed }) => [
+              styles.menuButton,
+              menuExpanded && styles.menuButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <MaterialIcons name="menu" size={25} color={colors.primaryDark} />
+          </Pressable>
+
+          <View pointerEvents="none" style={styles.centerIconWrap}>
+            <View style={styles.centerIcon}>
+              <MaterialIcons name="calendar-month" size={23} color={colors.primaryDark} />
+            </View>
           </View>
+
           <Pressable onPress={goToday} style={styles.todayButton}>
             <Text style={styles.todayText}>Hôm nay</Text>
           </Pressable>
         </View>
 
-        <View style={styles.segment}>
-          {(['week', 'month'] as const).map((item) => (
-            <Pressable
-              key={item}
-              onPress={() => setMode(item)}
-              style={[styles.segmentItem, mode === item && styles.segmentItemActive]}
-            >
-              <Text style={[styles.segmentText, mode === item && styles.segmentTextActive]}>
-                {item === 'week' ? 'Tuần' : 'Tháng'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {menuExpanded ? (
+          <View style={styles.navigationDropdown}>
+            <View style={styles.segment}>
+              {(['week', 'month'] as const).map((item) => {
+                const active = mode === item;
+                return (
+                  <Pressable
+                    key={item}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      setMode(item);
+                      void Haptics.selectionAsync();
+                    }}
+                    style={[styles.segmentItem, active && styles.segmentItemActive]}
+                  >
+                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                      {item === 'week' ? 'Tuần' : 'Tháng'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+      </View>
 
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.calendarCard}>
           <View style={styles.calendarHeader}>
             <IconButton
@@ -256,9 +289,49 @@ export function ScheduleScreen() {
 const styles = StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 96, paddingHorizontal: 16 },
-  topRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
-  screenTitle: { color: colors.text, fontSize: 29, fontWeight: '800', marginTop: 3 },
+  navigationShell: {
+    backgroundColor: colors.surface,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    elevation: 3,
+    shadowColor: colors.shadow,
+    shadowOffset: { height: 2, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    zIndex: 10,
+  },
+  navigationBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 58,
+    paddingHorizontal: 16,
+  },
+  menuButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  menuButtonActive: { backgroundColor: colors.surfaceMuted },
+  centerIconWrap: {
+    alignItems: 'center',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  centerIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 11,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
   todayButton: {
     backgroundColor: colors.primarySoft,
     borderRadius: 12,
@@ -266,11 +339,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   todayText: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
+  navigationDropdown: { paddingBottom: 12, paddingHorizontal: 16 },
   segment: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 13,
     flexDirection: 'row',
-    marginTop: 20,
     padding: 3,
   },
   segmentItem: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 9 },
@@ -282,7 +355,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
-    marginTop: 12,
+    marginTop: 16,
     padding: 12,
   },
   calendarHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },

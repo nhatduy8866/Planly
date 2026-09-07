@@ -12,6 +12,9 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  primaryActionLabel?: string;
+  primaryActionIcon?: IconName;
+  onPrimaryAction?: () => void;
 }
 
 export function EmptyState({
@@ -20,6 +23,9 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  primaryActionLabel,
+  primaryActionIcon,
+  onPrimaryAction,
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
@@ -28,13 +34,38 @@ export function EmptyState({
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
+
+      {primaryActionLabel && onPrimaryAction ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPrimaryAction}
+          style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}
+        >
+          {primaryActionIcon ? (
+            <MaterialIcons name={primaryActionIcon} size={18} color={colors.white} />
+          ) : null}
+          <Text style={styles.primaryActionText}>{primaryActionLabel}</Text>
+        </Pressable>
+      ) : null}
+
       {actionLabel && onAction ? (
         <Pressable
           accessibilityRole="button"
           onPress={onAction}
-          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.action,
+            primaryActionLabel && styles.secondaryAction,
+            pressed && styles.pressed,
+          ]}
         >
-          <Text style={styles.actionText}>{actionLabel}</Text>
+          <Text
+            style={[
+              styles.actionText,
+              primaryActionLabel && styles.secondaryActionText,
+            ]}
+          >
+            {actionLabel}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -72,5 +103,41 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   actionText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  primaryAction: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    width: '100%',
+    maxWidth: 240,
+  },
+  primaryActionText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  secondaryAction: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    width: '100%',
+    maxWidth: 240,
+  },
+  secondaryActionText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   pressed: { opacity: 0.75 },
 });

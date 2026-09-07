@@ -92,3 +92,10 @@ export function formatDuration(minutes: number): string {
   const remainder = minutes % 60;
   return remainder ? `${hours}g ${remainder}p` : `${hours} giờ`;
 }
+
+export function minutesToTime(totalMinutes: number): string {
+  const normalized = Math.max(0, Math.min(23 * 60 + 59, totalMinutes));
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}

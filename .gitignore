@@ -38,3 +38,7 @@ ios/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local Planning Documents (do not commit)
+AI_PLAN.md
+*_PLAN.md

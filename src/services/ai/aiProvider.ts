@@ -19,6 +19,106 @@ export interface AiSchedulingProvider {
   ): Promise<AiDraftTask[]>;
 }
 
+const VALID_REMINDERS: ReadonlySet<AiDraftTask['reminderMinutes']> = new Set([
+  null,
+  0,
+  5,
+  10,
+  15,
+  30,
+  60,
+]);
+const VALID_PRIORITIES: ReadonlySet<AiDraftTask['priority']> = new Set([
+  'high',
+  'medium',
+  'low',
+  'none',
+]);
+const VALID_SOURCES: ReadonlySet<AiDraftTask['source']> = new Set([
+  'direct_request',
+  'auto_slotted',
+  'conflict_resolved',
+]);
+const VALID_CHANGE_STATUSES: ReadonlySet<
+  NonNullable<AiDraftTask['changeStatus']>
+> = new Set(['unchanged', 'updated', 'added']);
+
+interface CloudDraftDefaults {
+  id: string;
+  title: string;
+  date: string;
+  source: AiDraftTask['source'];
+  changeStatus: NonNullable<AiDraftTask['changeStatus']>;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeStartTime(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return '';
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return '';
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function normalizeDuration(value: unknown): number {
+  const duration = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(duration) && duration >= 5 ? Math.round(duration) : 30;
+}
+
+function normalizeReminder(value: unknown): AiDraftTask['reminderMinutes'] {
+  const reminder = value === null ? null : value;
+  return VALID_REMINDERS.has(reminder as AiDraftTask['reminderMinutes'])
+    ? (reminder as AiDraftTask['reminderMinutes'])
+    : 15;
+}
+
+function normalizeCloudDraft(
+  value: unknown,
+  defaults: CloudDraftDefaults,
+): AiDraftTask {
+  const item = asRecord(value);
+  const priority = nonEmptyString(item.priority);
+  const source = nonEmptyString(item.source);
+  const changeStatus = nonEmptyString(item.changeStatus);
+
+  return {
+    id: nonEmptyString(item.id) || defaults.id,
+    title: nonEmptyString(item.title) || defaults.title,
+    date: isValidDateKey(item.date) ? item.date : defaults.date,
+    startTime: normalizeStartTime(item.startTime),
+    durationMinutes: normalizeDuration(item.durationMinutes),
+    reminderMinutes: normalizeReminder(item.reminderMinutes),
+    priority:
+      priority && VALID_PRIORITIES.has(priority as AiDraftTask['priority'])
+        ? (priority as AiDraftTask['priority'])
+        : 'none',
+    source:
+      source && VALID_SOURCES.has(source as AiDraftTask['source'])
+        ? (source as AiDraftTask['source'])
+        : defaults.source,
+    changeStatus:
+      changeStatus &&
+      VALID_CHANGE_STATUSES.has(
+        changeStatus as NonNullable<AiDraftTask['changeStatus']>,
+      )
+        ? (changeStatus as NonNullable<AiDraftTask['changeStatus']>)
+        : defaults.changeStatus,
+  };
+}
+
 /**
  * Triển khai mặc định: Hỗ trợ Offline Heuristic NLP và Gemini Cloud LLM
  */
@@ -173,22 +273,33 @@ Trả về duy nhất mảng JSON hợp lệ:
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) continue;
 
-        return parsed.map((item, index) => {
+        return parsed.map((value, index) => {
+          const item = asRecord(value);
+          const itemId = nonEmptyString(item.id);
+          const itemTitle = nonEmptyString(item.title);
           const matchedTask = tasksForDate.find(
             (t) =>
-              t.id === item.id ||
-              t.title.trim().toLowerCase() === String(item.title).trim().toLowerCase(),
+              t.id === itemId ||
+              (itemTitle !== undefined &&
+                t.title.trim().toLowerCase() === itemTitle.toLowerCase()),
           );
+          const source = matchedTask ? 'auto_slotted' : 'direct_request';
+          const changeStatus = matchedTask ? 'updated' : 'unchanged';
+          const normalizedId =
+            matchedTask?.id ||
+            itemId ||
+            `ai-gemini-${Date.now()}-${index}`;
           return {
-            id: matchedTask ? matchedTask.id : (item.id || `ai-gemini-${Date.now()}-${index}`),
-            title: item.title || `Công việc ${index + 1}`,
-            date: isValidDateKey(item.date) ? item.date : effectiveDate,
-            startTime: item.startTime || '',
-            durationMinutes: Number(item.durationMinutes) || 30,
-            reminderMinutes: item.reminderMinutes ?? 15,
-            priority: item.priority || 'none',
-            source: matchedTask ? 'auto_slotted' : 'direct_request',
-            changeStatus: matchedTask ? 'updated' : 'unchanged',
+            ...normalizeCloudDraft(item, {
+              id: normalizedId,
+              title: `Công việc ${index + 1}`,
+              date: effectiveDate,
+              source,
+              changeStatus,
+            }),
+            id: normalizedId,
+            source,
+            changeStatus,
           };
         });
       } catch {
@@ -235,17 +346,31 @@ Nếu công việc bị thay đổi, gán changeStatus: "updated".`;
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) continue;
 
-        return parsed.map((item, index) => ({
-          id: item.id || `ai-gemini-${Date.now()}-${index}`,
-          title: item.title || `Công việc ${index + 1}`,
-          date: item.date || context.targetDate,
-          startTime: item.startTime || '',
-          durationMinutes: Number(item.durationMinutes) || 30,
-          reminderMinutes: item.reminderMinutes ?? 15,
-          priority: item.priority || 'none',
-          source: item.source || 'direct_request',
-          changeStatus: item.changeStatus || 'updated',
-        }));
+        return parsed.map((value, index) => {
+          const item = asRecord(value);
+          const itemId = nonEmptyString(item.id);
+          const itemTitle = nonEmptyString(item.title);
+          const matchedDraft = currentDrafts.find(
+            (draft) =>
+              draft.id === itemId ||
+              (itemTitle !== undefined &&
+                draft.title.trim().toLowerCase() === itemTitle.toLowerCase()),
+          );
+          const normalized = normalizeCloudDraft(item, {
+            id:
+              matchedDraft?.id ||
+              itemId ||
+              `ai-gemini-${Date.now()}-${index}`,
+            title: `Công việc ${index + 1}`,
+            date: matchedDraft?.date || context.targetDate,
+            source: matchedDraft?.source || 'direct_request',
+            changeStatus: 'updated',
+          });
+
+          return matchedDraft
+            ? { ...normalized, id: matchedDraft.id }
+            : normalized;
+        });
       } catch {
         continue;
       }

@@ -235,6 +235,28 @@ export function useAiScheduler(
         await new Promise((resolve) => setTimeout(resolve, 1100));
 
         setDraftTasks(refined);
+
+        const unscheduledCount = refined.filter(
+          (draft) => !draft.startTime,
+        ).length;
+        if (unscheduledCount > 0) {
+          setInfoMessage(
+            `Còn ${unscheduledCount} công việc chưa có giờ sau khi chỉnh sửa. Hãy để Planly tự sắp xếp hoặc chỉnh lại yêu cầu.`,
+          );
+          setStep('auto_slotting');
+          return;
+        }
+
+        const detected = detectConflicts(refined, state.tasks);
+        if (detected.length > 0) {
+          setConflicts(detected);
+          setInfoMessage(null);
+          setStep('conflict_resolution');
+          return;
+        }
+
+        setConflicts([]);
+        setInfoMessage(null);
         setStep('updated_preview'); // Màn 7: Kế hoạch đã cập nhật
       } catch (err) {
         console.error('Lỗi tinh chỉnh AI:', err);
@@ -245,7 +267,7 @@ export function useAiScheduler(
         clearTimeout(timer3);
       }
     },
-    [draftTasks, context],
+    [draftTasks, context, state.tasks],
   );
 
   // Xác nhận lưu vào lịch (Màn 5 hoặc 7 -> Màn 10 Thành công)

@@ -253,15 +253,6 @@ export function ScheduleScreen() {
             </Text>
           </View>
           <View style={styles.listActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('schedule.addTask')}
-              onPress={aiScheduler.openActionSheet}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            >
-              <MaterialIcons name="add" size={18} color={colors.white} />
-              <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
-            </Pressable>
             {dayTasks.length > 1 ? (
               <SortDropdown
                 options={[
@@ -281,6 +272,15 @@ export function ScheduleScreen() {
                 }}
               />
             ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('schedule.addTask')}
+              onPress={aiScheduler.openActionSheet}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <MaterialIcons name="add" size={18} color={colors.white} />
+              <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
+            </Pressable>
           </View>
         </View>
 

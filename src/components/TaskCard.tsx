@@ -12,7 +12,6 @@ interface TaskCardProps {
   task: Task;
   onToggle: () => void;
   onEdit: () => void;
-  onDuplicate: () => void;
   onDelete: () => void;
   compact?: boolean;
 }
@@ -40,7 +39,6 @@ export function TaskCard({
   task,
   onToggle,
   onEdit,
-  onDuplicate,
   onDelete,
   compact = false,
 }: TaskCardProps) {
@@ -147,13 +145,6 @@ export function TaskCard({
         </View>
         <View style={styles.secondaryActions}>
           <IconButton
-            icon="content-copy"
-            accessibilityLabel={t('task.duplicate')}
-            onPress={onDuplicate}
-            size={17}
-            style={styles.smallButton}
-          />
-          <IconButton
             icon="delete-outline"
             accessibilityLabel={t('task.delete')}
             onPress={onDelete}
@@ -172,8 +163,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderLeftWidth: 5,
-    borderWidth: 1,
+    borderLeftWidth: 10,
+    borderWidth: 2,
     flexDirection: 'row',
     marginBottom: 10,
     padding: 12,

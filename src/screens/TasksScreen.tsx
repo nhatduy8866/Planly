@@ -39,7 +39,7 @@ export function TasksScreen() {
   const { state } = usePlanner();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
+  const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskFilter>('pending');
   const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
@@ -196,7 +196,6 @@ export function TasksScreen() {
                     setEditingTask(task);
                     setFormVisible(true);
                   }}
-                  onDuplicate={() => void duplicateTask(task)}
                   onDelete={() => confirmDelete(task)}
                 />
               ))}

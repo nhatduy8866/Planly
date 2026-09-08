@@ -27,7 +27,7 @@ import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { Task } from '../types';
+import type { CalendarMode, Task } from '../types';
 import {
   addDays,
   formatLongDate,
@@ -37,6 +37,48 @@ import {
   toDateKey,
   todayKey,
 } from '../utils/date';
+
+const CALENDAR_HEADER_BACKGROUND_KEYS = [
+  'calendarHeaderLavender',
+  'calendarHeaderBlue',
+  'calendarHeaderMint',
+  'calendarHeaderAmber',
+  'calendarHeaderPink',
+  'calendarHeaderPurple',
+] as const satisfies readonly (keyof ThemeColors)[];
+
+const CALENDAR_HEADER_BORDER_KEYS = [
+  'cardAccentLavender',
+  'cardAccentBlue',
+  'cardAccentMint',
+  'cardAccentAmber',
+  'cardAccentPink',
+  'cardAccentPurple',
+] as const satisfies readonly (keyof ThemeColors)[];
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function getCalendarPeriodColorIndex(cursor: Date, mode: CalendarMode): number {
+  if (mode === 'month') {
+    return positiveModulo(
+      cursor.getFullYear() * 12 + cursor.getMonth(),
+      CALENDAR_HEADER_BACKGROUND_KEYS.length,
+    );
+  }
+
+  const monday = addDays(cursor, -((cursor.getDay() + 6) % 7));
+  const mondayUtcDay = Math.floor(
+    Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()) /
+      (24 * 60 * 60 * 1000),
+  );
+
+  return positiveModulo(
+    Math.floor(mondayUtcDay / 7),
+    CALENDAR_HEADER_BACKGROUND_KEYS.length,
+  );
+}
 
 function shiftMonth(date: Date, amount: number): Date {
   const targetMonth = date.getMonth() + amount;
@@ -52,7 +94,7 @@ export function ScheduleScreen() {
   const { state, dispatch } = usePlanner();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
+  const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const { mode, registerTodayHandler, setMode } = useCalendarNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
@@ -60,6 +102,11 @@ export function ScheduleScreen() {
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const calendarPeriodColorIndex = getCalendarPeriodColorIndex(cursor, mode);
+  const calendarHeaderBackground =
+    colors[CALENDAR_HEADER_BACKGROUND_KEYS[calendarPeriodColorIndex]];
+  const calendarHeaderBorder =
+    colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]];
 
   const goToday = useCallback(() => {
     setSelectedDate(todayKey());
@@ -157,7 +204,15 @@ export function ScheduleScreen() {
         </View>
 
         <View style={styles.calendarCard}>
-          <View style={styles.calendarHeader}>
+          <View
+            style={[
+              styles.calendarHeader,
+              {
+                backgroundColor: calendarHeaderBackground,
+                borderColor: calendarHeaderBorder,
+              },
+            ]}
+          >
             <IconButton
               icon="chevron-left"
               accessibilityLabel={t('schedule.previous')}
@@ -229,7 +284,6 @@ export function ScheduleScreen() {
               task={task}
               onToggle={() => void toggleTask(task)}
               onEdit={() => openEdit(task)}
-              onDuplicate={() => void duplicateTask(task)}
               onDelete={() => confirmDelete(task)}
             />
           ))
@@ -315,7 +369,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 10,
     padding: 12,
   },
-  calendarHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },
+  calendarHeader: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
   monthTitle: { color: colors.text, flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   listHeader: {
     marginBottom: 12,

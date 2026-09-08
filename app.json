@@ -40,7 +40,12 @@
           "defaultChannel": "planly-reminders"
         }
       ],
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

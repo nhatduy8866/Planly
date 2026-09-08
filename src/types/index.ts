@@ -33,5 +33,3 @@ export interface PlannerState {
   notes: Note[];
   hydrated: boolean;
 }
-
-export type RootTab = 'schedule' | 'tasks' | 'notes';

@@ -104,7 +104,7 @@ function shiftMonth(date: Date, amount: number): Date {
 
 export function ScheduleScreen() {
   const { state, dispatch } = usePlanner();
-  const { colors, locale, t } = usePreferences();
+  const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const { mode, registerTodayHandler, setMode } = useCalendarNavigation();
@@ -115,10 +115,12 @@ export function ScheduleScreen() {
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
   const calendarPeriodColorIndex = getCalendarPeriodColorIndex(cursor, mode);
-  const calendarHeaderBackground =
-    colors[CALENDAR_HEADER_BACKGROUND_KEYS[calendarPeriodColorIndex]];
-  const calendarHeaderBorder =
-    colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]];
+  const calendarHeaderBackground = colorfulAccents
+    ? colors[CALENDAR_HEADER_BACKGROUND_KEYS[calendarPeriodColorIndex]]
+    : colors.surfaceMuted;
+  const calendarHeaderBorder = colorfulAccents
+    ? colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]]
+    : colors.border;
 
   const goToday = useCallback(() => {
     setSelectedDate(todayKey());

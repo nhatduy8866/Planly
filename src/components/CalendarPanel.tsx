@@ -19,19 +19,25 @@ interface CalendarPanelProps {
   onSelectDate: (date: string) => void;
 }
 
-function TaskDots({
+function TaskCountBadge({
   count,
+  selected,
   styles,
+  visible,
 }: {
   count: number;
+  selected: boolean;
   styles: ReturnType<typeof createStyles>;
+  visible: boolean;
 }) {
-  if (!count) return <View style={styles.dotSpacer} />;
+  if (!visible) return null;
+  if (!count) return <View style={styles.taskBadgeSpacer} />;
+
   return (
-    <View style={styles.dots}>
-      {Array.from({ length: Math.min(count, 3) }, (_, index) => (
-        <View key={index} style={styles.dot} />
-      ))}
+    <View style={[styles.taskBadge, selected && styles.taskBadgeSelected]}>
+      <Text style={[styles.taskBadgeText, selected && styles.taskBadgeTextSelected]}>
+        {count > 9 ? '9+' : count}
+      </Text>
     </View>
   );
 }
@@ -43,7 +49,7 @@ export function CalendarPanel({
   tasks,
   onSelectDate,
 }: CalendarPanelProps) {
-  const { locale } = usePreferences();
+  const { locale, showTaskBadges } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const mondayFirstLabels = locale === 'vi-VN'
     ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -77,7 +83,12 @@ export function CalendarPanel({
               <Text style={[styles.weekNumber, selected && styles.selectedText]}>
                 {date.getDate()}
               </Text>
-              <TaskDots count={taskCount[key] ?? 0} styles={styles} />
+              <TaskCountBadge
+                count={taskCount[key] ?? 0}
+                selected={selected}
+                styles={styles}
+                visible={showTaskBadges}
+              />
             </Pressable>
           );
         })}
@@ -120,7 +131,12 @@ export function CalendarPanel({
               >
                 {date.getDate()}
               </Text>
-              <TaskDots count={taskCount[key] ?? 0} styles={styles} />
+              <TaskCountBadge
+                count={taskCount[key] ?? 0}
+                selected={selected}
+                styles={styles}
+                visible={showTaskBadges}
+              />
             </Pressable>
           );
         })}
@@ -148,9 +164,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 5,
   },
   selectedText: { color: colors.white },
-  dotSpacer: { height: 5, marginTop: 7 },
-  dots: { flexDirection: 'row', gap: 2, height: 5, marginTop: 7 },
-  dot: { backgroundColor: colors.accent, borderRadius: 2, height: 4, width: 4 },
+  taskBadgeSpacer: { height: 14, marginTop: 4 },
+  taskBadge: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 7,
+    height: 14,
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  taskBadgeSelected: { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
+  taskBadgeText: {
+    color: colors.primaryDark,
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
+  },
+  taskBadgeTextSelected: { color: colors.white },
   monthHeader: { flexDirection: 'row', marginBottom: 4 },
   monthHeaderText: {
     color: colors.textMuted,

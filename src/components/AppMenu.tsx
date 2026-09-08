@@ -27,7 +27,18 @@ export function AppMenu({
   onRequestClose,
   visible,
 }: AppMenuProps) {
-  const { colors, language, t, theme, toggleLanguage, toggleTheme } = usePreferences();
+  const {
+    colorfulAccents,
+    colors,
+    language,
+    setColorfulAccents,
+    setShowTaskBadges,
+    showTaskBadges,
+    t,
+    theme,
+    toggleLanguage,
+    toggleTheme,
+  } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -88,6 +99,52 @@ export function AppMenu({
               thumbColor={colors.white}
               trackColor={{ false: colors.primary, true: colors.primary }}
               value={language === 'en'}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons name="palette" size={20} color={colors.primaryDark} />
+            </View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('menu.colorfulAccents')}</Text>
+              <Text style={styles.preferenceValue}>
+                {t('menu.colorfulAccentsDescription')}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('menu.colorfulAccents')}
+              accessibilityRole="switch"
+              onValueChange={(enabled) => {
+                setColorfulAccents(enabled);
+                void Haptics.selectionAsync();
+              }}
+              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              value={colorfulAccents}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons name="event-note" size={20} color={colors.primaryDark} />
+            </View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('menu.taskBadges')}</Text>
+              <Text style={styles.preferenceValue}>
+                {t('menu.taskBadgesDescription')}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('menu.taskBadges')}
+              accessibilityRole="switch"
+              onValueChange={(enabled) => {
+                setShowTaskBadges(enabled);
+                void Haptics.selectionAsync();
+              }}
+              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              value={showTaskBadges}
             />
           </View>
 

@@ -48,9 +48,11 @@ export function TaskCard({
   onDelete,
   compact = false,
 }: TaskCardProps) {
-  const { colors, locale, t } = usePreferences();
+  const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const cardAccent = colors[CARD_ACCENT_KEYS[getStableAccentIndex(task.id)]];
+  const cardAccent = colorfulAccents
+    ? colors[CARD_ACCENT_KEYS[getStableAccentIndex(task.id)]]
+    : colors.border;
   const priorityColors: Record<Exclude<TaskPriority, 'none'>, string> = {
     high: colors.priorityHigh,
     medium: colors.priorityMedium,

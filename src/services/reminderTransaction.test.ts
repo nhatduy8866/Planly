@@ -45,8 +45,11 @@ describe('replaceTaskReminders', () => {
     });
 
     const result = await replaceTaskReminders(tasks, existingTasks, {
-      cancelReminder,
-      scheduleReminder,
+      language: 'en',
+      dependencies: {
+        cancelReminder,
+        scheduleReminder,
+      },
     });
 
     expect(events).toEqual([
@@ -59,6 +62,11 @@ describe('replaceTaskReminders', () => {
       'new-task-1',
       'new-task-2',
     ]);
+    expect(scheduleReminder).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ id: 'task-1' }),
+      'en',
+    );
   });
 
   it('clears the stale ID and continues when scheduling a reminder fails', async () => {
@@ -73,7 +81,7 @@ describe('replaceTaskReminders', () => {
     const result = await replaceTaskReminders(
       [firstTask, secondTask],
       [firstTask, secondTask],
-      { cancelReminder, scheduleReminder },
+      { dependencies: { cancelReminder, scheduleReminder } },
     );
 
     expect(cancelReminder).toHaveBeenNthCalledWith(1, 'old-1');

@@ -8,7 +8,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
 import { formatDuration } from '../../utils/date';
 
@@ -27,6 +29,8 @@ export function AiAutoSlottingView({
   onDecline,
   onBack,
 }: AiAutoSlottingViewProps) {
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const hasSlottingFailure = drafts.some(
     (draft) => draft.slottingStatus === 'unscheduled',
   );
@@ -40,7 +44,7 @@ export function AiAutoSlottingView({
         </Pressable>
         <View style={styles.logoRow}>
           <MaterialIcons name="auto-awesome" size={18} color={colors.primary} />
-          <Text style={styles.headerTitle}>Planly AI</Text>
+          <Text style={styles.headerTitle}>{t('ai.planly')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -51,8 +55,8 @@ export function AiAutoSlottingView({
       >
         <Text style={styles.title}>
           {hasSlottingFailure
-            ? 'Lịch hiện tại không còn đủ thời gian trống'
-            : 'Bạn muốn Planly tự sắp xếp giờ cho các công việc này?'}
+            ? t('ai.autoSlotFailure')
+            : t('ai.autoSlotQuestion')}
         </Text>
 
         {infoMessage ? (
@@ -75,10 +79,10 @@ export function AiAutoSlottingView({
                 <Text style={styles.itemTitle}>
                   {task.title}{' '}
                   <Text style={styles.itemDuration}>
-                    ({formatDuration(task.durationMinutes)})
+                    ({formatDuration(task.durationMinutes, locale)})
                   </Text>
                   {isUnscheduled ? (
-                    <Text style={styles.unscheduledText}> · Chưa tìm thấy giờ trống</Text>
+                    <Text style={styles.unscheduledText}> · {t('ai.unscheduled')}</Text>
                   ) : null}
                 </Text>
               </View>
@@ -97,10 +101,10 @@ export function AiAutoSlottingView({
             <View style={styles.btnContent}>
               <View style={styles.btnRow}>
                 <MaterialIcons name="edit" size={18} color={colors.white} />
-                <Text style={styles.primaryBtnTitle}>Chỉnh lại yêu cầu</Text>
+                <Text style={styles.primaryBtnTitle}>{t('ai.editRequest')}</Text>
               </View>
               <Text style={styles.primaryBtnSubtitle}>
-                Thay đổi thời lượng, công việc hoặc ngày
+                {t('ai.editRequestSubtitle')}
               </Text>
             </View>
           </Pressable>
@@ -113,10 +117,10 @@ export function AiAutoSlottingView({
               <View style={styles.btnContent}>
                 <View style={styles.btnRow}>
                   <MaterialIcons name="auto-awesome" size={18} color={colors.white} />
-                  <Text style={styles.primaryBtnTitle}>Tự sắp xếp cho tôi</Text>
+                  <Text style={styles.primaryBtnTitle}>{t('ai.autoArrange')}</Text>
                 </View>
                 <Text style={styles.primaryBtnSubtitle}>
-                  Planly sẽ tìm khung giờ hợp lý
+                  {t('ai.autoArrangeSubtitle')}
                 </Text>
               </View>
             </Pressable>
@@ -126,9 +130,9 @@ export function AiAutoSlottingView({
               style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
             >
               <View style={styles.btnContent}>
-                <Text style={styles.secondaryBtnTitle}>Tôi sẽ chọn giờ</Text>
+                <Text style={styles.secondaryBtnTitle}>{t('ai.chooseTime')}</Text>
                 <Text style={styles.secondaryBtnSubtitle}>
-                  Giữ nguyên và để tôi đặt giờ
+                  {t('ai.chooseTimeSubtitle')}
                 </Text>
               </View>
             </Pressable>
@@ -139,7 +143,7 @@ export function AiAutoSlottingView({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,
@@ -257,7 +261,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   primaryBtnSubtitle: {
-    color: '#D1E0D5',
+    color: colors.white,
     fontSize: 12,
   },
   secondaryButton: {

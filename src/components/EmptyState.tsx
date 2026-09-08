@@ -2,7 +2,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
 
@@ -27,6 +29,9 @@ export function EmptyState({
   primaryActionIcon,
   onPrimaryAction,
 }: EmptyStateProps) {
+  const { colors } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.iconWrap}>
@@ -72,7 +77,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingHorizontal: 36,

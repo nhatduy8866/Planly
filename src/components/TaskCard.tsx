@@ -1,7 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task, TaskPriority } from '../types';
 import { formatDuration } from '../utils/date';
 import { IconButton } from './IconButton';
@@ -19,12 +21,6 @@ interface TaskCardProps {
   compact?: boolean;
 }
 
-const PRIORITY_COLORS: Record<Exclude<TaskPriority, 'none'>, string> = {
-  high: colors.priorityHigh,
-  medium: colors.priorityMedium,
-  low: colors.priorityLow,
-};
-
 export function TaskCard({
   task,
   onToggle,
@@ -37,9 +33,16 @@ export function TaskCard({
   disableMoveDown,
   compact = false,
 }: TaskCardProps) {
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+  const priorityColors: Record<Exclude<TaskPriority, 'none'>, string> = {
+    high: colors.priorityHigh,
+    medium: colors.priorityMedium,
+    low: colors.priorityLow,
+  };
   const priorityColor =
     task.priority && task.priority !== 'none'
-      ? PRIORITY_COLORS[task.priority]
+      ? priorityColors[task.priority]
       : null;
 
   const priorityBorder =
@@ -64,7 +67,7 @@ export function TaskCard({
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.completed }}
-        accessibilityLabel={`Đánh dấu ${task.title}`}
+        accessibilityLabel={t('task.mark', { title: task.title })}
         onPress={onToggle}
         style={styles.checkButton}
       >
@@ -78,7 +81,7 @@ export function TaskCard({
       <Pressable onPress={onEdit} style={styles.content}>
         <View style={styles.timeRow}>
           <Text style={[styles.time, { color: timeColor }]}>{task.startTime}</Text>
-          <Text style={styles.meta}>· {formatDuration(task.durationMinutes)}</Text>
+          <Text style={styles.meta}>· {formatDuration(task.durationMinutes, locale)}</Text>
           {task.reminderMinutes !== null ? (
             <MaterialIcons name="notifications" size={14} color={bellColor} />
           ) : null}
@@ -101,7 +104,7 @@ export function TaskCard({
           <View style={styles.moveActions}>
             <IconButton
               icon="keyboard-arrow-up"
-              accessibilityLabel="Đưa công việc lên"
+              accessibilityLabel={t('task.moveUp')}
               onPress={onMoveUp}
               disabled={disableMoveUp}
               size={19}
@@ -109,7 +112,7 @@ export function TaskCard({
             />
             <IconButton
               icon="keyboard-arrow-down"
-              accessibilityLabel="Đưa công việc xuống"
+              accessibilityLabel={t('task.moveDown')}
               onPress={onMoveDown}
               disabled={disableMoveDown}
               size={19}
@@ -120,14 +123,14 @@ export function TaskCard({
         <View style={styles.secondaryActions}>
           <IconButton
             icon="content-copy"
-            accessibilityLabel="Nhân bản công việc"
+            accessibilityLabel={t('task.duplicate')}
             onPress={onDuplicate}
             size={17}
             style={styles.smallButton}
           />
           <IconButton
             icon="delete-outline"
-            accessibilityLabel="Xóa công việc"
+            accessibilityLabel={t('task.delete')}
             onPress={onDelete}
             color={colors.danger}
             backgroundColor={colors.dangerSoft}
@@ -140,7 +143,7 @@ export function TaskCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -150,7 +153,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     padding: 12,
   },
-  cardCompleted: { backgroundColor: '#FAFBF9' },
+  cardCompleted: { backgroundColor: colors.surfaceMuted },
   checkButton: { paddingRight: 10, paddingTop: 2 },
   content: { flex: 1 },
   timeRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },

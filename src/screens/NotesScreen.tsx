@@ -17,13 +17,15 @@ import {
   NoteFormModal,
   type NoteFormValues,
 } from '../components/NoteFormModal';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
-import { colors } from '../theme/colors';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Note } from '../types';
 import { createId } from '../utils/id';
 
-function formatUpdatedAt(value: string): string {
-  return new Intl.DateTimeFormat('vi-VN', {
+function formatUpdatedAt(value: string, locale: 'vi-VN' | 'en-US'): string {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -33,23 +35,25 @@ function formatUpdatedAt(value: string): string {
 export function NotesScreen() {
   const insets = useSafeAreaInsets();
   const { state, dispatch } = usePlanner();
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [query, setQuery] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>();
   const [deletingNote, setDeletingNote] = useState<Note | undefined>();
 
   const notes = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('vi-VN');
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale);
     return state.notes
       .filter((note) =>
         normalizedQuery
           ? `${note.title} ${note.content}`
-              .toLocaleLowerCase('vi-VN')
+              .toLocaleLowerCase(locale)
               .includes(normalizedQuery)
           : true,
       )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [query, state.notes]);
+  }, [locale, query, state.notes]);
 
   function openCreate() {
     setEditingNote(undefined);
@@ -83,12 +87,12 @@ export function NotesScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>Ý TƯỞNG & THÔNG TIN</Text>
-            <Text style={styles.screenTitle}>Ghi chú</Text>
+            <Text style={styles.eyebrow}>{t('notes.eyebrow')}</Text>
+            <Text style={styles.screenTitle}>{t('notes.title')}</Text>
           </View>
           <Pressable onPress={openCreate} style={styles.addButton}>
             <MaterialIcons name="add" size={21} color={colors.white} />
-            <Text style={styles.addText}>Thêm</Text>
+            <Text style={styles.addText}>{t('common.add')}</Text>
           </Pressable>
         </View>
 
@@ -96,8 +100,8 @@ export function NotesScreen() {
           <MaterialIcons name="search" size={21} color={colors.textMuted} />
           <TextInput
             onChangeText={setQuery}
-            placeholder="Tìm ghi chú"
-            placeholderTextColor="#969E97"
+            placeholder={t('notes.search')}
+            placeholderTextColor={colors.placeholder}
             style={styles.searchInput}
             value={query}
           />
@@ -118,7 +122,7 @@ export function NotesScreen() {
                   </View>
                   <IconButton
                     icon="delete-outline"
-                    accessibilityLabel="Xóa ghi chú"
+                    accessibilityLabel={t('notes.deleteLabel')}
                     onPress={() => confirmDelete(note)}
                     color={colors.danger}
                     backgroundColor="transparent"
@@ -142,7 +146,7 @@ export function NotesScreen() {
                     </Text>
                   ) : null}
                   <Text style={styles.noteDate}>
-                    Cập nhật {formatUpdatedAt(note.updatedAt)}
+                    {t('notes.updated', { date: formatUpdatedAt(note.updatedAt, locale) })}
                   </Text>
                 </Pressable>
               </View>
@@ -151,13 +155,11 @@ export function NotesScreen() {
         ) : (
           <EmptyState
             icon="sticky-note-2"
-            title={query ? 'Không tìm thấy ghi chú' : 'Chưa có ghi chú'}
-            description={
-              query
-                ? 'Thử tìm bằng một từ khóa khác.'
-                : 'Lưu lại ý tưởng hoặc thông tin bạn không muốn quên.'
-            }
-            actionLabel={query ? undefined : 'Tạo ghi chú'}
+            title={t(query ? 'notes.noResultsTitle' : 'notes.emptyTitle')}
+            description={t(
+              query ? 'notes.noResultsDescription' : 'notes.emptyDescription',
+            )}
+            actionLabel={query ? undefined : t('notes.create')}
             onAction={query ? undefined : openCreate}
           />
         )}
@@ -174,8 +176,8 @@ export function NotesScreen() {
 
       <ConfirmModal
         visible={Boolean(deletingNote)}
-        title="Xóa ghi chú?"
-        message={`“${deletingNote?.title ?? ''}” sẽ bị xóa.`}
+        title={t('notes.deleteTitle')}
+        message={t('notes.deleteMessage', { title: deletingNote?.title ?? '' })}
         onConfirm={() => {
           if (deletingNote) {
             dispatch({ type: 'delete_note', payload: { id: deletingNote.id } });
@@ -188,7 +190,7 @@ export function NotesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16 },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

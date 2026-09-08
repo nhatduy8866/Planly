@@ -3,16 +3,12 @@ import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { RootTab } from '../types';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
-
-const tabs: { key: RootTab; label: string; icon: IconName }[] = [
-  { key: 'schedule', label: 'Lịch', icon: 'calendar-today' },
-  { key: 'tasks', label: 'Công việc', icon: 'check-circle-outline' },
-  { key: 'notes', label: 'Ghi chú', icon: 'sticky-note-2' },
-];
 
 export function BottomNavigation({
   activeTab,
@@ -22,6 +18,13 @@ export function BottomNavigation({
   onChange: (tab: RootTab) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+  const tabs: { key: RootTab; label: string; icon: IconName }[] = [
+    { key: 'schedule', label: t('nav.schedule'), icon: 'calendar-today' },
+    { key: 'tasks', label: t('nav.tasks'), icon: 'check-circle-outline' },
+    { key: 'notes', label: t('nav.notes'), icon: 'sticky-note-2' },
+  ];
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
@@ -52,7 +55,7 @@ export function BottomNavigation({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,

@@ -8,7 +8,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
 import { formatDuration, formatLongDate, minutesToTime, timeToMinutes } from '../../utils/date';
 
@@ -29,8 +31,10 @@ export function AiDraftPreviewView({
   onRefine,
   onBack,
 }: AiDraftPreviewViewProps) {
+  const { colors, locale, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const primaryDate = drafts[0]?.date || targetDate;
-  const formattedDate = formatLongDate(primaryDate);
+  const formattedDate = formatLongDate(primaryDate, locale);
 
   return (
     <View style={styles.container}>
@@ -40,7 +44,7 @@ export function AiDraftPreviewView({
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>
-          {isUpdated ? 'Kế hoạch đã cập nhật' : 'Kế hoạch của bạn'}
+          {t(isUpdated ? 'ai.updatedPreviewTitle' : 'ai.previewTitle')}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -50,7 +54,7 @@ export function AiDraftPreviewView({
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subHeader}>
-          {drafts.length} công việc · {formattedDate}
+          {t('ai.previewSubtitle', { count: drafts.length, date: formattedDate })}
         </Text>
 
         {drafts.map((task) => {
@@ -60,19 +64,19 @@ export function AiDraftPreviewView({
             const endM = startM + task.durationMinutes;
             timeRange = `${task.startTime} - ${minutesToTime(endM)}`;
           } else {
-            timeRange = 'Chưa đặt giờ';
+            timeRange = t('ai.noTime');
           }
 
           // Tag nhãn
-          let tagLabel = 'Từ yêu cầu';
+          let tagLabel = t('ai.fromRequestTag');
           let isUpdatedTag = false;
 
           if (isUpdated) {
             if (task.changeStatus === 'updated' || task.changeStatus === 'added') {
-              tagLabel = 'Đã cập nhật';
+              tagLabel = t('ai.updatedTag');
               isUpdatedTag = true;
             } else {
-              tagLabel = 'Không đổi';
+              tagLabel = t('ai.unchangedTag');
             }
           }
 
@@ -119,17 +123,21 @@ export function AiDraftPreviewView({
                 <View style={styles.metaItem}>
                   <MaterialIcons name="event" size={14} color={colors.primary} />
                   <Text style={[styles.metaText, { color: colors.primary, fontWeight: '700' }]}>
-                    {formatLongDate(task.date || primaryDate).split(',')[0]}
+                    {formatLongDate(task.date || primaryDate, locale).split(',')[0]}
                   </Text>
                 </View>
                 <View style={styles.metaItem}>
                   <MaterialIcons name="access-time" size={14} color={colors.textMuted} />
-                  <Text style={styles.metaText}>{formatDuration(task.durationMinutes)}</Text>
+                  <Text style={styles.metaText}>
+                    {formatDuration(task.durationMinutes, locale)}
+                  </Text>
                 </View>
                 {task.reminderMinutes !== null ? (
                   <View style={styles.metaItem}>
                     <MaterialIcons name="notifications" size={14} color={colors.warning} />
-                    <Text style={styles.metaText}>Nhắc trước {task.reminderMinutes} phút</Text>
+                    <Text style={styles.metaText}>
+                      {t('ai.reminderBefore', { count: task.reminderMinutes })}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -145,7 +153,7 @@ export function AiDraftPreviewView({
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
           <MaterialIcons name="add" size={20} color={colors.white} />
-          <Text style={styles.primaryButtonText}>Thêm vào lịch</Text>
+          <Text style={styles.primaryButtonText}>{t('ai.addToCalendar')}</Text>
         </Pressable>
 
         <Pressable
@@ -154,7 +162,7 @@ export function AiDraftPreviewView({
         >
           <MaterialIcons name="refresh" size={18} color={colors.text} />
           <Text style={styles.secondaryButtonText}>
-            {isUpdated ? 'Chỉnh tiếp' : 'Chỉnh lại bằng AI'}
+            {t(isUpdated ? 'ai.continueRefining' : 'ai.refinePlan')}
           </Text>
         </Pressable>
       </View>
@@ -162,7 +170,7 @@ export function AiDraftPreviewView({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,
@@ -274,6 +282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 16,
+    flexWrap: 'wrap',
   },
   metaItem: {
     alignItems: 'center',

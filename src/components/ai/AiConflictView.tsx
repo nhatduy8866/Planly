@@ -8,7 +8,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ScheduleConflict } from '../../types/ai';
 import { minutesToTime, timeToMinutes } from '../../utils/date';
 
@@ -25,6 +27,8 @@ export function AiConflictView({
   onApply,
   onBack,
 }: AiConflictViewProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const currentConflict = conflicts[0]; // Hiển thị conflict đầu tiên hoặc lần lượt
 
   if (!currentConflict) return null;
@@ -36,7 +40,7 @@ export function AiConflictView({
         <Pressable onPress={onBack} style={styles.iconButton}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Phát hiện trùng lịch</Text>
+        <Text style={styles.headerTitle}>{t('ai.conflictTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -49,12 +53,15 @@ export function AiConflictView({
           <MaterialIcons name="warning" size={24} color={colors.priorityHigh} />
           <View style={styles.alertTextWrap}>
             <Text style={styles.alertTitle}>
-              Có {conflicts.length} công việc bị trùng lịch
+              {t('ai.conflictCount', { count: conflicts.length })}
             </Text>
             <Text style={styles.alertDetails}>
-              {currentConflict.draftTaskTitle} ({currentConflict.draftRange.startTime} -{' '}
-              {currentConflict.draftRange.endTime}) trùng với:{' '}
-              {currentConflict.conflictingTask.title} ({currentConflict.conflictingTask.startTime} -{' '}
+              {t('ai.conflictAlert', {
+                draft: currentConflict.draftTaskTitle,
+                existing: currentConflict.conflictingTask.title,
+              })}{' '}
+              ({currentConflict.draftRange.startTime}–{currentConflict.draftRange.endTime} /{' '}
+              {currentConflict.conflictingTask.startTime}–
               {minutesToTime(
                 timeToMinutes(currentConflict.conflictingTask.startTime) +
                   currentConflict.conflictingTask.durationMinutes,
@@ -64,7 +71,7 @@ export function AiConflictView({
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Đề xuất khung giờ khác</Text>
+        <Text style={styles.sectionTitle}>{t('ai.alternativeTimes')}</Text>
 
         {/* Radio Slot Options */}
         <View style={styles.optionsList}>
@@ -89,7 +96,7 @@ export function AiConflictView({
                 <View style={styles.optionContent}>
                   <View style={styles.timeTitleRow}>
                     {slot.isKeepOriginal ? (
-                      <Text style={styles.optionTime}>Giữ nguyên</Text>
+                      <Text style={styles.optionTime}>{t('ai.keepOriginal')}</Text>
                     ) : (
                       <Text style={styles.optionTime}>
                         {slot.startTime} - {slot.endTime}
@@ -97,11 +104,21 @@ export function AiConflictView({
                     )}
                     {slot.tag ? (
                       <View style={styles.suggestionTag}>
-                        <Text style={styles.suggestionTagText}>{slot.tag}</Text>
+                        <Text style={styles.suggestionTagText}>{t('ai.suggestion')}</Text>
                       </View>
                     ) : null}
                   </View>
-                  <Text style={styles.optionLabel}>{slot.label}</Text>
+                  <Text style={styles.optionLabel}>
+                    {slot.id === 'slot_after_conflict'
+                      ? t('ai.afterConflict', {
+                          title: currentConflict.conflictingTask.title,
+                        })
+                      : slot.id === 'slot_afternoon'
+                        ? t('ai.afternoon')
+                        : slot.id === 'keep_original'
+                          ? t('ai.keepOriginal')
+                          : t('ai.nextAvailable')}
+                  </Text>
                 </View>
               </Pressable>
             );
@@ -115,14 +132,14 @@ export function AiConflictView({
           onPress={onApply}
           style={({ pressed }) => [styles.submitButton, pressed && styles.pressed]}
         >
-          <Text style={styles.submitText}>Cập nhật lịch</Text>
+          <Text style={styles.submitText}>{t('ai.updateSchedule')}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,
@@ -156,7 +173,7 @@ const styles = StyleSheet.create({
   },
   alertBox: {
     backgroundColor: colors.priorityHighSoft,
-    borderColor: '#FECACA',
+    borderColor: colors.priorityHigh,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -174,7 +191,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   alertDetails: {
-    color: '#7F1D1D',
+    color: colors.text,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -198,7 +215,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   optionCardSelected: {
-    backgroundColor: '#F3F8F4',
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
   optionContent: {

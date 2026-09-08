@@ -7,7 +7,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiSuccessViewProps {
   tasksCount: number;
@@ -20,6 +22,9 @@ export function AiSuccessView({
   onViewSchedule,
   onAddAnother,
 }: AiSuccessViewProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.container}>
       <View style={styles.body}>
@@ -38,10 +43,8 @@ export function AiSuccessView({
           </View>
         </View>
 
-        <Text style={styles.title}>Đã thêm {tasksCount} công việc!</Text>
-        <Text style={styles.description}>
-          Kế hoạch của bạn đã được lưu vào lịch. Chúc bạn một ngày hiệu quả!
-        </Text>
+        <Text style={styles.title}>{t('ai.successTitle', { count: tasksCount })}</Text>
+        <Text style={styles.description}>{t('ai.successDescription')}</Text>
       </View>
 
       {/* Footer Buttons */}
@@ -50,7 +53,7 @@ export function AiSuccessView({
           onPress={onViewSchedule}
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.primaryButtonText}>Xem lịch của tôi</Text>
+          <Text style={styles.primaryButtonText}>{t('ai.viewSchedule')}</Text>
         </Pressable>
 
         <Pressable
@@ -58,14 +61,14 @@ export function AiSuccessView({
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
           <MaterialIcons name="auto-awesome" size={18} color={colors.primary} />
-          <Text style={styles.secondaryButtonText}>Thêm kế hoạch khác</Text>
+          <Text style={styles.secondaryButtonText}>{t('ai.addAnother')}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,

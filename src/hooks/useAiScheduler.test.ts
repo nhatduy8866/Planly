@@ -23,12 +23,30 @@ const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
     existingTasks: Task[],
+    options?: { language?: 'vi' | 'en' },
   ) => Promise<Task[]>
 >();
 
 jest.mock('../store/PlannerContext', () => ({
   usePlanner: () => ({ state: mockPlannerState, dispatch: mockDispatch }),
 }));
+
+jest.mock('../preferences/PreferencesContext', () => {
+  const { translate } = jest.requireActual<
+    typeof import('../i18n/translations')
+  >('../i18n/translations');
+
+  return {
+    usePreferences: () => ({
+      language: 'vi',
+      locale: 'vi-VN',
+      t: (
+        key: Parameters<typeof translate>[1],
+        values?: Parameters<typeof translate>[2],
+      ) => translate('vi', key, values),
+    }),
+  };
+});
 
 jest.mock('../services/ai/aiProvider', () => ({
   defaultAiProvider: {
@@ -40,8 +58,11 @@ jest.mock('../services/ai/aiProvider', () => ({
 }));
 
 jest.mock('../services/reminderTransaction', () => ({
-  replaceTaskReminders: (tasks: Task[], existingTasks: Task[]) =>
-    mockReplaceTaskReminders(tasks, existingTasks),
+  replaceTaskReminders: (
+    tasks: Task[],
+    existingTasks: Task[],
+    options?: { language?: 'vi' | 'en' },
+  ) => mockReplaceTaskReminders(tasks, existingTasks, options),
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -202,6 +223,11 @@ describe('useAiScheduler', () => {
       type: 'create_batch_tasks',
       payload: [taskWithReminder],
     });
+    expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
+      expect.any(Array),
+      mockPlannerState.tasks,
+      { language: 'vi' },
+    );
     expect(scheduler.step).toBe('success');
   });
 

@@ -17,7 +17,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as Haptics from 'expo-haptics';
-import { colors } from '../theme/colors';
+import { usePreferences } from '../preferences/PreferencesContext';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import type { ReminderMinutes, Task, TaskPriority } from '../types';
 import { fromDateKey, taskDateTime, toDateKey } from '../utils/date';
 import { IconButton } from './IconButton';
@@ -41,35 +43,17 @@ interface TaskFormModalProps {
 }
 
 const PRIORITY_OPTIONS: {
-  label: string;
   value: TaskPriority;
   icon?: keyof typeof MaterialIcons.glyphMap;
-  color: string;
-  activeBg: string;
 }[] = [
-  { label: 'Thường', value: 'none', color: colors.textMuted, activeBg: colors.surfaceMuted },
-  { label: 'Thấp', value: 'low', icon: 'arrow-downward', color: colors.priorityLow, activeBg: colors.priorityLowSoft },
-  { label: 'Vừa', value: 'medium', icon: 'drag-handle', color: colors.priorityMedium, activeBg: colors.priorityMediumSoft },
-  { label: 'Cao', value: 'high', icon: 'error', color: colors.priorityHigh, activeBg: colors.priorityHighSoft },
+  { value: 'none' },
+  { value: 'low', icon: 'arrow-downward' },
+  { value: 'medium', icon: 'drag-handle' },
+  { value: 'high', icon: 'error' },
 ];
 
-const REMINDERS: { label: string; value: ReminderMinutes }[] = [
-  { label: 'Không', value: null },
-  { label: 'Đúng giờ', value: 0 },
-  { label: '5 phút', value: 5 },
-  { label: '15 phút', value: 15 },
-  { label: '30 phút', value: 30 },
-  { label: '1 giờ', value: 60 },
-];
-
-const DURATION_PRESETS: { label: string; value: number }[] = [
-  { label: '15 phút', value: 15 },
-  { label: '30 phút', value: 30 },
-  { label: '45 phút', value: 45 },
-  { label: '1 giờ', value: 60 },
-  { label: '1.5 giờ', value: 90 },
-  { label: '2 giờ', value: 120 },
-];
+const REMINDER_VALUES: ReminderMinutes[] = [null, 0, 5, 15, 30, 60];
+const DURATION_PRESET_VALUES = [15, 30, 45, 60, 90, 120];
 
 function formatTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(
@@ -85,6 +69,8 @@ export function TaskFormModal({
   onSubmit,
 }: TaskFormModalProps) {
   const insets = useSafeAreaInsets();
+  const { colors, t, theme } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [date, setDate] = useState(task?.date ?? defaultDate);
@@ -92,7 +78,7 @@ export function TaskFormModal({
   const [duration, setDuration] = useState(String(task?.durationMinutes ?? 30));
   const [isCustomDuration, setIsCustomDuration] = useState(() => {
     const currentDuration = task?.durationMinutes ?? 30;
-    return !DURATION_PRESETS.some((preset) => preset.value === currentDuration);
+    return !DURATION_PRESET_VALUES.includes(currentDuration);
   });
   const [reminder, setReminder] = useState<ReminderMinutes>(
     task?.reminderMinutes ?? null,
@@ -115,11 +101,11 @@ export function TaskFormModal({
     const trimmedTitle = title.trim();
     const parsedDuration = Number(duration);
     if (!trimmedTitle) {
-      setError('Hãy nhập tên công việc.');
+      setError(t('taskForm.titleRequired'));
       return;
     }
     if (!Number.isFinite(parsedDuration) || parsedDuration < 5) {
-      setError('Thời lượng phải từ 5 phút trở lên.');
+      setError(t('taskForm.durationInvalid'));
       return;
     }
 
@@ -137,7 +123,7 @@ export function TaskFormModal({
       });
       onClose();
     } catch {
-      setError('Không thể lưu công việc. Vui lòng thử lại.');
+      setError(t('taskForm.saveError'));
     } finally {
       setSaving(false);
     }
@@ -162,12 +148,12 @@ export function TaskFormModal({
             <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 16 : Math.max(insets.top, 16) }]}>
               <IconButton
                 icon="close"
-                accessibilityLabel="Đóng"
+                accessibilityLabel={t('common.close')}
                 onPress={onClose}
                 backgroundColor="transparent"
               />
               <Text style={styles.headerTitle}>
-                {task ? 'Chỉnh sửa công việc' : 'Công việc mới'}
+                {t(task ? 'taskForm.editTitle' : 'taskForm.newTitle')}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -175,7 +161,9 @@ export function TaskFormModal({
                 onPress={() => void handleSubmit()}
                 style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
               >
-                <Text style={styles.saveText}>{saving ? 'Đang lưu' : 'Lưu'}</Text>
+                <Text style={styles.saveText}>
+                  {t(saving ? 'common.saving' : 'common.save')}
+                </Text>
               </Pressable>
             </View>
 
@@ -184,24 +172,24 @@ export function TaskFormModal({
               contentContainerStyle={styles.content}
               keyboardShouldPersistTaps="handled"
             >
-            <Text style={styles.label}>Tên công việc</Text>
+            <Text style={styles.label}>{t('taskForm.name')}</Text>
             <TextInput
               autoFocus={!task}
               maxLength={120}
               onChangeText={setTitle}
-              placeholder="Ví dụ: Chuẩn bị báo cáo"
-              placeholderTextColor="#9AA19B"
+              placeholder={t('taskForm.namePlaceholder')}
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               value={title}
             />
 
-            <Text style={styles.label}>Mô tả</Text>
+            <Text style={styles.label}>{t('taskForm.description')}</Text>
             <TextInput
               maxLength={500}
               multiline
               onChangeText={setDescription}
-              placeholder="Thêm chi tiết (không bắt buộc)"
-              placeholderTextColor="#9AA19B"
+              placeholder={t('taskForm.descriptionPlaceholder')}
+              placeholderTextColor={colors.placeholder}
               style={[styles.input, styles.textArea]}
               textAlignVertical="top"
               value={description}
@@ -209,7 +197,7 @@ export function TaskFormModal({
 
             <View style={styles.row}>
               <View style={styles.half}>
-                <Text style={styles.label}>Ngày</Text>
+                <Text style={styles.label}>{t('taskForm.date')}</Text>
                 {Platform.OS === 'web' ? (
                   <View style={styles.webPickerBox}>
                     <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
@@ -242,7 +230,7 @@ export function TaskFormModal({
               </View>
 
               <View style={styles.half}>
-                <Text style={styles.label}>Bắt đầu</Text>
+                <Text style={styles.label}>{t('taskForm.start')}</Text>
                 {Platform.OS === 'web' ? (
                   <View style={styles.webPickerBox}>
                     <MaterialIcons name="schedule" size={19} color={colors.primary} />
@@ -275,15 +263,20 @@ export function TaskFormModal({
               </View>
             </View>
 
-            <Text style={styles.label}>Thời lượng</Text>
+            <Text style={styles.label}>{t('taskForm.duration')}</Text>
             <View style={styles.chips}>
-              {DURATION_PRESETS.map((item) => {
-                const active = Number(duration) === item.value && !isCustomDuration;
+              {DURATION_PRESET_VALUES.map((value) => {
+                const active = Number(duration) === value && !isCustomDuration;
+                const label = value === 60
+                  ? t('taskForm.oneHour')
+                  : value > 60
+                    ? t('taskForm.hours', { count: value / 60 })
+                    : t('taskForm.minutes', { count: value });
                 return (
                   <Pressable
-                    key={item.value}
+                    key={value}
                     onPress={() => {
-                      setDuration(String(item.value));
+                      setDuration(String(value));
                       setIsCustomDuration(false);
                     }}
                     style={({ pressed }) => [
@@ -293,7 +286,7 @@ export function TaskFormModal({
                     ]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {item.label}
+                      {label}
                     </Text>
                   </Pressable>
                 );
@@ -307,7 +300,7 @@ export function TaskFormModal({
                 ]}
               >
                 <Text style={[styles.chipText, isCustomDuration && styles.chipTextActive]}>
-                  Khác
+                  {t('taskForm.customDuration')}
                 </Text>
               </Pressable>
             </View>
@@ -318,22 +311,29 @@ export function TaskFormModal({
                   keyboardType="number-pad"
                   maxLength={4}
                   onChangeText={setDuration}
-                  placeholder="Nhập số phút (ví dụ: 25)"
-                  placeholderTextColor="#9AA19B"
+                  placeholder={t('taskForm.customDurationPlaceholder')}
+                  placeholderTextColor={colors.placeholder}
                   style={[styles.input, { marginTop: 8 }]}
                   value={duration}
                 />
               </View>
             ) : null}
 
-            <Text style={styles.label}>Nhắc trước</Text>
+            <Text style={styles.label}>{t('taskForm.reminder')}</Text>
             <View style={styles.chips}>
-              {REMINDERS.map((item) => {
-                const active = item.value === reminder;
+              {REMINDER_VALUES.map((value) => {
+                const active = value === reminder;
+                const label = value === null
+                  ? t('taskForm.reminderNone')
+                  : value === 0
+                    ? t('taskForm.onTime')
+                    : value === 60
+                      ? t('taskForm.oneHour')
+                      : t('taskForm.minutes', { count: value });
                 return (
                   <Pressable
-                    key={item.label}
-                    onPress={() => setReminder(item.value)}
+                    key={String(value)}
+                    onPress={() => setReminder(value)}
                     style={({ pressed }) => [
                       styles.chip,
                       active && styles.chipActive,
@@ -341,17 +341,31 @@ export function TaskFormModal({
                     ]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {item.label}
+                      {label}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.label}>Mức độ ưu tiên</Text>
+            <Text style={styles.label}>{t('taskForm.priority')}</Text>
             <View style={styles.priorityRow}>
               {PRIORITY_OPTIONS.map((item) => {
                 const active = item.value === priority;
+                const color = item.value === 'high'
+                  ? colors.priorityHigh
+                  : item.value === 'medium'
+                    ? colors.priorityMedium
+                    : item.value === 'low'
+                      ? colors.priorityLow
+                      : colors.textMuted;
+                const activeBg = item.value === 'high'
+                  ? colors.priorityHighSoft
+                  : item.value === 'medium'
+                    ? colors.priorityMediumSoft
+                    : item.value === 'low'
+                      ? colors.priorityLowSoft
+                      : colors.surfaceMuted;
                 return (
                   <Pressable
                     key={item.value}
@@ -362,8 +376,8 @@ export function TaskFormModal({
                     style={({ pressed }) => [
                       styles.priorityChip,
                       active && {
-                        backgroundColor: item.activeBg,
-                        borderColor: item.color,
+                        backgroundColor: activeBg,
+                        borderColor: color,
                       },
                       pressed && styles.pressed,
                     ]}
@@ -372,16 +386,24 @@ export function TaskFormModal({
                       <MaterialIcons
                         name={item.icon}
                         size={14}
-                        color={active ? item.color : colors.textMuted}
+                        color={active ? color : colors.textMuted}
                       />
                     ) : null}
                     <Text
                       style={[
                         styles.priorityChipText,
-                        active && { color: item.color, fontWeight: '800' },
+                        active && { color, fontWeight: '800' },
                       ]}
                     >
-                      {item.label}
+                      {t(
+                        item.value === 'high'
+                          ? 'taskForm.priorityHigh'
+                          : item.value === 'medium'
+                            ? 'taskForm.priorityMedium'
+                            : item.value === 'low'
+                              ? 'taskForm.priorityLow'
+                              : 'taskForm.priorityNone',
+                      )}
                     </Text>
                   </Pressable>
                 );
@@ -409,17 +431,17 @@ export function TaskFormModal({
             <View style={styles.iosPickerSheet}>
               <View style={styles.iosPickerHeader}>
                 <Text style={styles.iosPickerTitle}>
-                  {picker === 'date' ? 'Chọn ngày' : 'Chọn giờ bắt đầu'}
+                  {t(picker === 'date' ? 'taskForm.selectDate' : 'taskForm.selectTime')}
                 </Text>
                 <Pressable onPress={() => setPicker(null)} style={styles.iosDoneButton}>
-                  <Text style={styles.iosDoneText}>Xong</Text>
+                  <Text style={styles.iosDoneText}>{t('common.done')}</Text>
                 </Pressable>
               </View>
               <DateTimePicker
                 mode={picker}
                 value={pickerValue}
                 display={picker === 'date' ? 'inline' : 'spinner'}
-                themeVariant="light"
+                themeVariant={theme}
                 textColor={colors.text}
                 accentColor={colors.primary}
                 minimumDate={picker === 'date' ? new Date(2020, 0, 1) : undefined}
@@ -433,9 +455,9 @@ export function TaskFormModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   iosPickerOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colors.overlay,
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -471,7 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalBackdrop: {
-    backgroundColor: Platform.OS === 'web' ? 'rgba(23, 32, 25, 0.45)' : colors.background,
+    backgroundColor: Platform.OS === 'web' ? colors.overlay : colors.background,
     flex: 1,
     width: '100%',
     height: '100%',

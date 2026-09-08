@@ -1,4 +1,5 @@
 import type { Task } from '../types';
+import type { Language } from '../i18n/translations';
 import {
   cancelTaskReminder,
   scheduleTaskReminder,
@@ -14,6 +15,11 @@ const defaultDependencies: ReminderTransactionDependencies = {
   scheduleReminder: scheduleTaskReminder,
 };
 
+interface ReplaceTaskReminderOptions {
+  language?: Language;
+  dependencies?: ReminderTransactionDependencies;
+}
+
 /**
  * Replaces the reminder associated with every task before the tasks are saved.
  * Tasks are processed sequentially so an old reminder is always cancelled
@@ -22,8 +28,12 @@ const defaultDependencies: ReminderTransactionDependencies = {
 export async function replaceTaskReminders(
   tasks: Task[],
   existingTasks: Task[],
-  dependencies: ReminderTransactionDependencies = defaultDependencies,
+  options: ReplaceTaskReminderOptions = {},
 ): Promise<Task[]> {
+  const {
+    language = 'vi',
+    dependencies = defaultDependencies,
+  } = options;
   const existingById = new Map(existingTasks.map((task) => [task.id, task]));
   const preparedTasks: Task[] = [];
 
@@ -38,6 +48,7 @@ export async function replaceTaskReminders(
     try {
       notificationId = await dependencies.scheduleReminder(
         taskWithoutOldReminder,
+        language,
       );
     } catch {
       // The old reminder is already gone, so do not persist its stale ID.

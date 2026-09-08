@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import type { Language } from '../i18n/translations';
 import type { Task } from '../types';
 import { taskDateTime } from '../utils/date';
 
@@ -17,11 +18,11 @@ if (Platform.OS !== 'web') {
   });
 }
 
-async function ensurePermission(): Promise<boolean> {
+async function ensurePermission(language: Language): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Nhắc lịch Planly',
+      name: language === 'vi' ? 'Nhắc lịch Planly' : 'Planly reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 200, 150, 200],
     });
@@ -44,17 +45,25 @@ export async function cancelTaskReminder(notificationId?: string): Promise<void>
 
 export async function scheduleTaskReminder(
   task: Task,
+  language: Language = 'vi',
 ): Promise<string | undefined> {
   if (Platform.OS === 'web' || task.reminderMinutes === null) return undefined;
 
   const triggerDate = taskDateTime(task.date, task.startTime);
   triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
   if (triggerDate.getTime() <= Date.now()) return undefined;
-  if (!(await ensurePermission())) return undefined;
+  if (!(await ensurePermission(language))) return undefined;
 
   return Notifications.scheduleNotificationAsync({
     content: {
-      title: task.reminderMinutes === 0 ? 'Đến giờ rồi' : 'Sắp đến lịch',
+      title:
+        language === 'vi'
+          ? task.reminderMinutes === 0
+            ? 'Đến giờ rồi'
+            : 'Sắp đến lịch'
+          : task.reminderMinutes === 0
+            ? 'It’s time'
+            : 'Coming up soon',
       body: `${task.startTime} · ${task.title}`,
       data: { taskId: task.id },
       sound: 'default',

@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from '../../theme/colors';
 import type { useAiScheduler } from '../../hooks/useAiScheduler';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { AiActionSheet } from './AiActionSheet';
 import { AiAnalyzingView } from './AiAnalyzingView';
 import { AiAutoSlottingView } from './AiAutoSlottingView';
@@ -31,6 +32,7 @@ export function AiScheduleModal({
   onOpenManualTaskModal,
 }: AiScheduleModalProps) {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(createStyles);
 
   const {
     visible,
@@ -168,9 +170,9 @@ export function AiScheduleModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: colors.overlay,
     flex: 1,
     justifyContent: 'flex-end',
   },

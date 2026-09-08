@@ -12,22 +12,25 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-import { colors } from '../../theme/colors';
+import { usePreferences } from '../../preferences/PreferencesContext';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiRefinementViewProps {
   onSubmit: (instruction: string) => void;
   onBack: () => void;
 }
 
-const REFINEMENT_CHIPS = [
-  { id: 'move', icon: 'access-time', text: 'Dời báo cáo sang 10h' },
-  { id: 'remind', icon: 'notifications-none', text: 'Cho tất cả nhắc 15 phút' },
-  { id: 'remove', icon: 'delete-outline', text: 'Bỏ việc học tiếng Trung' },
-  { id: 'add', icon: 'auto-awesome', text: 'Thêm 1 tiếng gym buổi sáng' },
-];
-
 export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
+  const { colors, t } = usePreferences();
+  const styles = useThemedStyles(createStyles);
   const [instruction, setInstruction] = useState('');
+  const refinementChips = [
+    { id: 'move', icon: 'access-time', text: t('ai.refineMove') },
+    { id: 'remind', icon: 'notifications-none', text: t('ai.refineRemind') },
+    { id: 'remove', icon: 'delete-outline', text: t('ai.refineRemove') },
+    { id: 'add', icon: 'auto-awesome', text: t('ai.refineAdd') },
+  ];
 
   function handleSelectChip(chipText: string) {
     void Haptics.selectionAsync();
@@ -49,7 +52,7 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
         <Pressable onPress={onBack} style={styles.iconButton}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Chỉnh sửa bằng AI</Text>
+        <Text style={styles.headerTitle}>{t('ai.refineTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -58,10 +61,10 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.guideTitle}>Bạn có thể yêu cầu thay đổi, ví dụ:</Text>
+        <Text style={styles.guideTitle}>{t('ai.refineGuide')}</Text>
 
         <View style={styles.chipList}>
-          {REFINEMENT_CHIPS.map((item) => (
+          {refinementChips.map((item) => (
             <Pressable
               key={item.id}
               onPress={() => handleSelectChip(item.text)}
@@ -79,8 +82,8 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
         <View style={styles.inputWrapper}>
           <TextInput
             onChangeText={setInstruction}
-            placeholder="Dời báo cáo sang 10h và thành 2 tiếng nhé"
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('ai.refinePlaceholder')}
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={instruction}
             onSubmitEditing={handleSend}
@@ -107,7 +110,7 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     flex: 1,

@@ -81,6 +81,9 @@ export function AiScheduleModal({
             style={[
               styles.card,
               isActionSheet ? styles.actionSheetCard : styles.fullSheetCard,
+              !isActionSheet && {
+                paddingTop: Platform.OS === 'web' ? 0 : Math.max(insets.top, 16),
+              },
             ]}
           >
             {step === 'menu_action_sheet' && (

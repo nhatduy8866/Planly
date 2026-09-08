@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
@@ -33,7 +32,6 @@ function formatUpdatedAt(value: string, locale: 'vi-VN' | 'en-US'): string {
 }
 
 export function NotesScreen() {
-  const insets = useSafeAreaInsets();
   const { state, dispatch } = usePlanner();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
@@ -81,35 +79,30 @@ export function NotesScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>{t('notes.eyebrow')}</Text>
-            <Text style={styles.screenTitle}>{t('notes.title')}</Text>
+        <View style={styles.searchRow}>
+          <View style={styles.searchWrap}>
+            <MaterialIcons name="search" size={21} color={colors.textMuted} />
+            <TextInput
+              onChangeText={setQuery}
+              placeholder={t('notes.search')}
+              placeholderTextColor={colors.placeholder}
+              style={styles.searchInput}
+              value={query}
+            />
+            {query ? (
+              <Pressable onPress={() => setQuery('')}>
+                <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
           </View>
           <Pressable onPress={openCreate} style={styles.addButton}>
             <MaterialIcons name="add" size={21} color={colors.white} />
             <Text style={styles.addText}>{t('common.add')}</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <MaterialIcons name="search" size={21} color={colors.textMuted} />
-          <TextInput
-            onChangeText={setQuery}
-            placeholder={t('notes.search')}
-            placeholderTextColor={colors.placeholder}
-            style={styles.searchInput}
-            value={query}
-          />
-          {query ? (
-            <Pressable onPress={() => setQuery('')}>
-              <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
-            </Pressable>
-          ) : null}
         </View>
 
         {notes.length ? (
@@ -192,16 +185,14 @@ export function NotesScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 32, paddingHorizontal: 16 },
-  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  eyebrow: { color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
-  screenTitle: { color: colors.text, fontSize: 29, fontWeight: '800', marginTop: 3 },
+  content: { paddingBottom: 32, paddingHorizontal: 16, paddingTop: 14 },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
     borderRadius: 13,
     flexDirection: 'row',
     gap: 3,
+    justifyContent: 'center',
     paddingHorizontal: 13,
     paddingVertical: 10,
   },
@@ -212,11 +203,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 14,
     borderWidth: 1,
+    flex: 1,
     flexDirection: 'row',
-    marginTop: 20,
     paddingHorizontal: 13,
   },
   searchInput: { color: colors.text, flex: 1, fontSize: 14, paddingHorizontal: 9, paddingVertical: 12 },
+  searchRow: { flexDirection: 'row', gap: 10 },
   noteList: { gap: 11, marginTop: 18 },
   noteCard: {
     backgroundColor: colors.surface,

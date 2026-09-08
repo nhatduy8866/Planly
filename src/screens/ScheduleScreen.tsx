@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,10 +8,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalendarPanel } from '../components/CalendarPanel';
-import { AppMenu } from '../components/AppMenu';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
@@ -24,11 +22,12 @@ import {
 import { AiScheduleModal } from '../components/ai/AiScheduleModal';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { CalendarMode, Task } from '../types';
+import type { Task } from '../types';
 import {
   addDays,
   formatLongDate,
@@ -50,19 +49,27 @@ function shiftMonth(date: Date, amount: number): Date {
 }
 
 export function ScheduleScreen() {
-  const insets = useSafeAreaInsets();
   const { state, dispatch } = usePlanner();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
-  const [mode, setMode] = useState<CalendarMode>('week');
-  const [menuExpanded, setMenuExpanded] = useState(false);
+  const { mode, registerTodayHandler } = useCalendarNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+
+  const goToday = useCallback(() => {
+    setSelectedDate(todayKey());
+    setCursor(new Date());
+  }, []);
+
+  useEffect(
+    () => registerTodayHandler(goToday),
+    [goToday, registerTodayHandler],
+  );
 
   const handleAiNavigateDate = useCallback((date: string) => {
     setSelectedDate(date);
@@ -112,55 +119,12 @@ export function ScheduleScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
-  function goToday() {
-    setSelectedDate(todayKey());
-    setCursor(new Date());
-  }
-
   function confirmDelete(task: Task) {
     setDeletingTask(task);
   }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.navigationShell, { paddingTop: insets.top }]}>
-        <View style={styles.navigationBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(menuExpanded ? 'menu.close' : 'menu.open')}
-            accessibilityState={{ expanded: menuExpanded }}
-            onPress={() => {
-              setMenuExpanded((expanded) => !expanded);
-              void Haptics.selectionAsync();
-            }}
-            style={({ pressed }) => [
-              styles.menuButton,
-              menuExpanded && styles.menuButtonActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <MaterialIcons name="menu" size={25} color={colors.primaryDark} />
-          </Pressable>
-
-          <View pointerEvents="none" style={styles.centerIconWrap}>
-            <View style={styles.centerIcon}>
-              <MaterialIcons name="calendar-month" size={23} color={colors.primaryDark} />
-            </View>
-          </View>
-
-          <Pressable onPress={goToday} style={styles.todayButton}>
-            <Text style={styles.todayText}>{t('schedule.today')}</Text>
-          </Pressable>
-        </View>
-
-        <AppMenu
-          mode={mode}
-          onModeChange={setMode}
-          onRequestClose={() => setMenuExpanded(false)}
-          visible={menuExpanded}
-        />
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -304,56 +268,6 @@ export function ScheduleScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 96, paddingHorizontal: 16 },
-  navigationShell: {
-    backgroundColor: colors.surface,
-    borderBottomColor: colors.border,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    elevation: 3,
-    shadowColor: colors.shadow,
-    shadowOffset: { height: 2, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    zIndex: 10,
-  },
-  navigationBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 58,
-    paddingHorizontal: 16,
-  },
-  menuButton: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
-  },
-  menuButtonActive: { backgroundColor: colors.surfaceMuted },
-  centerIconWrap: {
-    alignItems: 'center',
-    bottom: 0,
-    justifyContent: 'center',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  centerIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 11,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
-  },
-  todayButton: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-  },
-  todayText: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

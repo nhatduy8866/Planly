@@ -4,6 +4,8 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppNavigationBar } from '../../components/AppNavigationBar';
+import { CalendarNavigationProvider } from '../../navigation/CalendarNavigationContext';
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -36,49 +38,54 @@ export default function TabLayout() {
   );
 
   return (
-    <Tabs
-      initialRouteName="index"
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: styles.scene,
-        tabBarStyle: [
-          styles.tabBar,
-          { height: 58 + bottomInset, paddingBottom: bottomInset },
-        ],
-        tabBarItemStyle: styles.tabBarItem,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('nav.schedule'),
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name="calendar-today" />
-          ),
-          tabBarLabel: ({ focused }) => label(t('nav.schedule'), focused),
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: t('nav.tasks'),
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name="check-circle-outline" />
-          ),
-          tabBarLabel: ({ focused }) => label(t('nav.tasks'), focused),
-        }}
-      />
-      <Tabs.Screen
-        name="notes"
-        options={{
-          title: t('nav.notes'),
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name="sticky-note-2" />
-          ),
-          tabBarLabel: ({ focused }) => label(t('nav.notes'), focused),
-        }}
-      />
-    </Tabs>
+    <CalendarNavigationProvider>
+      <View style={styles.layout}>
+        <AppNavigationBar />
+        <Tabs
+          initialRouteName="index"
+          screenOptions={{
+            headerShown: false,
+            sceneStyle: styles.scene,
+            tabBarStyle: [
+              styles.tabBar,
+              { height: 58 + bottomInset, paddingBottom: bottomInset },
+            ],
+            tabBarItemStyle: styles.tabBarItem,
+          }}
+        >
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: t('nav.schedule'),
+              tabBarIcon: ({ focused }) => (
+                <TabIcon focused={focused} name="calendar-today" />
+              ),
+              tabBarLabel: ({ focused }) => label(t('nav.schedule'), focused),
+            }}
+          />
+          <Tabs.Screen
+            name="tasks"
+            options={{
+              title: t('nav.tasks'),
+              tabBarIcon: ({ focused }) => (
+                <TabIcon focused={focused} name="check-circle-outline" />
+              ),
+              tabBarLabel: ({ focused }) => label(t('nav.tasks'), focused),
+            }}
+          />
+          <Tabs.Screen
+            name="notes"
+            options={{
+              title: t('nav.notes'),
+              tabBarIcon: ({ focused }) => (
+                <TabIcon focused={focused} name="sticky-note-2" />
+              ),
+              tabBarLabel: ({ focused }) => label(t('nav.notes'), focused),
+            }}
+          />
+        </Tabs>
+      </View>
+    </CalendarNavigationProvider>
   );
 }
 
@@ -93,6 +100,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   iconWrapActive: { backgroundColor: colors.primarySoft },
   label: { color: colors.textMuted, fontSize: 11, fontWeight: '600' },
   labelActive: { color: colors.primaryDark, fontWeight: '800' },
+  layout: { flex: 1 },
   scene: { backgroundColor: colors.background },
   tabBar: {
     backgroundColor: colors.surface,

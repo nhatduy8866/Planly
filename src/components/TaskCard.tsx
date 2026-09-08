@@ -23,6 +23,12 @@ const CARD_ACCENT_KEYS = [
   'cardAccentAmber',
   'cardAccentPink',
   'cardAccentPurple',
+  'cardAccentPeach',
+  'cardAccentLime',
+  'cardAccentCyan',
+  'cardAccentRose',
+  'cardAccentYellow',
+  'cardAccentSlate',
 ] as const satisfies readonly (keyof ThemeColors)[];
 
 function getStableAccentIndex(value: string): number {
@@ -163,8 +169,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderLeftWidth: 10,
-    borderWidth: 2,
+    borderLeftWidth: 15,
+    borderWidth: 4,
     flexDirection: 'row',
     marginBottom: 10,
     padding: 12,

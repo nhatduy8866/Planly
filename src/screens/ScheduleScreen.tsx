@@ -45,6 +45,12 @@ const CALENDAR_HEADER_BACKGROUND_KEYS = [
   'calendarHeaderAmber',
   'calendarHeaderPink',
   'calendarHeaderPurple',
+  'calendarHeaderPeach',
+  'calendarHeaderLime',
+  'calendarHeaderCyan',
+  'calendarHeaderRose',
+  'calendarHeaderYellow',
+  'calendarHeaderSlate',
 ] as const satisfies readonly (keyof ThemeColors)[];
 
 const CALENDAR_HEADER_BORDER_KEYS = [
@@ -54,6 +60,12 @@ const CALENDAR_HEADER_BORDER_KEYS = [
   'cardAccentAmber',
   'cardAccentPink',
   'cardAccentPurple',
+  'cardAccentPeach',
+  'cardAccentLime',
+  'cardAccentCyan',
+  'cardAccentRose',
+  'cardAccentYellow',
+  'cardAccentSlate',
 ] as const satisfies readonly (keyof ThemeColors)[];
 
 function positiveModulo(value: number, divisor: number): number {
@@ -252,36 +264,38 @@ export function ScheduleScreen() {
                 : t('schedule.noTasks')}
             </Text>
           </View>
-          <View style={styles.listActions}>
-            {dayTasks.length > 1 ? (
-              <SortDropdown
-                options={[
-                  { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                  { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                  { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-                ]}
-                selectedKey={sortMode}
-                onSelect={(key) => {
-                  const nextSort = key as 'time' | 'title' | 'priority';
-                  setSortMode(nextSort);
-                  dispatch({
-                    type: 'sort_day',
-                    payload: { date: selectedDate, by: nextSort },
-                  });
-                  void Haptics.selectionAsync();
-                }}
-              />
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('schedule.addTask')}
-              onPress={aiScheduler.openActionSheet}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            >
-              <MaterialIcons name="add" size={18} color={colors.white} />
-              <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
-            </Pressable>
-          </View>
+          {dayTasks.length ? (
+            <View style={styles.listActions}>
+              {dayTasks.length > 1 ? (
+                <SortDropdown
+                  options={[
+                    { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                    { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                    { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+                  ]}
+                  selectedKey={sortMode}
+                  onSelect={(key) => {
+                    const nextSort = key as 'time' | 'title' | 'priority';
+                    setSortMode(nextSort);
+                    dispatch({
+                      type: 'sort_day',
+                      payload: { date: selectedDate, by: nextSort },
+                    });
+                    void Haptics.selectionAsync();
+                  }}
+                />
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('schedule.addTask')}
+                onPress={aiScheduler.openActionSheet}
+                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+              >
+                <MaterialIcons name="add" size={18} color={colors.white} />
+                <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {dayTasks.length ? (

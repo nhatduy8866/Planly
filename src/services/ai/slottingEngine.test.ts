@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { Task } from '../../types';
 import type { AiDraftTask } from '../../types/ai';
+import { validateScheduleByDate } from './conflictDetector';
 import { autoSlotTasks } from './slottingEngine';
 
 function makeTask(overrides: Partial<Task>): Task {
@@ -103,4 +104,70 @@ describe('slottingEngine', () => {
     expect(unscheduled.every((draft) => draft.startTime === '')).toBe(true);
     expect(slotted.filter((draft) => draft.startTime === '20:00')).toHaveLength(1);
   });
+
+  it('leaves every new task unscheduled when adjacent tasks fill the whole day', () => {
+    const existing = [
+      makeTask({ id: 'morning', startTime: '08:00', durationMinutes: 240 }),
+      makeTask({ id: 'afternoon', startTime: '12:00', durationMinutes: 270 }),
+      makeTask({ id: 'evening', startTime: '16:30', durationMinutes: 300 }),
+    ];
+    const drafts = [
+      makeUnscheduledDraft('Việc gấp', 15, 'high'),
+      makeUnscheduledDraft('Việc thường', 30, 'medium'),
+    ];
+
+    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
+
+    expect(slotted).toHaveLength(2);
+    expect(
+      slotted.every(
+        (draft) =>
+          draft.startTime === '' && draft.slottingStatus === 'unscheduled',
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      title: 'Việc buổi chiều',
+      gapStart: '13:30',
+      nextTaskStart: '14:00',
+      expectedStart: '13:30',
+    },
+    {
+      title: 'Việc buổi tối',
+      gapStart: '18:30',
+      nextTaskStart: '19:00',
+      expectedStart: '18:30',
+    },
+  ])(
+    'keeps $title inside a short available gap',
+    ({ title, gapStart, nextTaskStart, expectedStart }) => {
+      const gapStartMinutes = Number(gapStart.slice(0, 2)) * 60 + Number(gapStart.slice(3));
+      const existing = [
+        makeTask({
+          id: 'before-gap',
+          startTime: '08:00',
+          durationMinutes: gapStartMinutes - 8 * 60,
+        }),
+        makeTask({
+          id: 'after-gap',
+          startTime: nextTaskStart,
+          durationMinutes:
+            21 * 60 + 30 -
+            (Number(nextTaskStart.slice(0, 2)) * 60 +
+              Number(nextTaskStart.slice(3))),
+        }),
+      ];
+
+      const slotted = autoSlotTasks(
+        [makeUnscheduledDraft(title, 30)],
+        existing,
+        '2026-09-08',
+      );
+
+      expect(slotted[0].startTime).toBe(expectedStart);
+      expect(validateScheduleByDate(slotted, existing).isValid).toBe(true);
+    },
+  );
 });

@@ -185,6 +185,7 @@ const vi = {
   'ai.addAnother': 'Thêm kế hoạch khác',
   'ai.noTasksToReorder': 'Ngày này chưa có công việc nào để sắp xếp lại hoặc yêu cầu chưa rõ. Hãy thêm công việc vào lịch trước.',
   'ai.noSlots': 'Không còn đủ khung giờ trống cho {{count}} công việc. Hãy rút ngắn thời lượng, bớt công việc hoặc chọn ngày khác.',
+  'ai.unscheduledAfterRefinement': 'Còn {{count}} công việc chưa có giờ sau khi chỉnh sửa. Hãy để Planly tự sắp xếp hoặc chỉnh lại yêu cầu.',
   'ai.unscheduledSave': 'Còn {{count}} công việc chưa có giờ. Planly sẽ không lưu cho đến khi tất cả công việc được xếp hợp lệ.',
 } as const;
 
@@ -375,6 +376,7 @@ const en: Record<TranslationKey, string> = {
   'ai.addAnother': 'Add another plan',
   'ai.noTasksToReorder': 'There are no tasks to rearrange for this day, or the request was unclear. Add tasks first and try again.',
   'ai.noSlots': 'There are not enough open time slots for {{count}} tasks. Shorten them, remove a task, or choose another day.',
+  'ai.unscheduledAfterRefinement': '{{count}} tasks still have no time after refinement. Let Planly arrange them or revise your request.',
   'ai.unscheduledSave': '{{count}} tasks still have no time. Planly will wait until every task has a valid time.',
 };
 

@@ -172,4 +172,25 @@ describe('conflictDetector', () => {
     expect(conflicts[0].suggestedSlots).toHaveLength(1);
     expect(conflicts[0].suggestedSlots[0].isKeepOriginal).toBe(true);
   });
+
+  it('reports every collision when one draft overlaps multiple existing tasks', () => {
+    const existing = [
+      makeTask({ id: 'first', startTime: '09:00', durationMinutes: 60 }),
+      makeTask({ id: 'second', startTime: '10:00', durationMinutes: 60 }),
+    ];
+    const drafts = [
+      makeDraft({ id: 'long-draft', startTime: '09:30', durationMinutes: 90 }),
+    ];
+
+    const conflicts = detectConflicts(drafts, existing);
+
+    expect(conflicts).toHaveLength(2);
+    expect(conflicts.map((conflict) => conflict.conflictingTask.id)).toEqual([
+      'first',
+      'second',
+    ]);
+    expect(
+      conflicts.every((conflict) => conflict.draftTaskId === 'long-draft'),
+    ).toBe(true);
+  });
 });

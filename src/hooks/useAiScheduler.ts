@@ -8,7 +8,7 @@ import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } 
 import { defaultAiProvider } from '../services/ai/aiProvider';
 import { detectConflicts } from '../services/ai/conflictDetector';
 import { autoSlotTasks } from '../services/ai/slottingEngine';
-import { scheduleTaskReminder } from '../services/notifications';
+import { replaceTaskReminders } from '../services/reminderTransaction';
 import { formatLongDate, todayKey } from '../utils/date';
 
 export function useAiScheduler(
@@ -233,6 +233,26 @@ export function useAiScheduler(
         await new Promise((resolve) => setTimeout(resolve, 1100));
 
         setDraftTasks(refined);
+
+        const unscheduledCount = refined.filter(
+          (draft) => !draft.startTime,
+        ).length;
+        if (unscheduledCount > 0) {
+          setInfoMessage(t('ai.unscheduledAfterRefinement', { count: unscheduledCount }));
+          setStep('auto_slotting');
+          return;
+        }
+
+        const detected = detectConflicts(refined, state.tasks);
+        if (detected.length > 0) {
+          setConflicts(detected);
+          setInfoMessage(null);
+          setStep('conflict_resolution');
+          return;
+        }
+
+        setConflicts([]);
+        setInfoMessage(null);
         setStep('updated_preview'); // Màn 7: Kế hoạch đã cập nhật
       } catch (err) {
         console.error('Lỗi tinh chỉnh AI:', err);
@@ -243,7 +263,7 @@ export function useAiScheduler(
         clearTimeout(timer3);
       }
     },
-    [draftTasks, context],
+    [draftTasks, context, state.tasks, t],
   );
 
   // Xác nhận lưu vào lịch (Màn 5 hoặc 7 -> Màn 10 Thành công)
@@ -256,8 +276,6 @@ export function useAiScheduler(
       setStep('auto_slotting');
       return;
     }
-
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const nowIso = new Date().toISOString();
     const existingMap = new Map(state.tasks.map((t) => [t.id, t]));
@@ -296,16 +314,15 @@ export function useAiScheduler(
       };
     });
 
-    // Lưu hàng loạt vào Reducer
-    dispatch({ type: 'create_batch_tasks', payload: tasksToSave });
+    // Đồng bộ reminder trước khi lưu để notificationId trong state luôn là ID mới.
+    const tasksWithReminders = await replaceTaskReminders(
+      tasksToSave,
+      state.tasks,
+      { language },
+    );
+    dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
 
-    // Lên lịch thông báo nền (nếu có reminder)
-    for (const task of tasksToSave) {
-      if (task.reminderMinutes !== null) {
-        void scheduleTaskReminder(task, language);
-      }
-    }
-
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setStep('success'); // Màn 10
   }, [draftTasks, dispatch, language, state.tasks, t]);
 

@@ -1,21 +1,15 @@
 import type { ReminderMinutes, TaskPriority } from '../../types';
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
-import { addDays, fromDateKey, toDateKey } from '../../utils/date';
+import {
+  resolveScheduleDate,
+  stripScheduleDateReferences,
+} from './dateIntent';
+import { isReorderIntent } from './scheduleIntent';
 import { autoSlotTasks } from './slottingEngine';
+import { resolveExistingTaskUpdate } from './taskUpdateIntent';
+import { parseVietnameseTime } from './timeIntent';
 
-/**
- * Kiểm tra xem người dùng có đang yêu cầu sắp xếp lại hoặc tối ưu lịch trình hiện có không
- */
-export function isReorderIntent(text: string): boolean {
-  const norm = text.trim().toLowerCase();
-  return (
-    /^(?:hãy\s+)?(?:sắp xếp|tối ưu|sắp đặt|phân bổ|tái sắp xếp)\s+(?:lại\s+)?(?:cả\s+ngày|các\s+công\s+việc|công\s+việc|lịch\s+trình|thời\s+gian\s+biểu)/i.test(
-      norm,
-    ) ||
-    /^(?:sắp xếp|tối ưu|phân bổ)\s+(?:cả\s+ngày|công\s+việc|lịch\s+trình)/i.test(norm) ||
-    /^(?:sắp xếp|tối ưu)\s+lại\s+/i.test(norm)
-  );
-}
+export { isReorderIntent } from './scheduleIntent';
 
 /**
  * Phân tích yêu cầu lập lịch tự nhiên bằng tiếng Việt (Offline Heuristic NLP)
@@ -29,16 +23,7 @@ export function parseVietnameseScheduleText(
 
   // 0. Nhận diện yêu cầu Sắp xếp lại / Tối ưu lịch trình (Reorder Intent)
   if (isReorderIntent(normalized)) {
-    const realToday = context.realToday || context.targetDate;
-    let targetDayKey = context.targetDate;
-
-    if (/ngày mai|\bmai\b/i.test(normalized)) {
-      targetDayKey = toDateKey(addDays(fromDateKey(realToday), 1));
-    } else if (/ngày kia|\bmốt\b|ngày mốt/i.test(normalized)) {
-      targetDayKey = toDateKey(addDays(fromDateKey(realToday), 2));
-    } else if (/hôm nay/i.test(normalized)) {
-      targetDayKey = realToday;
-    }
+    const targetDayKey = resolveScheduleDate(normalized, context).date;
 
     const dayTasks = (context.allTasks || context.existingTasks).filter(
       (t) => t.date === targetDayKey && !t.completed,
@@ -64,6 +49,9 @@ export function parseVietnameseScheduleText(
 
     return autoSlotTasks(draftsToReorder, [], targetDayKey);
   }
+
+  const existingTaskUpdate = resolveExistingTaskUpdate(normalized, context);
+  if (existingTaskUpdate !== null) return existingTaskUpdate;
 
   // 1. Tìm reminder chung nếu có (ví dụ: "nhắc tôi trước 30p nhé", "báo trước 15 phút")
   let globalReminder: ReminderMinutes = 15;
@@ -123,83 +111,26 @@ export function parseVietnameseScheduleText(
 
   const drafts: AiDraftTask[] = [];
   let index = 1;
+  let inheritedTaskDate = context.targetDate;
 
   for (const seg of rawSegments) {
     if (seg.length < 3) continue;
 
-    // 1. Phân tích Ngày (Date)
-    const realToday = context.realToday || context.targetDate;
-    let taskDate = context.targetDate;
-
-    if (/ngày mai|\bmai\b/i.test(seg)) {
-      taskDate = toDateKey(addDays(fromDateKey(realToday), 1));
-    } else if (/ngày kia|\bmốt\b|ngày mốt/i.test(seg)) {
-      taskDate = toDateKey(addDays(fromDateKey(realToday), 2));
-    } else if (/hôm nay/i.test(seg)) {
-      taskDate = realToday;
-    } else {
-      const weekdayMatch = seg.match(
-        /\b(thứ\s+[2-7]|thứ\s+hai|thứ\s+ba|thứ\s+tư|thứ\s+năm|thứ\s+sáu|thứ\s+bảy|chủ\s+nhật)\b/i,
-      );
-      if (weekdayMatch) {
-        const dayStr = weekdayMatch[1].toLowerCase().replace(/\s+/g, ' ');
-        const dayMap: Record<string, number> = {
-          'chủ nhật': 0,
-          'thứ 2': 1,
-          'thứ hai': 1,
-          'thứ 3': 2,
-          'thứ ba': 2,
-          'thứ 4': 3,
-          'thứ tư': 3,
-          'thứ 5': 4,
-          'thứ năm': 4,
-          'thứ 6': 5,
-          'thứ sáu': 5,
-          'thứ 7': 6,
-          'thứ bảy': 6,
-        };
-        const targetWeekday = dayMap[dayStr];
-        if (targetWeekday !== undefined) {
-          const currentDayObj = fromDateKey(realToday);
-          const currentWeekday = currentDayObj.getDay();
-          let diff = targetWeekday - currentWeekday;
-          if (diff <= 0) diff += 7; // Thứ trong tuần tiếp theo
-          taskDate = toDateKey(addDays(currentDayObj, diff));
-        }
-      }
+    // 1. Phân tích Ngày (Date) từ cùng một resolver dùng bởi provider.
+    const dateResolution = resolveScheduleDate(seg, context);
+    if (dateResolution.hasExplicitDate) {
+      inheritedTaskDate = dateResolution.date;
     }
+    const taskDate = inheritedTaskDate;
 
     // 2. Phân tích Giờ bắt đầu (startTime)
     let startTime = '';
     let remainingSeg = seg;
-    const timeMatch =
-      seg.match(/(?:lúc|vào lúc)?\s*(\d{1,2})[h:](\d{2})?\s*(sáng|chiều|tối)?/i) ||
-      seg.match(/(chiều|tối|sáng)\s*(\d{1,2})\s*h(?:(\d{2}))?/i);
+    const parsedTime = parseVietnameseTime(seg);
 
-    if (timeMatch) {
-      let hours: number;
-      let minutes: number = 0;
-      if (timeMatch[1] && isNaN(Number(timeMatch[1]))) {
-        // Định dạng "chiều 2h"
-        hours = Number(timeMatch[2]);
-        minutes = timeMatch[3] ? Number(timeMatch[3]) : 0;
-      } else {
-        // Định dạng "9h", "9:30", "14h chiều"
-        hours = Number(timeMatch[1]);
-        minutes = timeMatch[2] ? Number(timeMatch[2]) : 0;
-      }
-
-      const isAfternoonOrEvening = /chiều|tối/i.test(seg);
-      const isMorning = /sáng/i.test(seg);
-
-      if (hours < 12 && isAfternoonOrEvening) {
-        hours += 12;
-      } else if (hours === 12 && isMorning) {
-        hours = 0;
-      }
-
-      startTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      remainingSeg = seg.replace(timeMatch[0], ' ');
+    if (parsedTime) {
+      startTime = parsedTime.startTime;
+      remainingSeg = seg.replace(parsedTime.matchedText, ' ');
     } else {
       // Phân tích theo buổi trong ngày nếu không có số giờ cụ thể
       if (/buổi\s*sáng|\bsáng\b/i.test(seg)) {
@@ -243,7 +174,7 @@ export function parseVietnameseScheduleText(
     }
 
     // 5. Trích xuất Tiêu đề sạch sẽ (Clean title)
-    let title = seg
+    let title = stripScheduleDateReferences(seg)
       .replace(
         /^(?:tôi muốn|hãy giúp tôi|lên lịch giúp|tạo|tôi cần|cần|phải|hãy)\s+(?:1\s+)?(?:cuộc\s+hẹn\s+|lịch\s+hẹn\s+|việc\s+|công việc\s+)?/i,
         '',
@@ -301,12 +232,19 @@ export function refineVietnameseSchedule(
 
   // 0. Trường hợp: Sắp xếp lại / Tối ưu toàn bộ các việc đang xem
   if (isReorderIntent(norm)) {
-    const draftsToReorder = updated.map((t) => ({
-      ...t,
-      startTime: '',
-      changeStatus: 'updated' as const,
-    }));
-    return autoSlotTasks(draftsToReorder, [], _context.targetDate);
+    const draftsByDate = new Map<string, AiDraftTask[]>();
+    for (const task of updated) {
+      const tasksForDate = draftsByDate.get(task.date) || [];
+      tasksForDate.push({
+        ...task,
+        startTime: '',
+        changeStatus: 'updated' as const,
+      });
+      draftsByDate.set(task.date, tasksForDate);
+    }
+    return Array.from(draftsByDate, ([date, tasks]) =>
+      autoSlotTasks(tasks, [], date),
+    ).flat();
   }
 
   // 1. Trường hợp: Xóa một công việc (ví dụ: "bỏ việc học tiếng Trung", "xóa họp team")
@@ -345,12 +283,8 @@ export function refineVietnameseSchedule(
       let newDur = task.durationMinutes;
 
       // Tìm giờ mới
-      const newTimeMatch = norm.match(/(?:sang|vào|lúc)\s*(\d{1,2})\s*h(?:(\d{2}))?/i);
-      if (newTimeMatch) {
-        const h = Number(newTimeMatch[1]);
-        const m = newTimeMatch[2] ? Number(newTimeMatch[2]) : 0;
-        newStart = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      }
+      const parsedTime = parseVietnameseTime(norm, true);
+      if (parsedTime) newStart = parsedTime.startTime;
 
       // Tìm thời lượng mới
       const newDurMatch = norm.match(/(?:thành|làm)\s*(\d+)\s*(?:tiếng|giờ)/i);

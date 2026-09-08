@@ -30,11 +30,13 @@ describe('nlpParser', () => {
     expect(drafts[1].startTime).toBe('14:00');
     expect(drafts[1].durationMinutes).toBe(90);
     expect(drafts[1].reminderMinutes).toBe(15);
+    expect(drafts[1].date).toBe('2026-09-08');
 
     // Task 3: Học tiếng Trung (20:00, reminder 15)
     expect(drafts[2].title).toContain('Học tiếng Trung');
     expect(drafts[2].startTime).toBe('20:00');
     expect(drafts[2].reminderMinutes).toBe(15);
+    expect(drafts[2].date).toBe('2026-09-08');
   });
 
   it('handles follow-up refinement: reschedule and change duration', () => {
@@ -166,5 +168,81 @@ describe('nlpParser', () => {
     const drafts = parseVietnameseScheduleText(prompt, emptyContext);
 
     expect(drafts).toEqual([]);
+  });
+
+  it('reorders the requested weekday by priority without reading "thứ tự" as a date', () => {
+    const contextWithWeekTasks: AiSchedulingContext = {
+      realToday: '2026-09-07',
+      targetDate: '2026-09-07',
+      currentDayName: 'Thứ Hai, 7 tháng 9 năm 2026',
+      existingTasks: [],
+      allTasks: [
+        {
+          id: 'low-task',
+          title: 'Đọc tin',
+          description: '',
+          date: '2026-09-09',
+          startTime: '09:00',
+          durationMinutes: 30,
+          reminderMinutes: null,
+          priority: 'low',
+          completed: false,
+          order: 0,
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          id: 'high-task',
+          title: 'Hoàn tất báo cáo',
+          description: '',
+          date: '2026-09-09',
+          startTime: '16:00',
+          durationMinutes: 60,
+          reminderMinutes: 15,
+          priority: 'high',
+          completed: false,
+          order: 1,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+    };
+
+    const drafts = parseVietnameseScheduleText(
+      'Thứ Tư, giúp tôi sắp xếp lại lịch theo thứ tự ưu tiên',
+      contextWithWeekTasks,
+    );
+
+    expect(drafts.map((draft) => draft.id)).toEqual([
+      'high-task',
+      'low-task',
+    ]);
+    expect(drafts.every((draft) => draft.date === '2026-09-09')).toBe(true);
+    expect(drafts[0].startTime).toBe('08:00');
+  });
+
+  it('does not treat arranging one document as a whole-day reorder', () => {
+    const drafts = parseVietnameseScheduleText(
+      'Sắp xếp tài liệu thứ Tư lúc 9h',
+      context,
+    );
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].date).toBe('2026-09-09');
+    expect(drafts[0].startTime).toBe('09:00');
+  });
+
+  it('carries an explicit date forward until another segment changes it', () => {
+    const drafts = parseVietnameseScheduleText(
+      'Ngày mai họp lúc 9h, làm báo cáo lúc 11h; thứ Sáu đi gym lúc 18h, đọc sách lúc 20h',
+      context,
+    );
+
+    expect(drafts.map((draft) => draft.date)).toEqual([
+      '2026-09-08',
+      '2026-09-08',
+      '2026-09-11',
+      '2026-09-11',
+    ]);
   });
 });

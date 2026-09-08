@@ -42,7 +42,8 @@
       ],
       "expo-font",
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

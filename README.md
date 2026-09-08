@@ -34,6 +34,7 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 ## Công nghệ
 
 - Expo SDK 57
+- Expo Router
 - React Native 0.86
 - React 19
 - TypeScript
@@ -77,8 +78,8 @@ npm run doctor
 
 ```text
 Planly/
-├── App.tsx                    # App shell và điều hướng ba tab
 ├── src/
+│   ├── app/                   # Route, layout và điều hướng tab bằng Expo Router
 │   ├── components/            # Calendar, task card và các form modal
 │   ├── hooks/                 # Luồng CRUD task và đồng bộ reminder
 │   ├── screens/               # Lịch, công việc, ghi chú

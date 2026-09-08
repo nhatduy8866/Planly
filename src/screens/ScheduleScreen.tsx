@@ -238,7 +238,14 @@ export function ScheduleScreen() {
 
         <View style={styles.listHeader}>
           <View style={styles.listTitleWrap}>
-            <Text style={styles.dayTitle}>{formatLongDate(selectedDate, locale)}</Text>
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+              numberOfLines={1}
+              style={styles.dayTitle}
+            >
+              {formatLongDate(selectedDate, locale)}
+            </Text>
             <Text style={styles.taskCount}>
               {dayTasks.length
                 ? t('schedule.taskCount', { count: dayTasks.length })
@@ -380,18 +387,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   monthTitle: { color: colors.text, flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   listHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
     marginBottom: 12,
     marginTop: 24,
   },
-  listTitleWrap: { flex: 1 },
-  dayTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  listTitleWrap: { flex: 1, minWidth: 0 },
+  dayTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   taskCount: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
   listActions: {
     alignItems: 'center',
     flexDirection: 'row',
+    flexShrink: 0,
     gap: 8,
     justifyContent: 'flex-end',
-    marginTop: 10,
   },
   addButton: {
     alignItems: 'center',
@@ -400,7 +410,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     gap: 5,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
   },
   addButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },

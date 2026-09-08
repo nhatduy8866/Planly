@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
+import { useVoiceInput } from '../../hooks/useVoiceInput';
 
 interface AiInputViewProps {
   initialPrompt?: string;
@@ -31,7 +33,23 @@ export function AiInputView({
   const { colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [text, setText] = useState(initialPrompt);
-  const [isRecording, setIsRecording] = useState(false);
+
+  const {
+    isRecording,
+    isTranscribing,
+    durationSeconds,
+    errorMessage: voiceError,
+    toggleRecording,
+    clearError: clearVoiceError,
+  } = useVoiceInput({
+    onTranscript: (transcript) => {
+      setText((prev) => {
+        const trimmed = prev.trim();
+        return trimmed ? `${trimmed} ${transcript}` : transcript;
+      });
+    },
+  });
+
   const quickPrompts = [
     { id: 'today', icon: 'auto-awesome', label: t('ai.suggestionToday'), prompt: t('ai.promptToday') },
     { id: 'tomorrow', icon: 'auto-awesome', label: t('ai.suggestionTomorrow'), prompt: t('ai.promptTomorrow') },
@@ -40,21 +58,8 @@ export function AiInputView({
   ];
 
   function handleVoicePress() {
-    void Haptics.selectionAsync();
-    // Mô phỏng / kích hoạt nhận diện giọng nói
-    if (!isRecording) {
-      setIsRecording(true);
-      // Giả lập giọng nói tiếng Việt mẫu nếu môi trường web/demo
-      setTimeout(() => {
-        setText(
-          t('ai.promptTomorrow'),
-        );
-        setIsRecording(false);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }, 1800);
-    } else {
-      setIsRecording(false);
-    }
+    clearVoiceError();
+    toggleRecording();
   }
 
   function handleQuickPrompt(promptText: string) {
@@ -92,6 +97,13 @@ export function AiInputView({
         <Text style={styles.title}>{t('ai.inputTitle')}</Text>
         <Text style={styles.description}>{t('ai.inputDescription')}</Text>
 
+        {voiceError ? (
+          <View style={styles.infoBanner}>
+            <MaterialIcons name="error-outline" size={18} color={colors.warning} />
+            <Text style={styles.infoBannerText}>{voiceError}</Text>
+          </View>
+        ) : null}
+
         {infoMessage ? (
           <View style={styles.infoBanner}>
             <MaterialIcons name="info-outline" size={18} color={colors.warning} />
@@ -113,15 +125,29 @@ export function AiInputView({
           />
           <View style={styles.inputFooter}>
             <Pressable
+              disabled={isTranscribing}
               onPress={handleVoicePress}
-              style={[styles.micButton, isRecording && styles.micButtonActive]}
+              style={[
+                styles.micButton,
+                isRecording && styles.micButtonActive,
+                isTranscribing && styles.micButtonProcessing,
+              ]}
             >
-              <MaterialIcons
-                name={isRecording ? 'mic' : 'mic-none'}
-                size={22}
-                color={isRecording ? colors.danger : colors.primary}
-              />
-              {isRecording ? <Text style={styles.recordingText}>{t('ai.listening')}</Text> : null}
+              {isTranscribing ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.transcribingText}>{t('ai.voiceProcessing')}</Text>
+                </>
+              ) : isRecording ? (
+                <>
+                  <MaterialIcons name="mic" size={22} color={colors.danger} />
+                  <Text style={styles.recordingText}>
+                    {t('ai.voiceListening')} ({durationSeconds < 10 ? `0${durationSeconds}` : durationSeconds}s)
+                  </Text>
+                </>
+              ) : (
+                <MaterialIcons name="mic-none" size={22} color={colors.primary} />
+              )}
             </Pressable>
             <Text style={styles.charCount}>{text.length}/1000</Text>
           </View>
@@ -251,8 +277,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.dangerSoft,
     borderRadius: 8,
   },
+  micButtonProcessing: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 8,
+  },
   recordingText: {
     color: colors.danger,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  transcribingText: {
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '600',
   },

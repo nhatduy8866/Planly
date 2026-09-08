@@ -16,30 +16,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { CalendarMode } from '../types';
 import { IconButton } from './IconButton';
 
 interface AppMenuProps {
-  mode: CalendarMode;
-  onModeChange: (mode: CalendarMode) => void;
   onRequestClose: () => void;
   visible: boolean;
 }
 
 export function AppMenu({
-  mode,
-  onModeChange,
   onRequestClose,
   visible,
 }: AppMenuProps) {
   const { colors, language, t, theme, toggleLanguage, toggleTheme } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [settingsVisible, setSettingsVisible] = useState(false);
-
-  function selectMode(nextMode: CalendarMode) {
-    onModeChange(nextMode);
-    void Haptics.selectionAsync();
-  }
 
   function openSettings() {
     onRequestClose();
@@ -51,28 +41,6 @@ export function AppMenu({
     <>
       {visible ? (
         <View style={styles.dropdown}>
-          <Text style={styles.sectionLabel}>{t('menu.calendarView')}</Text>
-          <View style={styles.segment}>
-            {(['week', 'month'] as const).map((item) => {
-              const active = mode === item;
-              return (
-                <Pressable
-                  key={item}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => selectMode(item)}
-                  style={[styles.segmentItem, active && styles.segmentItemActive]}
-                >
-                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                    {t(item === 'week' ? 'calendar.week' : 'calendar.month')}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.divider} />
-
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceIcon}>
               <MaterialIcons
@@ -272,39 +240,9 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dropdown: {
+    backgroundColor: colors.surface,
     paddingBottom: 12,
     paddingHorizontal: 16,
-  },
-  sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    marginBottom: 7,
-    textTransform: 'uppercase',
-  },
-  segment: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 13,
-    flexDirection: 'row',
-    padding: 3,
-  },
-  segmentItem: {
-    alignItems: 'center',
-    borderRadius: 10,
-    flex: 1,
-    paddingVertical: 9,
-  },
-  segmentItemActive: {
-    backgroundColor: colors.surface,
-  },
-  segmentText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  segmentTextActive: {
-    color: colors.primaryDark,
   },
   divider: {
     backgroundColor: colors.border,

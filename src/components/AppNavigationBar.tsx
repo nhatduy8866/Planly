@@ -23,7 +23,7 @@ function getRouteIcon(pathname: string): IconName {
 export function AppNavigationBar() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const { mode, requestToday, setMode } = useCalendarNavigation();
+  const { requestToday } = useCalendarNavigation();
   const { colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [menuExpanded, setMenuExpanded] = useState(false);
@@ -46,7 +46,7 @@ export function AppNavigationBar() {
             pressed && styles.pressed,
           ]}
         >
-          <MaterialIcons name="menu" size={25} color={colors.primaryDark} />
+          <MaterialIcons name="menu" size={25} color={colors.white} />
         </Pressable>
 
         <View pointerEvents="none" style={styles.centerIconWrap}>
@@ -54,7 +54,7 @@ export function AppNavigationBar() {
             <MaterialIcons
               name={getRouteIcon(pathname)}
               size={23}
-              color={colors.primaryDark}
+              color={colors.primary}
             />
           </View>
         </View>
@@ -74,8 +74,6 @@ export function AppNavigationBar() {
       </View>
 
       <AppMenu
-        mode={mode}
-        onModeChange={setMode}
         onRequestClose={() => setMenuExpanded(false)}
         visible={menuExpanded}
       />
@@ -87,7 +85,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actionSpacer: { height: 38, width: 38 },
   centerIcon: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.white,
     borderRadius: 11,
     height: 38,
     justifyContent: 'center',
@@ -109,7 +107,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     width: 38,
   },
-  menuButtonActive: { backgroundColor: colors.surfaceMuted },
+  menuButtonActive: { backgroundColor: colors.subtleOverlay },
   navigationBar: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -118,7 +116,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 16,
   },
   navigationShell: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
     borderBottomColor: colors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     elevation: 3,
@@ -130,10 +128,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   todayButton: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.white,
     borderRadius: 12,
     paddingHorizontal: 13,
     paddingVertical: 9,
   },
-  todayText: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
+  todayText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
 });

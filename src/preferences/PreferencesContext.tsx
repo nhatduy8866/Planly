@@ -25,13 +25,17 @@ const STORAGE_KEY = '@planly/preferences/v1';
 interface StoredPreferences {
   theme: ThemeMode;
   language: Language;
+  colorfulAccents: boolean;
+  showTaskBadges: boolean;
 }
 
 interface PreferencesContextValue extends StoredPreferences {
   colors: ThemeColors;
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
+  setColorfulAccents: (enabled: boolean) => void;
   setLanguage: (language: Language) => void;
+  setShowTaskBadges: (enabled: boolean) => void;
   setTheme: (theme: ThemeMode) => void;
   t: Translate;
   toggleLanguage: () => void;
@@ -53,6 +57,8 @@ function isLanguage(value: unknown): value is Language {
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [language, setLanguage] = useState<Language>('vi');
+  const [colorfulAccents, setColorfulAccents] = useState(true);
+  const [showTaskBadges, setShowTaskBadges] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -65,8 +71,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (!active) return;
         if (isThemeMode(parsed.theme)) setTheme(parsed.theme);
         if (isLanguage(parsed.language)) setLanguage(parsed.language);
+        if (typeof parsed.colorfulAccents === 'boolean') {
+          setColorfulAccents(parsed.colorfulAccents);
+        }
+        if (typeof parsed.showTaskBadges === 'boolean') {
+          setShowTaskBadges(parsed.showTaskBadges);
+        }
       } catch {
-        // Invalid or unavailable storage falls back to Vietnamese and light mode.
+        // Invalid or unavailable storage falls back to the default preferences.
       } finally {
         if (active) setHydrated(true);
       }
@@ -80,8 +92,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ theme, language }));
-  }, [hydrated, language, theme]);
+    void AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ colorfulAccents, language, showTaskBadges, theme }),
+    );
+  }, [colorfulAccents, hydrated, language, showTaskBadges, theme]);
 
   const t = useCallback<Translate>(
     (key, values) => translate(language, key, values),
@@ -90,18 +105,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
+      colorfulAccents,
       colors: themes[theme],
       hydrated,
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
+      setColorfulAccents,
       setLanguage,
+      setShowTaskBadges,
       setTheme,
+      showTaskBadges,
       t,
       theme,
       toggleLanguage: () => setLanguage((current) => (current === 'vi' ? 'en' : 'vi')),
       toggleTheme: () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
     }),
-    [hydrated, language, t, theme],
+    [colorfulAccents, hydrated, language, showTaskBadges, t, theme],
   );
 
   return (

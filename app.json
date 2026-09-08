@@ -8,8 +8,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "androidStatusBar": {
-      "backgroundColor": "#F7F8F4",
-      "barStyle": "dark-content",
+      "backgroundColor": "#4F46E5",
+      "barStyle": "light-content",
       "translucent": false
     },
     "ios": {
@@ -36,7 +36,7 @@
       [
         "expo-notifications",
         {
-          "color": "#46664A",
+          "color": "#4F46E5",
           "defaultChannel": "planly-reminders"
         }
       ],

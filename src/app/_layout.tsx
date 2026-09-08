@@ -10,7 +10,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 
 function AppShell() {
   const { state } = usePlanner();
-  const { colors, hydrated: preferencesHydrated, theme } = usePreferences();
+  const { colors, hydrated: preferencesHydrated } = usePreferences();
   const styles = useThemedStyles(createStyles);
 
   if (!state.hydrated || !preferencesHydrated) {
@@ -23,7 +23,7 @@ function AppShell() {
 
   return (
     <>
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <View style={styles.outer}>
         <View style={styles.container}>
           <Slot />

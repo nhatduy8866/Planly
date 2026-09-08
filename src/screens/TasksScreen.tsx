@@ -25,7 +25,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
 import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
 
-type TaskFilter = 'pending' | 'high' | 'all' | 'completed';
+type TaskFilter = 'today' | 'all' | 'completed';
 type TaskSort = 'time' | 'priority' | 'title' | 'created';
 
 const PRIORITY_WEIGHT: Record<string, number> = {
@@ -39,16 +39,15 @@ export function TasksScreen() {
   const { state } = usePlanner();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
-  const [filter, setFilter] = useState<TaskFilter>('pending');
+  const { deleteTask, saveTask, toggleTask } = useTaskActions();
+  const [filter, setFilter] = useState<TaskFilter>('today');
   const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
   const filters: { key: TaskFilter; label: string }[] = [
-    { key: 'pending', label: t('tasks.filterPending') },
-    { key: 'high', label: t('tasks.filterHigh') },
+    { key: 'today', label: t('tasks.filterToday') },
     { key: 'all', label: t('tasks.filterAll') },
     { key: 'completed', label: t('tasks.filterCompleted') },
   ];
@@ -61,10 +60,10 @@ export function TasksScreen() {
 
   const groupedTasks = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(locale);
+    const currentDate = todayKey();
     const filtered = state.tasks
       .filter((task) => {
-        if (filter === 'pending' && task.completed) return false;
-        if (filter === 'high' && (task.priority !== 'high' || task.completed)) return false;
+        if (filter === 'today' && task.date !== currentDate) return false;
         if (filter === 'completed' && !task.completed) return false;
         if (!normalizedQuery) return true;
         return `${task.title} ${task.description}`
@@ -196,7 +195,6 @@ export function TasksScreen() {
                     setEditingTask(task);
                     setFormVisible(true);
                   }}
-                  onDuplicate={() => void duplicateTask(task)}
                   onDelete={() => confirmDelete(task)}
                 />
               ))}

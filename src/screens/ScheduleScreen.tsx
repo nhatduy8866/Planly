@@ -27,7 +27,7 @@ import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { Task } from '../types';
+import type { CalendarMode, Task } from '../types';
 import {
   addDays,
   formatLongDate,
@@ -37,6 +37,60 @@ import {
   toDateKey,
   todayKey,
 } from '../utils/date';
+
+const CALENDAR_HEADER_BACKGROUND_KEYS = [
+  'calendarHeaderLavender',
+  'calendarHeaderBlue',
+  'calendarHeaderMint',
+  'calendarHeaderAmber',
+  'calendarHeaderPink',
+  'calendarHeaderPurple',
+  'calendarHeaderPeach',
+  'calendarHeaderLime',
+  'calendarHeaderCyan',
+  'calendarHeaderRose',
+  'calendarHeaderYellow',
+  'calendarHeaderSlate',
+] as const satisfies readonly (keyof ThemeColors)[];
+
+const CALENDAR_HEADER_BORDER_KEYS = [
+  'cardAccentLavender',
+  'cardAccentBlue',
+  'cardAccentMint',
+  'cardAccentAmber',
+  'cardAccentPink',
+  'cardAccentPurple',
+  'cardAccentPeach',
+  'cardAccentLime',
+  'cardAccentCyan',
+  'cardAccentRose',
+  'cardAccentYellow',
+  'cardAccentSlate',
+] as const satisfies readonly (keyof ThemeColors)[];
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
+function getCalendarPeriodColorIndex(cursor: Date, mode: CalendarMode): number {
+  if (mode === 'month') {
+    return positiveModulo(
+      cursor.getFullYear() * 12 + cursor.getMonth(),
+      CALENDAR_HEADER_BACKGROUND_KEYS.length,
+    );
+  }
+
+  const monday = addDays(cursor, -((cursor.getDay() + 6) % 7));
+  const mondayUtcDay = Math.floor(
+    Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()) /
+      (24 * 60 * 60 * 1000),
+  );
+
+  return positiveModulo(
+    Math.floor(mondayUtcDay / 7),
+    CALENDAR_HEADER_BACKGROUND_KEYS.length,
+  );
+}
 
 function shiftMonth(date: Date, amount: number): Date {
   const targetMonth = date.getMonth() + amount;
@@ -50,16 +104,23 @@ function shiftMonth(date: Date, amount: number): Date {
 
 export function ScheduleScreen() {
   const { state, dispatch } = usePlanner();
-  const { colors, locale, t } = usePreferences();
+  const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const { deleteTask, duplicateTask, saveTask, toggleTask } = useTaskActions();
-  const { mode, registerTodayHandler } = useCalendarNavigation();
+  const { deleteTask, saveTask, toggleTask } = useTaskActions();
+  const { mode, registerTodayHandler, setMode } = useCalendarNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const calendarPeriodColorIndex = getCalendarPeriodColorIndex(cursor, mode);
+  const calendarHeaderBackground = colorfulAccents
+    ? colors[CALENDAR_HEADER_BACKGROUND_KEYS[calendarPeriodColorIndex]]
+    : colors.surfaceMuted;
+  const calendarHeaderBorder = colorfulAccents
+    ? colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]]
+    : colors.border;
 
   const goToday = useCallback(() => {
     setSelectedDate(todayKey());
@@ -129,8 +190,43 @@ export function ScheduleScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.calendarModeToggle}>
+          {(['week', 'month'] as const).map((item) => {
+            const active = mode === item;
+            return (
+              <Pressable
+                key={item}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  setMode(item);
+                  void Haptics.selectionAsync();
+                }}
+                style={[styles.calendarModeItem, active && styles.calendarModeItemActive]}
+              >
+                <Text
+                  style={[
+                    styles.calendarModeText,
+                    active && styles.calendarModeTextActive,
+                  ]}
+                >
+                  {t(item === 'week' ? 'calendar.week' : 'calendar.month')}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <View style={styles.calendarCard}>
-          <View style={styles.calendarHeader}>
+          <View
+            style={[
+              styles.calendarHeader,
+              {
+                backgroundColor: calendarHeaderBackground,
+                borderColor: calendarHeaderBorder,
+              },
+            ]}
+          >
             <IconButton
               icon="chevron-left"
               accessibilityLabel={t('schedule.previous')}
@@ -156,53 +252,62 @@ export function ScheduleScreen() {
 
         <View style={styles.listHeader}>
           <View style={styles.listTitleWrap}>
-            <Text style={styles.dayTitle}>{formatLongDate(selectedDate, locale)}</Text>
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.82}
+              numberOfLines={1}
+              style={styles.dayTitle}
+            >
+              {formatLongDate(selectedDate, locale)}
+            </Text>
             <Text style={styles.taskCount}>
               {dayTasks.length
                 ? t('schedule.taskCount', { count: dayTasks.length })
                 : t('schedule.noTasks')}
             </Text>
           </View>
-          {dayTasks.length > 1 ? (
-            <SortDropdown
-              options={[
-                { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-              ]}
-              selectedKey={sortMode}
-              onSelect={(key) => {
-                const nextSort = key as 'time' | 'title' | 'priority';
-                setSortMode(nextSort);
-                dispatch({
-                  type: 'sort_day',
-                  payload: { date: selectedDate, by: nextSort },
-                });
-                void Haptics.selectionAsync();
-              }}
-            />
+          {dayTasks.length ? (
+            <View style={styles.listActions}>
+              {dayTasks.length > 1 ? (
+                <SortDropdown
+                  options={[
+                    { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                    { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                    { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+                  ]}
+                  selectedKey={sortMode}
+                  onSelect={(key) => {
+                    const nextSort = key as 'time' | 'title' | 'priority';
+                    setSortMode(nextSort);
+                    dispatch({
+                      type: 'sort_day',
+                      payload: { date: selectedDate, by: nextSort },
+                    });
+                    void Haptics.selectionAsync();
+                  }}
+                />
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('schedule.addTask')}
+                onPress={aiScheduler.openActionSheet}
+                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+              >
+                <MaterialIcons name="add" size={18} color={colors.white} />
+                <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
 
         {dayTasks.length ? (
-          dayTasks.map((task, index) => (
+          dayTasks.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
               onToggle={() => void toggleTask(task)}
               onEdit={() => openEdit(task)}
-              onDuplicate={() => void duplicateTask(task)}
               onDelete={() => confirmDelete(task)}
-              onMoveUp={() => {
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: -1 } });
-                void Haptics.selectionAsync();
-              }}
-              onMoveDown={() => {
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: 1 } });
-                void Haptics.selectionAsync();
-              }}
-              disableMoveUp={index === 0}
-              disableMoveDown={index === dayTasks.length - 1}
             />
           ))
         ) : (
@@ -218,19 +323,6 @@ export function ScheduleScreen() {
           />
         )}
       </ScrollView>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('schedule.addTask')}
-        onPress={aiScheduler.openActionSheet}
-        style={({ pressed }) => [
-          styles.fab,
-          { bottom: 18 },
-          pressed && styles.pressed,
-        ]}
-      >
-        <MaterialIcons name="add" size={27} color={colors.white} />
-      </Pressable>
 
       <AiScheduleModal
         scheduler={aiScheduler}
@@ -267,41 +359,76 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 96, paddingHorizontal: 16 },
+  content: { paddingBottom: 32, paddingHorizontal: 16 },
+  calendarModeToggle: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 13,
+    flexDirection: 'row',
+    marginTop: 16,
+    padding: 3,
+  },
+  calendarModeItem: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 9,
+  },
+  calendarModeItemActive: {
+    backgroundColor: colors.surface,
+  },
+  calendarModeText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calendarModeTextActive: {
+    color: colors.primaryDark,
+  },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
-    marginTop: 16,
+    marginTop: 10,
     padding: 12,
   },
-  calendarHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },
+  calendarHeader: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
   monthTitle: { color: colors.text, flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   listHeader: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
     marginBottom: 12,
     marginTop: 24,
   },
-  listTitleWrap: { flex: 1 },
-  dayTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  listTitleWrap: { flex: 1, minWidth: 0 },
+  dayTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   taskCount: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
-  fab: {
+  listActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 28,
-    elevation: 5,
-    height: 56,
+    borderRadius: 11,
+    flexDirection: 'row',
+    gap: 5,
     justifyContent: 'center',
-    position: 'absolute',
-    right: 20,
-    shadowColor: colors.shadow,
-    shadowOffset: { height: 3, width: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    width: 56,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
+  addButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   pressed: { opacity: 0.7 },
 });

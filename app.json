@@ -7,9 +7,14 @@
     "scheme": "planly",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF7F0"
+    },
     "androidStatusBar": {
-      "backgroundColor": "#4F46E5",
-      "barStyle": "light-content",
+      "backgroundColor": "#FAF7F0",
+      "barStyle": "dark-content",
       "translucent": false
     },
     "ios": {
@@ -21,7 +26,7 @@
         "SCHEDULE_EXACT_ALARM"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FAF7F0",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

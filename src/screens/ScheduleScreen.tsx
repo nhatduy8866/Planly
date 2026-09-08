@@ -190,29 +190,40 @@ export function ScheduleScreen() {
                 : t('schedule.noTasks')}
             </Text>
           </View>
-          {dayTasks.length > 1 ? (
-            <SortDropdown
-              options={[
-                { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-              ]}
-              selectedKey={sortMode}
-              onSelect={(key) => {
-                const nextSort = key as 'time' | 'title' | 'priority';
-                setSortMode(nextSort);
-                dispatch({
-                  type: 'sort_day',
-                  payload: { date: selectedDate, by: nextSort },
-                });
-                void Haptics.selectionAsync();
-              }}
-            />
-          ) : null}
+          <View style={styles.listActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('schedule.addTask')}
+              onPress={aiScheduler.openActionSheet}
+              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            >
+              <MaterialIcons name="add" size={18} color={colors.white} />
+              <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
+            </Pressable>
+            {dayTasks.length > 1 ? (
+              <SortDropdown
+                options={[
+                  { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                  { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                  { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+                ]}
+                selectedKey={sortMode}
+                onSelect={(key) => {
+                  const nextSort = key as 'time' | 'title' | 'priority';
+                  setSortMode(nextSort);
+                  dispatch({
+                    type: 'sort_day',
+                    payload: { date: selectedDate, by: nextSort },
+                  });
+                  void Haptics.selectionAsync();
+                }}
+              />
+            ) : null}
+          </View>
         </View>
 
         {dayTasks.length ? (
-          dayTasks.map((task, index) => (
+          dayTasks.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
@@ -220,16 +231,6 @@ export function ScheduleScreen() {
               onEdit={() => openEdit(task)}
               onDuplicate={() => void duplicateTask(task)}
               onDelete={() => confirmDelete(task)}
-              onMoveUp={() => {
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: -1 } });
-                void Haptics.selectionAsync();
-              }}
-              onMoveDown={() => {
-                dispatch({ type: 'move_task', payload: { id: task.id, direction: 1 } });
-                void Haptics.selectionAsync();
-              }}
-              disableMoveUp={index === 0}
-              disableMoveDown={index === dayTasks.length - 1}
             />
           ))
         ) : (
@@ -245,19 +246,6 @@ export function ScheduleScreen() {
           />
         )}
       </ScrollView>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('schedule.addTask')}
-        onPress={aiScheduler.openActionSheet}
-        style={({ pressed }) => [
-          styles.fab,
-          { bottom: 18 },
-          pressed && styles.pressed,
-        ]}
-      >
-        <MaterialIcons name="add" size={27} color={colors.white} />
-      </Pressable>
 
       <AiScheduleModal
         scheduler={aiScheduler}
@@ -294,7 +282,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 96, paddingHorizontal: 16 },
+  content: { paddingBottom: 32, paddingHorizontal: 16 },
   calendarModeToggle: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: 13,
@@ -330,29 +318,29 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   calendarHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },
   monthTitle: { color: colors.text, flex: 1, fontSize: 16, fontWeight: '800', textAlign: 'center' },
   listHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 12,
     marginTop: 24,
   },
   listTitleWrap: { flex: 1 },
   dayTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   taskCount: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
-  fab: {
+  listActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 28,
-    elevation: 5,
-    height: 56,
+    borderRadius: 11,
+    flexDirection: 'row',
+    gap: 5,
     justifyContent: 'center',
-    position: 'absolute',
-    right: 20,
-    shadowColor: colors.shadow,
-    shadowOffset: { height: 3, width: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    width: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
+  addButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   pressed: { opacity: 0.7 },
 });

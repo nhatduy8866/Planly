@@ -23,7 +23,7 @@ const vi = {
   'menu.vietnamese': 'Tiếng Việt',
   'menu.english': 'English',
   'menu.colorfulAccents': 'Màu đa sắc',
-  'menu.colorfulAccentsDescription': 'Card và header lịch',
+  'menu.colorfulAccentsDescription': 'Thẻ công việc và tiêu đề lịch',
   'menu.taskBadges': 'Badge công việc',
   'menu.taskBadgesDescription': 'Số lượng dưới mỗi ngày',
   'menu.openSettings': 'Mở cài đặt',

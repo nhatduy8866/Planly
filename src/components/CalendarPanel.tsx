@@ -58,6 +58,11 @@ export function CalendarPanel({
     count[task.date] = (count[task.date] ?? 0) + 1;
     return count;
   }, {});
+  const highPriorityDates = new Set(
+    tasks
+      .filter((task) => task.priority === 'high')
+      .map((task) => task.date),
+  );
 
   if (mode === 'week') {
     return (
@@ -65,6 +70,7 @@ export function CalendarPanel({
         {getWeekDays(cursor).map((date) => {
           const key = toDateKey(date);
           const selected = key === selectedDate;
+          const hasHighPriority = highPriorityDates.has(key);
           return (
             <Pressable
               key={key}
@@ -77,6 +83,7 @@ export function CalendarPanel({
                 pressed && styles.pressed,
               ]}
             >
+              {hasHighPriority ? <View style={styles.highPriorityIndicator} /> : null}
               <Text style={[styles.weekLabel, selected && styles.selectedText]}>
                 {getWeekdayShort(date, locale)}
               </Text>
@@ -110,6 +117,7 @@ export function CalendarPanel({
           const key = toDateKey(date);
           const selected = key === selectedDate;
           const outsideMonth = date.getMonth() !== cursor.getMonth();
+          const hasHighPriority = highPriorityDates.has(key);
           return (
             <Pressable
               key={key}
@@ -122,6 +130,7 @@ export function CalendarPanel({
                 pressed && styles.pressed,
               ]}
             >
+              {hasHighPriority ? <View style={styles.highPriorityIndicator} /> : null}
               <Text
                 style={[
                   styles.monthNumber,
@@ -152,10 +161,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 18,
     flex: 1,
     marginHorizontal: 2,
+    overflow: 'hidden',
     paddingVertical: 9,
   },
   selectedDay: { backgroundColor: colors.primary },
   selectedMonthDay: { backgroundColor: colors.primary },
+  highPriorityIndicator: {
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 18,
+    borderStyle: 'solid',
+    borderTopColor: colors.priorityHigh,
+    borderTopWidth: 18,
+    height: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 0,
+  },
   weekLabel: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
   weekNumber: {
     color: colors.text,
@@ -167,12 +189,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   taskBadgeSpacer: { height: 14, marginTop: 4 },
   taskBadge: {
     alignItems: 'center',
-    alignSelf: 'stretch',
+    alignSelf: 'center',
     backgroundColor: colors.primarySoft,
     borderRadius: 7,
     height: 14,
     justifyContent: 'center',
     marginTop: 4,
+    width: '95%',
   },
   taskBadgeSelected: { backgroundColor: 'rgba(255, 255, 255, 0.24)' },
   taskBadgeText: {
@@ -197,6 +220,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 45,
     justifyContent: 'center',
     marginVertical: 1,
+    overflow: 'hidden',
     width: '14.2857%',
   },
   monthNumber: { color: colors.text, fontSize: 13, fontWeight: '600' },

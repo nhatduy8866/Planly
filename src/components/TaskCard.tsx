@@ -53,105 +53,64 @@ export function TaskCard({
   const cardAccent = colorfulAccents
     ? colors[CARD_ACCENT_KEYS[getStableAccentIndex(task.id)]]
     : colors.border;
+  const priority = task.priority ?? 'none';
   const priorityColors: Record<Exclude<TaskPriority, 'none'>, string> = {
     high: colors.priorityHigh,
     medium: colors.priorityMedium,
     low: colors.priorityLow,
   };
-  const priority = task.priority ?? 'none';
-  const priorityVisual = priority === 'high'
-    ? {
-        backgroundColor: colors.priorityHighSoft,
-        color: priorityColors.high,
-        icon: 'priority-high' as const,
-        label: t('taskForm.priorityHigh'),
-      }
-    : priority === 'medium'
-      ? {
-          backgroundColor: colors.priorityMediumSoft,
-          color: priorityColors.medium,
-          icon: 'flag' as const,
-          label: t('taskForm.priorityMedium'),
-        }
-      : priority === 'low'
-        ? {
-            backgroundColor: colors.priorityLowSoft,
-            color: priorityColors.low,
-            icon: 'low-priority' as const,
-            label: t('taskForm.priorityLow'),
-          }
-        : {
-            backgroundColor: colors.surfaceMuted,
-            color: colors.textMuted,
-            icon: 'outlined-flag' as const,
-            label: t('taskForm.priorityNone'),
-          };
 
   return (
-    <View
-      style={[
-        styles.card,
-        { borderColor: cardAccent, borderLeftColor: cardAccent },
-        task.completed && styles.cardCompleted,
-      ]}
-    >
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: task.completed }}
-        accessibilityLabel={t('task.mark', { title: task.title })}
-        onPress={onToggle}
-        style={styles.checkButton}
+    <View style={styles.cardFrame}>
+      <View
+        style={[
+          styles.card,
+          { borderColor: cardAccent, borderLeftColor: cardAccent },
+          task.completed && styles.cardCompleted,
+        ]}
       >
-        <MaterialIcons
-          name={task.completed ? 'check-circle' : 'radio-button-unchecked'}
-          size={24}
-          color={task.completed ? colors.primary : colors.textMuted}
-        />
-      </Pressable>
-
-      <Pressable onPress={onEdit} style={styles.content}>
-        <View style={styles.timeRow}>
-          <Text style={[styles.time, task.completed && styles.completedMeta]}>
-            {task.startTime}
-          </Text>
-          <Text style={styles.meta}>· {formatDuration(task.durationMinutes, locale)}</Text>
-          {task.reminderMinutes !== null ? (
-            <MaterialIcons
-              name="notifications"
-              size={14}
-              color={task.completed ? colors.textMuted : colors.warning}
-            />
-          ) : null}
-        </View>
-        <Text
-          numberOfLines={2}
-          style={[styles.title, task.completed && styles.completedText]}
-        >
-          {task.title}
-        </Text>
-        {!compact && task.description ? (
-          <Text numberOfLines={2} style={styles.description}>
-            {task.description}
-          </Text>
-        ) : null}
-      </Pressable>
-
-      <View style={styles.actions}>
-        <View
-          accessible
-          accessibilityLabel={`${t('taskForm.priority')}: ${priorityVisual.label}`}
-          style={[
-            styles.priorityIcon,
-            { backgroundColor: priorityVisual.backgroundColor },
-          ]}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: task.completed }}
+          accessibilityLabel={t('task.mark', { title: task.title })}
+          onPress={onToggle}
+          style={styles.checkButton}
         >
           <MaterialIcons
-            name={priorityVisual.icon}
-            size={17}
-            color={task.completed ? colors.textMuted : priorityVisual.color}
+            name={task.completed ? 'check-circle' : 'radio-button-unchecked'}
+            size={24}
+            color={task.completed ? colors.primary : colors.textMuted}
           />
-        </View>
-        <View style={styles.secondaryActions}>
+        </Pressable>
+
+        <Pressable onPress={onEdit} style={styles.content}>
+          <View style={styles.timeRow}>
+            <Text style={[styles.time, task.completed && styles.completedMeta]}>
+              {task.startTime}
+            </Text>
+            <Text style={styles.meta}>· {formatDuration(task.durationMinutes, locale)}</Text>
+            {task.reminderMinutes !== null ? (
+              <MaterialIcons
+                name="notifications"
+                size={14}
+                color={task.completed ? colors.textMuted : colors.warning}
+              />
+            ) : null}
+          </View>
+          <Text
+            numberOfLines={2}
+            style={[styles.title, task.completed && styles.completedText]}
+          >
+            {task.title}
+          </Text>
+          {!compact && task.description ? (
+            <Text numberOfLines={2} style={styles.description}>
+              {task.description}
+            </Text>
+          ) : null}
+        </Pressable>
+
+        <View style={styles.actions}>
           <IconButton
             icon="delete-outline"
             accessibilityLabel={t('task.delete')}
@@ -163,21 +122,44 @@ export function TaskCard({
           />
         </View>
       </View>
+      {priority !== 'none' ? (
+        <View
+          pointerEvents="none"
+          style={[styles.priorityCorner, { borderTopColor: priorityColors[priority] }]}
+        />
+      ) : null}
     </View>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  cardFrame: {
+    borderRadius: 16,
+    marginBottom: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 16,
     borderLeftWidth: 15,
     borderWidth: 4,
     flexDirection: 'row',
-    marginBottom: 10,
     padding: 12,
   },
   cardCompleted: { backgroundColor: colors.surfaceMuted },
+  priorityCorner: {
+    borderLeftColor: 'transparent',
+    borderLeftWidth: 32,
+    borderStyle: 'solid',
+    borderTopWidth: 32,
+    height: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 0,
+    zIndex: 1,
+  },
   checkButton: { paddingRight: 10, paddingTop: 2 },
   content: { flex: 1 },
   timeRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
@@ -187,14 +169,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
   completedText: { color: colors.textMuted, textDecorationLine: 'line-through' },
   description: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
-  actions: { alignItems: 'flex-end', justifyContent: 'space-between', marginLeft: 6 },
-  priorityIcon: {
-    alignItems: 'center',
-    borderRadius: 9,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  secondaryActions: { flexDirection: 'row', gap: 4, marginTop: 6 },
+  actions: { alignItems: 'flex-end', justifyContent: 'flex-end', marginLeft: 6 },
   smallButton: { borderRadius: 9, height: 30, width: 30 },
 });

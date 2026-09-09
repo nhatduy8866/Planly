@@ -44,7 +44,6 @@ const mockTask: Task = {
   description: 'Thảo luận kế hoạch sprint mới',
   date: '2026-09-09',
   startTime: '09:00',
-  durationMinutes: 60,
   reminderMinutes: 15,
   completed: false,
   priority: 'high',
@@ -75,7 +74,7 @@ function renderTaskCard(props: Partial<React.ComponentProps<typeof TaskCard>> = 
 }
 
 describe('TaskCard Component', () => {
-  it('renders task title, time, and duration correctly', () => {
+  it('renders task title and start time correctly', () => {
     const { tree } = renderTaskCard();
     const json = JSON.stringify(tree.toJSON());
 

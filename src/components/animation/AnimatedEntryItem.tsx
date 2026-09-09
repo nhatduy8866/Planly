@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
 
 export interface AnimatedEntryItemProps {
@@ -22,7 +22,7 @@ export function AnimatedEntryItem({
   duration = 240,
   offsetY = 16,
 }: AnimatedEntryItemProps) {
-  const animValue = useRef(new Animated.Value(0)).current;
+  const [animValue] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     animValue.setValue(0);

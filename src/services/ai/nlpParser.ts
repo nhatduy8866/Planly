@@ -40,7 +40,6 @@ export function parseVietnameseScheduleText(
       title: t.title,
       date: t.date,
       startTime: '',
-      durationMinutes: t.durationMinutes || 30,
       reminderMinutes: t.reminderMinutes ?? 15,
       priority: t.priority || 'none',
       source: 'auto_slotted',
@@ -125,12 +124,10 @@ export function parseVietnameseScheduleText(
 
     // 2. Phân tích Giờ bắt đầu (startTime)
     let startTime = '';
-    let remainingSeg = seg;
     const parsedTime = parseVietnameseTime(seg);
 
     if (parsedTime) {
       startTime = parsedTime.startTime;
-      remainingSeg = seg.replace(parsedTime.matchedText, ' ');
     } else {
       // Phân tích theo buổi trong ngày nếu không có số giờ cụ thể
       if (/buổi\s*sáng|\bsáng\b/i.test(seg)) {
@@ -144,26 +141,7 @@ export function parseVietnameseScheduleText(
       }
     }
 
-    // 3. Phân tích Thời lượng (Duration in minutes)
-    let durationMinutes = 30; // Mặc định 30 phút
-    if (/1\s*tiếng\s*rưỡi|1\s*giờ\s*rưỡi/i.test(remainingSeg)) {
-      durationMinutes = 90;
-    } else if (/2\s*tiếng\s*rưỡi|2\s*giờ\s*rưỡi/i.test(remainingSeg)) {
-      durationMinutes = 150;
-    } else {
-      const durHourMatch = remainingSeg.match(/(\d+)\s*(?:tiếng|giờ)/i);
-      const durMinMatch = remainingSeg.match(/(\d+)\s*(?:phút|p\b)/i);
-
-      if (durHourMatch && durMinMatch) {
-        durationMinutes = Number(durHourMatch[1]) * 60 + Number(durMinMatch[1]);
-      } else if (durHourMatch) {
-        durationMinutes = Number(durHourMatch[1]) * 60;
-      } else if (durMinMatch) {
-        durationMinutes = Number(durMinMatch[1]);
-      }
-    }
-
-    // 4. Phân tích Mức độ ưu tiên (Priority)
+    // 3. Phân tích Mức độ ưu tiên (Priority)
     let priority: TaskPriority = 'none';
     if (/gấp|khẩn cấp|rất quan trọng|ưu tiên cao|hàng đầu/i.test(seg)) {
       priority = 'high';
@@ -173,7 +151,7 @@ export function parseVietnameseScheduleText(
       priority = 'low';
     }
 
-    // 5. Trích xuất Tiêu đề sạch sẽ (Clean title)
+    // 4. Trích xuất Tiêu đề sạch sẽ (Clean title)
     let title = stripScheduleDateReferences(seg)
       .replace(
         /^(?:tôi muốn|hãy giúp tôi|lên lịch giúp|tạo|tôi cần|cần|phải|hãy)\s+(?:1\s+)?(?:cuộc\s+hẹn\s+|lịch\s+hẹn\s+|việc\s+|công việc\s+)?/i,
@@ -186,8 +164,6 @@ export function parseVietnameseScheduleText(
       .replace(/(?:vào\s+)?(?:buổi\s*sáng|buổi\s*trưa|buổi\s*chiều|buổi\s*tối)/gi, '')
       .replace(/\b(?:buổi\s+)?(?:sáng|chiều|tối|trưa)\b/gi, '')
       .replace(/^tôi\s+(?:học|làm|đi)\b/i, (m) => m.replace(/^tôi\s+/i, ''))
-      .replace(/\d+\s*(?:tiếng|giờ|phút|p)\b\s*rưỡi?/gi, '')
-      .replace(/1\s*tiếng\s*rưỡi|1\s*giờ\s*rưỡi/gi, '')
       .replace(/(?:ưu tiên|mức)\s*(?:cao|vừa|thấp|gấp)/gi, '')
       .replace(/(?:nhắc|báo)\s*(?:trước\s*)?\d+\s*(?:phút|p)?/gi, '')
       .replace(/^(?:làm|cần|phải|hãy)\s+/i, '')
@@ -206,7 +182,6 @@ export function parseVietnameseScheduleText(
       title,
       date: taskDate,
       startTime,
-      durationMinutes,
       reminderMinutes: globalReminder,
       priority,
       source: 'direct_request',
@@ -268,8 +243,8 @@ export function refineVietnameseSchedule(
     }));
   }
 
-  // 3. Trường hợp: Đổi giờ hoặc thời lượng của một công việc cụ thể
-  // (ví dụ: "dời báo cáo sang 10h và thành 2 tiếng nhé")
+  // 3. Trường hợp: Đổi giờ của một công việc cụ thể
+  // (ví dụ: "dời báo cáo sang 10h nhé")
   for (let i = 0; i < updated.length; i++) {
     const task = updated[i];
     const taskKeyword = task.title.toLowerCase();
@@ -280,28 +255,18 @@ export function refineVietnameseSchedule(
 
     if (mentionsTask) {
       let newStart = task.startTime;
-      let newDur = task.durationMinutes;
-
-      // Tìm giờ mới
       const parsedTime = parseVietnameseTime(norm, true);
       if (parsedTime) newStart = parsedTime.startTime;
-
-      // Tìm thời lượng mới
-      const newDurMatch = norm.match(/(?:thành|làm)\s*(\d+)\s*(?:tiếng|giờ)/i);
-      if (newDurMatch) {
-        newDur = Number(newDurMatch[1]) * 60;
-      }
 
       updated[i] = {
         ...task,
         startTime: newStart,
-        durationMinutes: newDur,
         changeStatus: 'updated',
       };
     }
   }
 
-  // 4. Trường hợp: Thêm một công việc mới (ví dụ: "thêm 1 tiếng gym buổi sáng")
+  // 4. Trường hợp: Thêm một công việc mới (ví dụ: "thêm gym buổi sáng")
   if (/thêm/i.test(norm)) {
     const addMatch = norm.replace(/^.*thêm\s+/i, '').trim();
     if (addMatch) {

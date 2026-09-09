@@ -4,10 +4,13 @@ import {
   cancelTaskReminder,
   scheduleTaskReminder,
 } from '../services/notifications';
+import { replaceTaskReminders } from '../services/reminderTransaction';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { Task } from '../types';
 import { createId } from '../utils/id';
+import { assertNoTaskTimeConflicts } from '../utils/taskConflicts';
+import { buildTaskEdits } from '../utils/taskEdits';
 import type { TaskFormValues } from '../components/TaskFormModal';
 
 export function useTaskActions() {
@@ -17,29 +20,72 @@ export function useTaskActions() {
   const saveTask = useCallback(
     async (values: TaskFormValues, existing?: Task) => {
       const now = new Date().toISOString();
-      const nextOrder =
-        existing?.date === values.date
-          ? (existing.order ?? 0)
-          : state.tasks
-              .filter((task) => task.date === values.date)
-              .reduce((max, task) => Math.max(max, task.order ?? -1), -1) + 1;
+      const { applyToBatch = false, batchDates, ...taskValues } = values;
 
-      const task: Task = {
-        ...values,
-        id: existing?.id ?? createId('task'),
-        completed: existing?.completed ?? false,
-        order: nextOrder,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
+      if (existing) {
+        const editedTasks = buildTaskEdits(state.tasks, existing, taskValues, {
+          applyToBatch,
+          updatedAt: now,
+        });
+        assertNoTaskTimeConflicts(editedTasks, state.tasks);
+        const tasksWithReminders = await replaceTaskReminders(
+          editedTasks,
+          state.tasks,
+          { language },
+        );
 
-      await cancelTaskReminder(existing?.notificationId);
-      try {
-        task.notificationId = await scheduleTaskReminder(task, language);
-      } catch {
-        task.notificationId = undefined;
+        if (tasksWithReminders.length === 1) {
+          dispatch({ type: 'upsert_task', payload: tasksWithReminders[0] });
+        } else {
+          dispatch({ type: 'upsert_tasks', payload: tasksWithReminders });
+        }
+        return;
       }
-      dispatch({ type: 'upsert_task', payload: task });
+
+      const targetDates = Array.from(
+        new Set(batchDates?.length ? batchDates : [values.date]),
+      ).sort();
+      const batchId = batchDates ? createId('batch') : undefined;
+      const nextOrderByDate = new Map<string, number>();
+
+      for (const targetDate of targetDates) {
+        nextOrderByDate.set(
+          targetDate,
+          state.tasks
+            .filter((task) => task.date === targetDate)
+            .reduce(
+              (max, task) => Math.max(max, task.order ?? -1),
+              -1,
+            ) + 1,
+        );
+      }
+
+      const tasks: Task[] = targetDates.map((targetDate) => ({
+        ...taskValues,
+        date: targetDate,
+        batchId,
+        id: createId('task'),
+        completed: false,
+        order: nextOrderByDate.get(targetDate) ?? 0,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      assertNoTaskTimeConflicts(tasks, state.tasks);
+
+      for (const task of tasks) {
+        try {
+          task.notificationId = await scheduleTaskReminder(task, language);
+        } catch {
+          task.notificationId = undefined;
+        }
+      }
+
+      if (tasks.length === 1) {
+        dispatch({ type: 'upsert_task', payload: tasks[0] });
+      } else {
+        dispatch({ type: 'create_batch_tasks', payload: tasks });
+      }
     },
     [dispatch, language, state.tasks],
   );
@@ -49,6 +95,7 @@ export function useTaskActions() {
       const now = new Date().toISOString();
       const task: Task = {
         ...source,
+        batchId: undefined,
         id: createId('task'),
         title: `${source.title} (${t('task.copySuffix')})`,
         notificationId: undefined,
@@ -60,6 +107,7 @@ export function useTaskActions() {
         createdAt: now,
         updatedAt: now,
       };
+      assertNoTaskTimeConflicts([task], state.tasks);
       try {
         task.notificationId = await scheduleTaskReminder(task, language);
       } catch {

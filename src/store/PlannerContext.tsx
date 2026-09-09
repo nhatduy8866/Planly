@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { PlannerState } from '../types';
+import type { PlannerState, Task } from '../types';
 import {
   initialPlannerState,
   plannerReducer,
@@ -25,6 +25,24 @@ interface PlannerContextValue {
 
 const PlannerContext = createContext<PlannerContextValue | undefined>(undefined);
 
+function normalizeStoredTask(task: Task): Task {
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    date: task.date,
+    startTime: task.startTime,
+    reminderMinutes: task.reminderMinutes,
+    notificationId: task.notificationId,
+    batchId: task.batchId,
+    completed: task.completed,
+    order: task.order,
+    priority: task.priority,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+}
+
 export function PlannerProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(plannerReducer, initialPlannerState);
 
@@ -39,7 +57,9 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
           dispatch({
             type: 'hydrate',
             payload: {
-              tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+              tasks: Array.isArray(parsed.tasks)
+                ? parsed.tasks.map(normalizeStoredTask)
+                : [],
               notes: Array.isArray(parsed.notes) ? parsed.notes : [],
             },
           });

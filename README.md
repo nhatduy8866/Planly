@@ -13,7 +13,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 - Đổi thứ tự công việc trong ngày bằng tay hoặc tự sắp theo giờ bắt đầu.
 - Đặt thông báo local đúng giờ hoặc trước 5, 15, 30, 60 phút.
 - Tạo hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên.
-- Tự tìm khoảng trống, phát hiện xung đột và đề xuất giờ thay thế.
+- Tự chọn giờ bắt đầu chưa được sử dụng, phát hiện trùng giờ và đề xuất giờ thay thế.
 - Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
 
 ### Công việc
@@ -61,6 +61,18 @@ Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu
 
 ```bash
 npm run android
+```
+
+Lệnh trên dùng khi cài app lần đầu hoặc sau khi thay đổi dependency/cấu hình native. Ở các phiên làm việc tiếp theo, khi app đã có trên emulator, chỉ cần chạy một lệnh nhanh hơn:
+
+```bash
+npm run android:dev
+```
+
+Lệnh này khởi động Metro đúng chế độ Expo Router và tự mở Planly trên emulator. Không chạy app debug chỉ bằng nút Run của Android Studio khi Metro chưa bật, vì app debug không chứa sẵn JavaScript bundle. Nếu Metro gặp cache cũ, chạy một lần:
+
+```bash
+npm run android:dev -- --clear
 ```
 
 Thông báo local hoạt động trong Expo Go. Để kiểm thử cấu hình native và quyền báo thức chính xác giống bản phát hành, tạo development build bằng Expo/EAS hoặc chạy prebuild trên máy có Android SDK.

@@ -154,7 +154,7 @@ export function useAiScheduler(
     setStep('draft_preview');
   }, []);
 
-  // Chọn khung giờ thay thế trong màn hình Xử lý trùng lịch (Màn 9)
+  // Chọn giờ bắt đầu thay thế trong màn hình Xử lý trùng lịch (Màn 9)
   const handleSelectConflictSlot = useCallback(
     (conflictIndex: number, slotId: string) => {
       setConflicts((prev) =>
@@ -169,7 +169,6 @@ export function useAiScheduler(
   // Áp dụng giải quyết xung đột (Màn 9 -> 5)
   const handleApplyConflictResolution = useCallback(() => {
     void Haptics.selectionAsync();
-    const acceptedOverlapDraftIds = new Set<string>();
     const updatedDrafts = draftTasks.map((draft) => {
       const conflict = conflicts.find((c) => c.draftTaskId === draft.id);
       if (!conflict) return draft;
@@ -177,7 +176,7 @@ export function useAiScheduler(
       const chosenSlot = conflict.suggestedSlots.find(
         (s) => s.id === conflict.selectedSlotId,
       );
-      if (chosenSlot && !chosenSlot.isKeepOriginal) {
+      if (chosenSlot) {
         return {
           ...draft,
           startTime: chosenSlot.startTime,
@@ -185,16 +184,11 @@ export function useAiScheduler(
           changeStatus: 'updated' as const,
         };
       }
-      if (chosenSlot?.isKeepOriginal) {
-        acceptedOverlapDraftIds.add(draft.id);
-      }
       return draft;
     });
 
     setDraftTasks(updatedDrafts);
-    const remainingConflicts = detectConflicts(updatedDrafts, state.tasks).filter(
-      (conflict) => !acceptedOverlapDraftIds.has(conflict.draftTaskId),
-    );
+    const remainingConflicts = detectConflicts(updatedDrafts, state.tasks);
 
     if (remainingConflicts.length > 0) {
       setConflicts(remainingConflicts);
@@ -277,6 +271,14 @@ export function useAiScheduler(
       return;
     }
 
+    const detected = detectConflicts(draftTasks, state.tasks);
+    if (detected.length > 0) {
+      setConflicts(detected);
+      setInfoMessage(null);
+      setStep('conflict_resolution');
+      return;
+    }
+
     const nowIso = new Date().toISOString();
     const existingMap = new Map(state.tasks.map((t) => [t.id, t]));
 
@@ -289,7 +291,6 @@ export function useAiScheduler(
           title: draft.title,
           date: draft.date,
           startTime: draft.startTime || existing.startTime,
-          durationMinutes: draft.durationMinutes || existing.durationMinutes,
           reminderMinutes: draft.reminderMinutes,
           priority: draft.priority,
           order: idx,
@@ -304,7 +305,6 @@ export function useAiScheduler(
         description: '',
         date: draft.date,
         startTime: draft.startTime,
-        durationMinutes: draft.durationMinutes || 30,
         reminderMinutes: draft.reminderMinutes,
         completed: false,
         order: idx,

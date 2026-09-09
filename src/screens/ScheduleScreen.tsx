@@ -1,11 +1,15 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 
@@ -13,7 +17,7 @@ import { CalendarPanel } from '../components/CalendarPanel';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
-import { SortDropdown } from '../components/SortDropdown';
+import { SortDropdown, type SortOption } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
 import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
 import {
@@ -38,6 +42,10 @@ import {
   toDateKey,
   todayKey,
 } from '../utils/date';
+import {
+  filterScheduleTasksForView,
+  type ScheduleTaskView,
+} from '../utils/scheduleTasks';
 
 const CALENDAR_HEADER_BACKGROUND_KEYS = [
   'calendarHeaderLavender',
@@ -68,6 +76,36 @@ const CALENDAR_HEADER_BORDER_KEYS = [
   'cardAccentYellow',
   'cardAccentSlate',
 ] as const satisfies readonly (keyof ThemeColors)[];
+
+const COMPLETION_UNDO_WINDOW_MS = 5_000;
+
+interface PendingCompletion {
+  committing: boolean;
+  countdownIntervalId: ReturnType<typeof setInterval>;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+
+const TASK_LIST_TRANSITION = {
+  create: {
+    duration: 180,
+    property: LayoutAnimation.Properties.opacity,
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  delete: {
+    duration: 180,
+    property: LayoutAnimation.Properties.opacity,
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+  duration: 180,
+  update: {
+    duration: 180,
+    type: LayoutAnimation.Types.easeInEaseOut,
+  },
+};
+
+function animateTaskListTransition() {
+  LayoutAnimation.configureNext(TASK_LIST_TRANSITION);
+}
 
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
@@ -113,8 +151,16 @@ export function ScheduleScreen() {
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
+  const [taskView, setTaskView] = useState<ScheduleTaskView>('upcoming');
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [pendingCompletionSeconds, setPendingCompletionSeconds] = useState<
+    Map<string, number>
+  >(() => new Map());
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const latestTasksRef = useRef(state.tasks);
+  const pendingCompletionsRef = useRef<Map<string, PendingCompletion>>(new Map());
+  const screenActiveRef = useRef(true);
   const calendarPeriodColorIndex = getCalendarPeriodColorIndex(cursor, mode);
   const calendarHeaderBackground = colorfulAccents
     ? colors[CALENDAR_HEADER_BACKGROUND_KEYS[calendarPeriodColorIndex]]
@@ -124,6 +170,7 @@ export function ScheduleScreen() {
     : colors.border;
 
   const goToday = useCallback(() => {
+    animateTaskListTransition();
     setSelectedDate(todayKey());
     setCursor(new Date());
   }, []);
@@ -133,7 +180,54 @@ export function ScheduleScreen() {
     [goToday, registerTodayHandler],
   );
 
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    latestTasksRef.current = state.tasks;
+  }, [state.tasks]);
+
+  useEffect(() => {
+    screenActiveRef.current = true;
+    const pendingCompletions = pendingCompletionsRef.current;
+
+    return () => {
+      screenActiveRef.current = false;
+      pendingCompletions.forEach(({ countdownIntervalId, timeoutId }) => {
+        clearInterval(countdownIntervalId);
+        clearTimeout(timeoutId);
+      });
+      pendingCompletions.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshCurrentTime = () => {
+      animateTaskListTransition();
+      setCurrentTime(new Date());
+    };
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000);
+    const timeoutId = setTimeout(() => {
+      refreshCurrentTime();
+      intervalId = setInterval(refreshCurrentTime, 60_000);
+    }, millisecondsUntilNextMinute);
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshCurrentTime();
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId !== undefined) clearInterval(intervalId);
+      appStateSubscription.remove();
+    };
+  }, []);
+
   const handleAiNavigateDate = useCallback((date: string) => {
+    animateTaskListTransition();
     setSelectedDate(date);
     setCursor(fromDateKey(date));
   }, []);
@@ -153,6 +247,49 @@ export function ScheduleScreen() {
     [selectedDate, state.tasks],
   );
 
+  const taskGroups = useMemo(
+    () => ({
+      upcoming: filterScheduleTasksForView(
+        dayTasks,
+        selectedDate,
+        'upcoming',
+        currentTime,
+      ),
+      past: filterScheduleTasksForView(
+        dayTasks,
+        selectedDate,
+        'past',
+        currentTime,
+      ),
+      all: filterScheduleTasksForView(
+        dayTasks,
+        selectedDate,
+        'all',
+        currentTime,
+      ),
+    }),
+    [currentTime, dayTasks, selectedDate],
+  );
+  const visibleDayTasks = taskGroups[taskView];
+
+  const taskViewOptions: SortOption<ScheduleTaskView>[] = [
+    {
+      key: 'upcoming',
+      label: t('schedule.upcomingTasks', { count: taskGroups.upcoming.length }),
+      icon: 'schedule',
+    },
+    {
+      key: 'past',
+      label: t('schedule.pastTasks', { count: taskGroups.past.length }),
+      icon: 'history',
+    },
+    {
+      key: 'all',
+      label: t('schedule.allTasks', { count: taskGroups.all.length }),
+      icon: 'view-list',
+    },
+  ];
+
   function openCreate() {
     setEditingTask(undefined);
     setFormVisible(true);
@@ -164,6 +301,7 @@ export function ScheduleScreen() {
   }
 
   function selectDate(date: string) {
+    animateTaskListTransition();
     setSelectedDate(date);
     setCursor(fromDateKey(date));
   }
@@ -176,13 +314,87 @@ export function ScheduleScreen() {
 
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
-    setSelectedDate(values.date);
-    setCursor(fromDateKey(values.date));
+    const firstCreatedDate = values.batchDates?.[0] ?? values.date;
+    setSelectedDate(firstCreatedDate);
+    setCursor(fromDateKey(firstCreatedDate));
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   function confirmDelete(task: Task) {
     setDeletingTask(task);
+  }
+
+  function removePendingCompletion(taskId: string) {
+    if (!screenActiveRef.current) return;
+
+    setPendingCompletionSeconds((current) => {
+      if (!current.has(taskId)) return current;
+      const next = new Map(current);
+      next.delete(taskId);
+      return next;
+    });
+  }
+
+  async function commitPendingCompletion(taskId: string) {
+    const pending = pendingCompletionsRef.current.get(taskId);
+    if (!pending) return;
+
+    pending.committing = true;
+    clearInterval(pending.countdownIntervalId);
+    const latestTask = latestTasksRef.current.find((task) => task.id === taskId);
+
+    try {
+      if (latestTask && !latestTask.completed) {
+        animateTaskListTransition();
+        await toggleTask(latestTask);
+      }
+    } finally {
+      pendingCompletionsRef.current.delete(taskId);
+      removePendingCompletion(taskId);
+    }
+  }
+
+  function handleTaskToggle(task: Task) {
+    const pending = pendingCompletionsRef.current.get(task.id);
+
+    if (pending) {
+      if (!pending.committing) {
+        clearInterval(pending.countdownIntervalId);
+        clearTimeout(pending.timeoutId);
+        pendingCompletionsRef.current.delete(task.id);
+        removePendingCompletion(task.id);
+      }
+      return;
+    }
+
+    if (task.completed) {
+      animateTaskListTransition();
+      void toggleTask(task);
+      return;
+    }
+
+    const countdownIntervalId = setInterval(() => {
+      setPendingCompletionSeconds((current) => {
+        const remainingSeconds = current.get(task.id);
+        if (remainingSeconds === undefined || remainingSeconds <= 1) {
+          return current;
+        }
+
+        return new Map(current).set(task.id, remainingSeconds - 1);
+      });
+    }, 1_000);
+    const timeoutId = setTimeout(() => {
+      void commitPendingCompletion(task.id);
+    }, COMPLETION_UNDO_WINDOW_MS);
+
+    pendingCompletionsRef.current.set(task.id, {
+      committing: false,
+      countdownIntervalId,
+      timeoutId,
+    });
+    setPendingCompletionSeconds((current) =>
+      new Map(current).set(task.id, 5),
+    );
   }
 
   return (
@@ -279,6 +491,7 @@ export function ScheduleScreen() {
                   selectedKey={sortMode}
                   onSelect={(key) => {
                     const nextSort = key as 'time' | 'title' | 'priority';
+                    animateTaskListTransition();
                     setSortMode(nextSort);
                     dispatch({
                       type: 'sort_day',
@@ -301,31 +514,77 @@ export function ScheduleScreen() {
           ) : null}
         </View>
 
-        {dayTasks.length ? (
-          dayTasks.map((task, index) => (
-            <AnimatedEntryItem
-              key={task.id}
-              index={index}
-              triggerKey={selectedDate}
-            >
-              <TaskCard
-                task={task}
-                onToggle={() => void toggleTask(task)}
-                onEdit={() => openEdit(task)}
-                onDelete={() => confirmDelete(task)}
-              />
-            </AnimatedEntryItem>
-          ))
+        <View style={styles.taskViewBar}>
+          <SortDropdown<ScheduleTaskView>
+            accessibilityLabel={t('schedule.taskView')}
+            buttonIcon="filter-list"
+            fullWidth
+            options={taskViewOptions}
+            selectedKey={taskView}
+            onSelect={(nextView) => {
+              animateTaskListTransition();
+              setTaskView(nextView);
+              setCurrentTime(new Date());
+              void Haptics.selectionAsync();
+            }}
+          />
+        </View>
+
+        {visibleDayTasks.length ? (
+          visibleDayTasks.map((task, index) => {
+            const completionUndoSeconds = pendingCompletionSeconds.get(task.id);
+
+            return (
+              <AnimatedEntryItem
+                key={task.id}
+                index={index}
+                triggerKey={`${selectedDate}-${taskView}`}
+              >
+                <TaskCard
+                  completionPending={completionUndoSeconds !== undefined}
+                  completionUndoSeconds={completionUndoSeconds}
+                  task={task}
+                  onToggle={() => handleTaskToggle(task)}
+                  onEdit={() => openEdit(task)}
+                  onDelete={() => confirmDelete(task)}
+                />
+              </AnimatedEntryItem>
+            );
+          })
         ) : (
           <EmptyState
-            icon="event-available"
-            title={t('schedule.emptyTitle')}
-            description={t('schedule.emptyDescription')}
-            primaryActionLabel={t('schedule.aiAction')}
-            primaryActionIcon="auto-awesome"
-            onPrimaryAction={aiScheduler.openDirectPrompt}
-            actionLabel={t('schedule.addTask')}
-            onAction={openCreate}
+            icon={
+              taskView === 'past'
+                ? 'history'
+                : taskView === 'all'
+                  ? 'event-note'
+                  : 'event-available'
+            }
+            title={t(
+              taskView === 'past'
+                ? 'schedule.pastEmptyTitle'
+                : taskView === 'all'
+                  ? 'schedule.emptyTitle'
+                  : 'schedule.upcomingEmptyTitle',
+            )}
+            description={t(
+              taskView === 'past'
+                ? 'schedule.pastEmptyDescription'
+                : taskView === 'all'
+                  ? 'schedule.emptyDescription'
+                  : 'schedule.upcomingEmptyDescription',
+            )}
+            primaryActionLabel={
+              taskView !== 'past' ? t('schedule.aiAction') : undefined
+            }
+            primaryActionIcon={taskView !== 'past' ? 'auto-awesome' : undefined}
+            onPrimaryAction={
+              taskView !== 'past' ? aiScheduler.openDirectPrompt : undefined
+            }
+            actionLabel={
+              taskView !== 'past' ? t('schedule.addTask') : undefined
+            }
+            onAction={taskView !== 'past' ? openCreate : undefined}
           />
         )}
       </ScrollView>
@@ -352,6 +611,7 @@ export function ScheduleScreen() {
         message={t('schedule.deleteMessage', { title: deletingTask?.title ?? '' })}
         onConfirm={() => {
           if (deletingTask) {
+            animateTaskListTransition();
             void deleteTask(deletingTask);
             setDeletingTask(undefined);
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -424,6 +684,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexShrink: 0,
     gap: 8,
     justifyContent: 'flex-end',
+  },
+  taskViewBar: {
+    marginBottom: 12,
   },
   addButton: {
     alignItems: 'center',

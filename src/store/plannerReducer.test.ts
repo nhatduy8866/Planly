@@ -10,7 +10,6 @@ function task(overrides: Partial<Task>): Task {
     description: '',
     date: '2026-09-05',
     startTime: '09:00',
-    durationMinutes: 30,
     reminderMinutes: null,
     completed: false,
     order: 0,
@@ -188,6 +187,36 @@ describe('plannerReducer', () => {
 
     expect(result.tasks).toHaveLength(3);
     expect(result.tasks.map((t) => t.id)).toEqual(['existing-1', 'ai-1', 'ai-2']);
+  });
+
+  it('updates multiple existing tasks without changing unrelated task positions', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'batch-1', title: 'Việc lặp' }),
+        task({ id: 'unrelated', title: 'Việc khác' }),
+        task({ id: 'batch-2', title: 'Việc lặp' }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'upsert_tasks',
+      payload: [
+        task({ id: 'batch-1', title: 'Việc lặp đã sửa' }),
+        task({ id: 'batch-2', title: 'Việc lặp đã sửa' }),
+      ],
+    });
+
+    expect(result.tasks.map((item) => item.id)).toEqual([
+      'batch-1',
+      'unrelated',
+      'batch-2',
+    ]);
+    expect(result.tasks.map((item) => item.title)).toEqual([
+      'Việc lặp đã sửa',
+      'Việc khác',
+      'Việc lặp đã sửa',
+    ]);
   });
 
   it('replaces an AI-updated task with the same ID instead of duplicating it', () => {

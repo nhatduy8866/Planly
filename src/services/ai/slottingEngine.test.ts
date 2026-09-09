@@ -5,14 +5,13 @@ import type { AiDraftTask } from '../../types/ai';
 import { validateScheduleByDate } from './conflictDetector';
 import { autoSlotTasks } from './slottingEngine';
 
-function makeTask(overrides: Partial<Task>): Task {
+function makeTask(overrides: Partial<Task> = {}): Task {
   return {
     id: 'task-1',
     title: 'Họp cố định',
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    durationMinutes: 60,
     reminderMinutes: null,
     completed: false,
     order: 0,
@@ -22,13 +21,15 @@ function makeTask(overrides: Partial<Task>): Task {
   };
 }
 
-function makeUnscheduledDraft(title: string, durationMinutes: number, priority: AiDraftTask['priority'] = 'medium'): AiDraftTask {
+function makeUnscheduledDraft(
+  title: string,
+  priority: AiDraftTask['priority'] = 'medium',
+): AiDraftTask {
   return {
     id: `draft-${title}`,
     title,
     date: '2026-09-08',
     startTime: '',
-    durationMinutes,
     reminderMinutes: 15,
     priority,
     source: 'direct_request',
@@ -36,138 +37,87 @@ function makeUnscheduledDraft(title: string, durationMinutes: number, priority: 
 }
 
 describe('slottingEngine', () => {
-  it('automatically slots unscheduled tasks into available morning and afternoon gaps', () => {
-    const existing = [
-      makeTask({ startTime: '09:00', durationMinutes: 60 }), // 09:00 - 10:00
-    ];
+  it('assigns distinct start times according to priority', () => {
     const drafts = [
-      makeUnscheduledDraft('Làm báo cáo', 60, 'high'),
-      makeUnscheduledDraft('Tập gym', 60, 'medium'),
+      makeUnscheduledDraft('Làm báo cáo', 'high'),
+      makeUnscheduledDraft('Tập gym', 'medium'),
     ];
 
-    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
+    const slotted = autoSlotTasks(drafts, [makeTask()], '2026-09-08');
 
-    expect(slotted).toHaveLength(2);
-    expect(slotted[0].startTime).toBeTruthy();
-    expect(slotted[1].startTime).toBeTruthy();
-
-    // High priority gets early morning (08:00) before 09:00 meeting
-    expect(slotted[0].startTime).toBe('08:00');
-    // Gym gets afternoon
-    expect(slotted[1].startTime).toBe('13:30');
+    expect(slotted.map((draft) => draft.startTime)).toEqual(['08:00', '13:30']);
+    expect(validateScheduleByDate(slotted, [makeTask()]).isValid).toBe(true);
   });
 
-  it('preserves existing start times if already present', () => {
-    const existing: Task[] = [];
+  it('preserves start times already assigned to drafts', () => {
     const drafts: AiDraftTask[] = [
       {
+        ...makeUnscheduledDraft('Đã có giờ', 'none'),
         id: 'd1',
-        title: 'Đã có giờ',
-        date: '2026-09-08',
         startTime: '10:00',
-        durationMinutes: 45,
-        reminderMinutes: null,
-        priority: 'none',
-        source: 'direct_request',
       },
-      makeUnscheduledDraft('Chưa có giờ', 30, 'low'),
+      makeUnscheduledDraft('Chưa có giờ', 'low'),
     ];
 
-    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
+    const slotted = autoSlotTasks(drafts, [], '2026-09-08');
+
     expect(slotted[0].startTime).toBe('10:00');
-    expect(slotted[1].startTime).toBeTruthy();
+    expect(slotted[1].startTime).toBe('17:00');
   });
 
-  it('keeps a task unscheduled when the day has no available slot', () => {
-    const existing = [
-      makeTask({ startTime: '08:00', durationMinutes: 13 * 60 + 30 }),
-    ];
-    const drafts = [makeUnscheduledDraft('Việc không còn chỗ', 60)];
+  it('leaves a task unscheduled when every supported start time is occupied', () => {
+    const existing = Array.from({ length: 55 }, (_, index) => {
+      const totalMinutes = 8 * 60 + index * 15;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const minutes = String(totalMinutes % 60).padStart(2, '0');
+      return makeTask({ id: `task-${index}`, startTime: `${hours}:${minutes}` });
+    });
 
-    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
+    const slotted = autoSlotTasks(
+      [makeUnscheduledDraft('Việc không còn giờ trống')],
+      existing,
+      '2026-09-08',
+    );
 
     expect(slotted[0].startTime).toBe('');
     expect(slotted[0].slottingStatus).toBe('unscheduled');
   });
 
-  it('does not stack overflow tasks at a fallback time', () => {
-    const drafts = Array.from({ length: 15 }, (_, index) =>
-      makeUnscheduledDraft(`Việc ${index + 1}`, 60, 'low'),
+  it('does not reuse a fallback start time when drafts exceed capacity', () => {
+    const drafts = Array.from({ length: 57 }, (_, index) =>
+      makeUnscheduledDraft(`Việc ${index + 1}`, 'low'),
     );
-
     const slotted = autoSlotTasks(drafts, [], '2026-09-08');
-    const unscheduled = slotted.filter(
-      (draft) => draft.slottingStatus === 'unscheduled',
-    );
+    const assignedStarts = slotted
+      .map((draft) => draft.startTime)
+      .filter(Boolean);
 
-    expect(unscheduled).toHaveLength(2);
-    expect(unscheduled.every((draft) => draft.startTime === '')).toBe(true);
-    expect(slotted.filter((draft) => draft.startTime === '20:00')).toHaveLength(1);
-  });
-
-  it('leaves every new task unscheduled when adjacent tasks fill the whole day', () => {
-    const existing = [
-      makeTask({ id: 'morning', startTime: '08:00', durationMinutes: 240 }),
-      makeTask({ id: 'afternoon', startTime: '12:00', durationMinutes: 270 }),
-      makeTask({ id: 'evening', startTime: '16:30', durationMinutes: 300 }),
-    ];
-    const drafts = [
-      makeUnscheduledDraft('Việc gấp', 15, 'high'),
-      makeUnscheduledDraft('Việc thường', 30, 'medium'),
-    ];
-
-    const slotted = autoSlotTasks(drafts, existing, '2026-09-08');
-
-    expect(slotted).toHaveLength(2);
-    expect(
-      slotted.every(
-        (draft) =>
-          draft.startTime === '' && draft.slottingStatus === 'unscheduled',
-      ),
-    ).toBe(true);
+    expect(new Set(assignedStarts).size).toBe(55);
+    expect(slotted.filter((draft) => !draft.startTime)).toHaveLength(2);
   });
 
   it.each([
-    {
-      title: 'Việc buổi chiều',
-      gapStart: '13:30',
-      nextTaskStart: '14:00',
-      expectedStart: '13:30',
-    },
-    {
-      title: 'Việc buổi tối',
-      gapStart: '18:30',
-      nextTaskStart: '19:00',
-      expectedStart: '18:30',
-    },
-  ])(
-    'keeps $title inside a short available gap',
-    ({ title, gapStart, nextTaskStart, expectedStart }) => {
-      const gapStartMinutes = Number(gapStart.slice(0, 2)) * 60 + Number(gapStart.slice(3));
-      const existing = [
-        makeTask({
-          id: 'before-gap',
-          startTime: '08:00',
-          durationMinutes: gapStartMinutes - 8 * 60,
-        }),
-        makeTask({
-          id: 'after-gap',
-          startTime: nextTaskStart,
-          durationMinutes:
-            21 * 60 + 30 -
-            (Number(nextTaskStart.slice(0, 2)) * 60 +
-              Number(nextTaskStart.slice(3))),
-        }),
-      ];
+    ['Việc buổi sáng', '08:00'],
+    ['Việc buổi trưa', '12:00'],
+    ['Việc buổi chiều', '14:30'],
+    ['Việc buổi tối', '19:30'],
+  ])('uses the requested period for %s', (title, expectedStart) => {
+    const slotted = autoSlotTasks(
+      [makeUnscheduledDraft(title)],
+      [],
+      '2026-09-08',
+    );
 
-      const slotted = autoSlotTasks(
-        [makeUnscheduledDraft(title, 30)],
-        existing,
-        '2026-09-08',
-      );
+    expect(slotted[0].startTime).toBe(expectedStart);
+  });
 
-      expect(slotted[0].startTime).toBe(expectedStart);
-      expect(validateScheduleByDate(slotted, existing).isValid).toBe(true);
-    },
-  );
+  it('ignores completed tasks when choosing a start time', () => {
+    const slotted = autoSlotTasks(
+      [makeUnscheduledDraft('Việc gấp', 'high')],
+      [makeTask({ startTime: '08:00', completed: true })],
+      '2026-09-08',
+    );
+
+    expect(slotted[0].startTime).toBe('08:00');
+  });
 });

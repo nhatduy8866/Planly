@@ -139,7 +139,6 @@ export function resolveExistingTaskUpdate(
         ? dateResolution.date
         : matchedTask.date,
       startTime: parsedTime?.startTime || matchedTask.startTime,
-      durationMinutes: matchedTask.durationMinutes,
       reminderMinutes: matchedTask.reminderMinutes,
       priority: matchedTask.priority || 'none',
       source: 'direct_request',

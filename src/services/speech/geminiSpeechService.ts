@@ -52,7 +52,7 @@ export async function transcribeAudioWithGemini(
   const promptText =
     'Bạn là bộ nhận diện giọng nói (Speech-to-Text) tiếng Việt cho ứng dụng lập kế hoạch Planly. ' +
     'Hãy nghe đoạn âm thanh này và chuyển thành văn bản tiếng Việt chuẩn xác, giữ đúng các từ chỉ thời gian, ' +
-    'ngày tháng (ví dụ: mai, 9h, chiều 2h, 30 phút, nhắc trước 15 phút). ' +
+    'ngày tháng (ví dụ: mai, 9h, chiều 2h, nhắc trước 15 phút). ' +
     'Quy tắc nghiêm ngặt: Chỉ trả về duy nhất nội dung văn bản người dùng nói, ' +
     'không thêm lời giải thích, không thêm dấu ngoặc kép bao quanh, không thêm bất kỳ định dạng nào.';
 

@@ -88,7 +88,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    durationMinutes: 60,
     reminderMinutes: null,
     completed: false,
     order: 0,
@@ -104,7 +103,6 @@ function makeDraft(overrides: Partial<AiDraftTask> = {}): AiDraftTask {
     title: 'Việc AI',
     date: '2026-09-08',
     startTime: '09:00',
-    durationMinutes: 60,
     reminderMinutes: 15,
     priority: 'medium',
     source: 'direct_request',
@@ -156,10 +154,10 @@ describe('useAiScheduler', () => {
   it('moves to conflict resolution with every detected collision', async () => {
     mockPlannerState.tasks = [
       makeTask({ id: 'first', startTime: '09:00' }),
-      makeTask({ id: 'second', startTime: '10:00' }),
+      makeTask({ id: 'second', startTime: '09:00' }),
     ];
     mockParseScheduleRequest.mockResolvedValue([
-      makeDraft({ startTime: '09:30', durationMinutes: 90 }),
+      makeDraft({ startTime: '09:00' }),
     ]);
 
     await submitPrompt();
@@ -171,13 +169,16 @@ describe('useAiScheduler', () => {
 
     expect(scheduler.step).toBe('draft_preview');
     expect(scheduler.conflicts).toHaveLength(0);
-    expect(scheduler.draftTasks[0].startTime).toBe('11:00');
+    expect(scheduler.draftTasks[0].startTime).toBe('09:15');
   });
 
   it('stays in auto-slotting when a full day cannot fit the draft', async () => {
-    mockPlannerState.tasks = [
-      makeTask({ startTime: '08:00', durationMinutes: 13 * 60 + 30 }),
-    ];
+    mockPlannerState.tasks = Array.from({ length: 55 }, (_, index) => {
+      const totalMinutes = 8 * 60 + index * 15;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const minutes = String(totalMinutes % 60).padStart(2, '0');
+      return makeTask({ id: `task-${index}`, startTime: `${hours}:${minutes}` });
+    });
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ startTime: '' }),
     ]);
@@ -188,7 +189,7 @@ describe('useAiScheduler', () => {
     act(() => scheduler.handleAcceptAutoSlotting());
 
     expect(scheduler.step).toBe('auto_slotting');
-    expect(scheduler.infoMessage).toContain('Không còn đủ khung giờ trống');
+    expect(scheduler.infoMessage).toContain('Không còn đủ giờ bắt đầu trống');
     expect(scheduler.draftTasks[0].startTime).toBe('');
   });
 
@@ -240,7 +241,7 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('draft_preview');
 
     mockRefineSchedule.mockResolvedValue([
-      makeDraft({ startTime: '09:30' }),
+      makeDraft({ startTime: '09:00' }),
     ]);
     await act(async () => {
       const pending = scheduler.submitRefinement('Dời việc AI sang 9h30');

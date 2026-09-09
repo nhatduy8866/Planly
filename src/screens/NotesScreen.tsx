@@ -12,6 +12,7 @@ import {
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
+import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
 import {
   NoteFormModal,
   type NoteFormValues,
@@ -107,42 +108,48 @@ export function NotesScreen() {
 
         {notes.length ? (
           <View style={styles.noteList}>
-            {notes.map((note) => (
-              <View key={note.id} style={styles.noteCard}>
-                <View style={styles.noteHeader}>
-                  <View style={styles.noteIcon}>
-                    <MaterialIcons name="notes" size={19} color={colors.primary} />
+            {notes.map((note, index) => (
+              <AnimatedEntryItem
+                key={note.id}
+                index={index}
+                triggerKey={query}
+              >
+                <View style={styles.noteCard}>
+                  <View style={styles.noteHeader}>
+                    <View style={styles.noteIcon}>
+                      <MaterialIcons name="notes" size={19} color={colors.primary} />
+                    </View>
+                    <IconButton
+                      icon="delete-outline"
+                      accessibilityLabel={t('notes.deleteLabel')}
+                      onPress={() => confirmDelete(note)}
+                      color={colors.danger}
+                      backgroundColor="transparent"
+                      size={19}
+                      style={styles.deleteButton}
+                    />
                   </View>
-                  <IconButton
-                    icon="delete-outline"
-                    accessibilityLabel={t('notes.deleteLabel')}
-                    onPress={() => confirmDelete(note)}
-                    color={colors.danger}
-                    backgroundColor="transparent"
-                    size={19}
-                    style={styles.deleteButton}
-                  />
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setEditingNote(note);
-                    setFormVisible(true);
-                  }}
-                  style={({ pressed }) => pressed && styles.pressed}
-                >
-                  <Text numberOfLines={2} style={styles.noteTitle}>
-                    {note.title}
-                  </Text>
-                  {note.content ? (
-                    <Text numberOfLines={4} style={styles.noteContent}>
-                      {note.content}
+                  <Pressable
+                    onPress={() => {
+                      setEditingNote(note);
+                      setFormVisible(true);
+                    }}
+                    style={({ pressed }) => pressed && styles.pressed}
+                  >
+                    <Text numberOfLines={2} style={styles.noteTitle}>
+                      {note.title}
                     </Text>
-                  ) : null}
-                  <Text style={styles.noteDate}>
-                    {t('notes.updated', { date: formatUpdatedAt(note.updatedAt, locale) })}
-                  </Text>
-                </Pressable>
-              </View>
+                    {note.content ? (
+                      <Text numberOfLines={4} style={styles.noteContent}>
+                        {note.content}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.noteDate}>
+                      {t('notes.updated', { date: formatUpdatedAt(note.updatedAt, locale) })}
+                    </Text>
+                  </Pressable>
+                </View>
+              </AnimatedEntryItem>
             ))}
           </View>
         ) : (

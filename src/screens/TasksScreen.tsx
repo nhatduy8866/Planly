@@ -13,6 +13,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
 import { SortDropdown, type SortOption } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
+import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
 import {
   TaskFormModal,
   type TaskFormValues,
@@ -177,29 +178,40 @@ export function TasksScreen() {
         </View>
 
         {groupedTasks.length ? (
-          groupedTasks.map((group) => (
-            <View key={group.date} style={styles.group}>
-              <View style={styles.groupHeader}>
-                <Text style={styles.groupTitle}>{formatLongDate(group.date, locale)}</Text>
-                {group.date < todayKey() ? (
-                  <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
-                ) : null}
+          (() => {
+            let globalIndex = 0;
+            return groupedTasks.map((group) => (
+              <View key={group.date} style={styles.group}>
+                <View style={styles.groupHeader}>
+                  <Text style={styles.groupTitle}>{formatLongDate(group.date, locale)}</Text>
+                  {group.date < todayKey() ? (
+                    <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
+                  ) : null}
+                </View>
+                {group.tasks.map((task) => {
+                  const itemIndex = globalIndex++;
+                  return (
+                    <AnimatedEntryItem
+                      key={task.id}
+                      index={itemIndex}
+                      triggerKey={`${filter}-${sortBy}-${query}`}
+                    >
+                      <TaskCard
+                        compact
+                        task={task}
+                        onToggle={() => void toggleTask(task)}
+                        onEdit={() => {
+                          setEditingTask(task);
+                          setFormVisible(true);
+                        }}
+                        onDelete={() => confirmDelete(task)}
+                      />
+                    </AnimatedEntryItem>
+                  );
+                })}
               </View>
-              {group.tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  compact
-                  task={task}
-                  onToggle={() => void toggleTask(task)}
-                  onEdit={() => {
-                    setEditingTask(task);
-                    setFormVisible(true);
-                  }}
-                  onDelete={() => confirmDelete(task)}
-                />
-              ))}
-            </View>
-          ))
+            ));
+          })()
         ) : (
           <EmptyState
             icon="task-alt"

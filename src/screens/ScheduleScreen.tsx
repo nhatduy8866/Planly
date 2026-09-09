@@ -19,6 +19,7 @@ import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
 import { SortDropdown, type SortOption } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
+import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
 import {
   TaskFormModal,
   type TaskFormValues,
@@ -530,20 +531,24 @@ export function ScheduleScreen() {
         </View>
 
         {visibleDayTasks.length ? (
-          visibleDayTasks.map((task) => {
+          visibleDayTasks.map((task, index) => {
             const completionUndoSeconds = pendingCompletionSeconds.get(task.id);
 
             return (
-              <TaskCard
+              <AnimatedEntryItem
                 key={task.id}
-                animatePresence
-                completionPending={completionUndoSeconds !== undefined}
-                completionUndoSeconds={completionUndoSeconds}
-                task={task}
-                onToggle={() => handleTaskToggle(task)}
-                onEdit={() => openEdit(task)}
-                onDelete={() => confirmDelete(task)}
-              />
+                index={index}
+                triggerKey={`${selectedDate}-${taskView}`}
+              >
+                <TaskCard
+                  completionPending={completionUndoSeconds !== undefined}
+                  completionUndoSeconds={completionUndoSeconds}
+                  task={task}
+                  onToggle={() => handleTaskToggle(task)}
+                  onEdit={() => openEdit(task)}
+                  onDelete={() => confirmDelete(task)}
+                />
+              </AnimatedEntryItem>
             );
           })
         ) : (

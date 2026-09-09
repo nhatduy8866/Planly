@@ -234,8 +234,8 @@ Quy tắc quan trọng:
 Trả về duy nhất mảng JSON hợp lệ:
 [
   {
-    "id": "string (nếu sắp xếp từ việc cũ thì giữ nguyên id cũ)",
-    "title": "string",
+    "id": "giữ nguyên id từ danh sách việc cũ nếu sắp xếp lại, hoặc để trống nếu là việc mới",
+    "title": "Tên việc ngắn gọn",
     "date": "YYYY-MM-DD",
     "startTime": "HH:mm",
     "priority": "none",
@@ -265,22 +265,35 @@ Trả về duy nhất mảng JSON hợp lệ:
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) continue;
 
+        const seenIds = new Set<string>();
         return parsed.map((value, index) => {
           const item = asRecord(value);
-          const itemId = nonEmptyString(item.id);
+          const rawItemId = nonEmptyString(item.id);
           const itemTitle = nonEmptyString(item.title);
+          const isPlaceholderId =
+            !rawItemId ||
+            rawItemId.toLowerCase() === 'string' ||
+            rawItemId.toLowerCase() === 'null' ||
+            rawItemId.toLowerCase() === 'undefined';
           const matchedTask = tasksForDate.find(
             (t) =>
-              t.id === itemId ||
+              (!isPlaceholderId && t.id === rawItemId) ||
               (itemTitle !== undefined &&
                 t.title.trim().toLowerCase() === itemTitle.toLowerCase()),
           );
           const source = matchedTask ? 'auto_slotted' : 'direct_request';
           const changeStatus = matchedTask ? 'updated' : 'unchanged';
-          const normalizedId =
-            matchedTask?.id ||
-            itemId ||
-            `ai-gemini-${Date.now()}-${index}`;
+
+          let normalizedId: string;
+          if (matchedTask?.id) {
+            normalizedId = matchedTask.id;
+          } else if (rawItemId && !isPlaceholderId && !seenIds.has(rawItemId)) {
+            normalizedId = rawItemId;
+          } else {
+            normalizedId = `ai-gemini-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`;
+          }
+          seenIds.add(normalizedId);
+
           return {
             ...normalizeCloudDraft(item, {
               id: normalizedId,
@@ -338,30 +351,45 @@ Nếu công việc bị thay đổi, gán changeStatus: "updated".`;
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed)) continue;
 
+        const seenIds = new Set<string>();
         return parsed.map((value, index) => {
           const item = asRecord(value);
-          const itemId = nonEmptyString(item.id);
+          const rawItemId = nonEmptyString(item.id);
           const itemTitle = nonEmptyString(item.title);
+          const isPlaceholderId =
+            !rawItemId ||
+            rawItemId.toLowerCase() === 'string' ||
+            rawItemId.toLowerCase() === 'null' ||
+            rawItemId.toLowerCase() === 'undefined';
           const matchedDraft = currentDrafts.find(
             (draft) =>
-              draft.id === itemId ||
+              (!isPlaceholderId && draft.id === rawItemId) ||
               (itemTitle !== undefined &&
                 draft.title.trim().toLowerCase() === itemTitle.toLowerCase()),
           );
+
+          let normalizedId: string;
+          if (matchedDraft?.id) {
+            normalizedId = matchedDraft.id;
+          } else if (rawItemId && !isPlaceholderId && !seenIds.has(rawItemId)) {
+            normalizedId = rawItemId;
+          } else {
+            normalizedId = `ai-gemini-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`;
+          }
+          seenIds.add(normalizedId);
+
           const normalized = normalizeCloudDraft(item, {
-            id:
-              matchedDraft?.id ||
-              itemId ||
-              `ai-gemini-${Date.now()}-${index}`,
+            id: normalizedId,
             title: `Công việc ${index + 1}`,
             date: matchedDraft?.date || context.targetDate,
             source: matchedDraft?.source || 'direct_request',
             changeStatus: 'updated',
           });
 
-          return matchedDraft
-            ? { ...normalized, id: matchedDraft.id }
-            : normalized;
+          return {
+            ...normalized,
+            id: normalizedId,
+          };
         });
       } catch {
         continue;

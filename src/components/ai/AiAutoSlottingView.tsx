@@ -66,10 +66,10 @@ export function AiAutoSlottingView({
         ) : null}
 
         <View style={styles.listContainer}>
-          {drafts.map((task) => {
+          {drafts.map((task, index) => {
             const isUnscheduled = task.slottingStatus === 'unscheduled';
             return (
-              <View key={task.id} style={styles.itemRow}>
+              <View key={`${task.id || 'slot'}-${index}`} style={styles.itemRow}>
                 <MaterialIcons
                   name={isUnscheduled ? 'error-outline' : 'check-circle'}
                   size={22}

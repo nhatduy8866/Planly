@@ -57,7 +57,7 @@ export function AiDraftPreviewView({
           {t('ai.previewSubtitle', { count: drafts.length, date: formattedDate })}
         </Text>
 
-        {drafts.map((task) => {
+        {drafts.map((task, index) => {
           const taskTime = task.startTime || t('ai.noTime');
 
           // Tag nhãn
@@ -74,7 +74,7 @@ export function AiDraftPreviewView({
           }
 
           return (
-            <View key={task.id} style={styles.card}>
+            <View key={`${task.id || 'draft'}-${index}`} style={styles.card}>
               <View style={styles.cardTopRow}>
                 <View style={styles.timeWrap}>
                   <View

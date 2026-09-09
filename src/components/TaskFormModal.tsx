@@ -218,7 +218,6 @@ export function TaskFormModal({
         parsedReminder < 0 ||
         parsedReminder > MAX_CUSTOM_REMINDER_MINUTES
       ) {
-        setAdvancedOpen(true);
         setError(t('taskForm.reminderInvalid'));
         return;
       }
@@ -431,6 +430,76 @@ export function TaskFormModal({
                 </View>
               </View>
 
+              <Text style={styles.label}>{t('taskForm.reminder')}</Text>
+              <View style={styles.chips}>
+                {REMINDER_PRESET_VALUES.map((value) => {
+                  const active = !isCustomReminder && value === reminder;
+                  const label =
+                    value === 0
+                      ? t('taskForm.onTime')
+                      : value === 60
+                        ? t('taskForm.oneHour')
+                        : t('taskForm.minutes', { count: value });
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => {
+                        setReminder(value);
+                        setIsCustomReminder(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.chip,
+                        active && styles.chipActive,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          active && styles.chipTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <Pressable
+                  onPress={() => setIsCustomReminder(true)}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    isCustomReminder && styles.chipActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isCustomReminder && styles.chipTextActive,
+                    ]}
+                  >
+                    {t('taskForm.customReminder')}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {isCustomReminder ? (
+                <View style={styles.reminderInputRow}>
+                  <TextInput
+                    keyboardType="number-pad"
+                    maxLength={5}
+                    onChangeText={setCustomReminder}
+                    placeholder={t('taskForm.customReminderPlaceholder')}
+                    placeholderTextColor={colors.placeholder}
+                    style={[styles.input, styles.reminderInput]}
+                    value={customReminder}
+                  />
+                  <Text style={styles.inputUnit}>
+                    {t('taskForm.minuteUnit')}
+                  </Text>
+                </View>
+              ) : null}
+
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: advancedOpen }}
@@ -472,76 +541,6 @@ export function TaskFormModal({
                     textAlignVertical="top"
                     value={description}
                   />
-
-                  <Text style={styles.label}>{t('taskForm.reminder')}</Text>
-                  <View style={styles.chips}>
-                    {REMINDER_PRESET_VALUES.map((value) => {
-                      const active = !isCustomReminder && value === reminder;
-                      const label =
-                        value === 0
-                          ? t('taskForm.onTime')
-                          : value === 60
-                            ? t('taskForm.oneHour')
-                            : t('taskForm.minutes', { count: value });
-                      return (
-                        <Pressable
-                          key={value}
-                          onPress={() => {
-                            setReminder(value);
-                            setIsCustomReminder(false);
-                          }}
-                          style={({ pressed }) => [
-                            styles.chip,
-                            active && styles.chipActive,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.chipText,
-                              active && styles.chipTextActive,
-                            ]}
-                          >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                    <Pressable
-                      onPress={() => setIsCustomReminder(true)}
-                      style={({ pressed }) => [
-                        styles.chip,
-                        isCustomReminder && styles.chipActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          isCustomReminder && styles.chipTextActive,
-                        ]}
-                      >
-                        {t('taskForm.customReminder')}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {isCustomReminder ? (
-                    <View style={styles.reminderInputRow}>
-                      <TextInput
-                        keyboardType="number-pad"
-                        maxLength={5}
-                        onChangeText={setCustomReminder}
-                        placeholder={t('taskForm.customReminderPlaceholder')}
-                        placeholderTextColor={colors.placeholder}
-                        style={[styles.input, styles.reminderInput]}
-                        value={customReminder}
-                      />
-                      <Text style={styles.inputUnit}>
-                        {t('taskForm.minuteUnit')}
-                      </Text>
-                    </View>
-                  ) : null}
 
                   <Text style={styles.label}>{t('taskForm.priority')}</Text>
                   <View style={styles.priorityRow}>

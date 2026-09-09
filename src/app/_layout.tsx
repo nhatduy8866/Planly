@@ -1,17 +1,26 @@
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
+import { initializeNotifications } from '../services/notifications';
 import { PlannerProvider, usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 function AppShell() {
   const { state } = usePlanner();
-  const { colors, hydrated: preferencesHydrated } = usePreferences();
+  const { colors, hydrated: preferencesHydrated, language } = usePreferences();
   const styles = useThemedStyles(createStyles);
+
+  useEffect(() => {
+    if (!preferencesHydrated) return;
+    void initializeNotifications(language).catch(() => {
+      // Permission can still be checked or enabled later from Settings.
+    });
+  }, [language, preferencesHydrated]);
 
   if (!state.hydrated || !preferencesHydrated) {
     return (

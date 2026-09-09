@@ -1,7 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  AppState,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +15,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
+import {
+  getNotificationPermission,
+  openNotificationSettings,
+  requestNotificationPermission,
+  type NotificationPermissionSummary,
+} from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { IconButton } from './IconButton';
@@ -177,10 +184,76 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
   const insets = useSafeAreaInsets();
   const { colors, language, setLanguage, setTheme, t, theme } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermissionSummary | null>(null);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationCheckFailed, setNotificationCheckFailed] = useState(false);
+
+  const refreshNotificationPermission = useCallback(async () => {
+    try {
+      const permission = await getNotificationPermission(language);
+      setNotificationPermission(permission);
+      setNotificationCheckFailed(false);
+    } catch {
+      setNotificationPermission(null);
+      setNotificationCheckFailed(true);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') void refreshNotificationPermission();
+    });
+    return () => subscription.remove();
+  }, [refreshNotificationPermission, visible]);
+
+  async function handleNotificationPermission() {
+    if (!notificationPermission || notificationBusy) return;
+    setNotificationBusy(true);
+    try {
+      if (
+        notificationPermission.state === 'denied' &&
+        !notificationPermission.canAskAgain
+      ) {
+        await openNotificationSettings();
+      } else {
+        setNotificationPermission(await requestNotificationPermission(language));
+      }
+      setNotificationCheckFailed(false);
+    } catch {
+      setNotificationCheckFailed(true);
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  const notificationStatusKey = notificationCheckFailed
+    ? 'settings.notificationsUnavailable'
+    : notificationPermission
+      ? `settings.notifications${
+          notificationPermission.state === 'granted'
+            ? 'Granted'
+            : notificationPermission.state === 'denied'
+              ? 'Denied'
+              : notificationPermission.state === 'undetermined'
+                ? 'Undetermined'
+                : 'Unsupported'
+        }` as const
+      : 'settings.notificationsChecking';
+  const notificationActionLabel =
+    notificationPermission?.state === 'denied' && !notificationPermission.canAskAgain
+      ? t('settings.notificationsOpen')
+      : t('settings.notificationsEnable');
+  const canChangeNotificationPermission =
+    notificationPermission !== null &&
+    notificationPermission.state !== 'granted' &&
+    notificationPermission.state !== 'unsupported';
 
   return (
     <Modal
       animationType="slide"
+      onShow={() => void refreshNotificationPermission()}
       onRequestClose={onClose}
       transparent={Platform.OS === 'web'}
       visible={visible}
@@ -282,6 +355,66 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                   </Pressable>
                 );
               })}
+            </View>
+
+            <Text style={[styles.cardLabel, styles.secondCardLabel]}>
+              {t('settings.notificationsTitle')}
+            </Text>
+            <Text style={styles.cardDescription}>
+              {t('settings.notificationsDescription')}
+            </Text>
+            <View style={styles.notificationCard}>
+              <View
+                style={[
+                  styles.notificationIcon,
+                  notificationPermission?.state === 'granted' &&
+                    styles.notificationIconGranted,
+                ]}
+              >
+                <MaterialIcons
+                  name={
+                    notificationPermission?.state === 'granted'
+                      ? 'notifications-active'
+                      : 'notifications-none'
+                  }
+                  size={22}
+                  color={
+                    notificationPermission?.state === 'granted'
+                      ? colors.primary
+                      : colors.textMuted
+                  }
+                />
+              </View>
+              <View style={styles.notificationCopy}>
+                <Text style={styles.notificationStatus}>
+                  {t(notificationStatusKey)}
+                </Text>
+                {canChangeNotificationPermission ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: notificationBusy }}
+                    disabled={notificationBusy}
+                    onPress={() => void handleNotificationPermission()}
+                    style={({ pressed }) => [
+                      styles.notificationAction,
+                      (pressed || notificationBusy) && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.notificationActionText}>
+                      {notificationActionLabel}
+                    </Text>
+                    <MaterialIcons
+                      name={
+                        notificationPermission?.canAskAgain === false
+                          ? 'open-in-new'
+                          : 'chevron-right'
+                      }
+                      size={18}
+                      color={colors.primaryDark}
+                    />
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
 
             <View style={styles.savedNote}>
@@ -452,6 +585,50 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   choiceTextSelected: {
     color: colors.primaryDark,
+    fontWeight: '800',
+  },
+  notificationCard: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  notificationIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 11,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  notificationIconGranted: {
+    backgroundColor: colors.primarySoft,
+  },
+  notificationCopy: {
+    flex: 1,
+    minHeight: 42,
+    justifyContent: 'center',
+  },
+  notificationStatus: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  notificationAction: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 7,
+    minHeight: 28,
+  },
+  notificationActionText: {
+    color: colors.primaryDark,
+    fontSize: 13,
     fontWeight: '800',
   },
   savedNote: {

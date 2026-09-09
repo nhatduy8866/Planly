@@ -1,6 +1,6 @@
 export type CalendarMode = 'week' | 'month';
 
-export type ReminderMinutes = null | 0 | 5 | 10 | 15 | 30 | 60;
+export type ReminderMinutes = number | null;
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'none';
 

@@ -17,29 +17,55 @@ export function useTaskActions() {
   const saveTask = useCallback(
     async (values: TaskFormValues, existing?: Task) => {
       const now = new Date().toISOString();
-      const nextOrder =
-        existing?.date === values.date
-          ? (existing.order ?? 0)
-          : state.tasks
-              .filter((task) => task.date === values.date)
-              .reduce((max, task) => Math.max(max, task.order ?? -1), -1) + 1;
+      const { batchDates, ...taskValues } = values;
+      const targetDates = existing
+        ? [values.date]
+        : Array.from(
+            new Set(batchDates?.length ? batchDates : [values.date]),
+          ).sort();
+      const nextOrderByDate = new Map<string, number>();
 
-      const task: Task = {
-        ...values,
-        id: existing?.id ?? createId('task'),
-        completed: existing?.completed ?? false,
-        order: nextOrder,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
-
-      await cancelTaskReminder(existing?.notificationId);
-      try {
-        task.notificationId = await scheduleTaskReminder(task, language);
-      } catch {
-        task.notificationId = undefined;
+      for (const targetDate of targetDates) {
+        nextOrderByDate.set(
+          targetDate,
+          existing?.date === targetDate
+            ? (existing.order ?? 0)
+            : state.tasks
+                .filter((task) => task.date === targetDate)
+                .reduce(
+                  (max, task) => Math.max(max, task.order ?? -1),
+                  -1,
+                ) + 1,
+        );
       }
-      dispatch({ type: 'upsert_task', payload: task });
+
+      if (existing) await cancelTaskReminder(existing.notificationId);
+
+      const tasks: Task[] = [];
+      for (const targetDate of targetDates) {
+        const task: Task = {
+          ...taskValues,
+          date: targetDate,
+          id: existing?.id ?? createId('task'),
+          completed: existing?.completed ?? false,
+          order: nextOrderByDate.get(targetDate) ?? 0,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        };
+
+        try {
+          task.notificationId = await scheduleTaskReminder(task, language);
+        } catch {
+          task.notificationId = undefined;
+        }
+        tasks.push(task);
+      }
+
+      if (existing || tasks.length === 1) {
+        dispatch({ type: 'upsert_task', payload: tasks[0] });
+      } else {
+        dispatch({ type: 'create_batch_tasks', payload: tasks });
+      }
     },
     [dispatch, language, state.tasks],
   );

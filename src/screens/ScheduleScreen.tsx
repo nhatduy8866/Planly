@@ -313,8 +313,9 @@ export function ScheduleScreen() {
 
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
-    setSelectedDate(values.date);
-    setCursor(fromDateKey(values.date));
+    const firstCreatedDate = values.batchDates?.[0] ?? values.date;
+    setSelectedDate(firstCreatedDate);
+    setCursor(fromDateKey(firstCreatedDate));
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 

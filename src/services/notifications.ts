@@ -67,7 +67,6 @@ async function ensureAndroidChannel(language: Language): Promise<void> {
       lightColor: CHANNEL_COLOR,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       showBadge: false,
-      sound: 'default',
       vibrationPattern: [0, 200, 150, 200],
     });
   }

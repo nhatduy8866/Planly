@@ -42,7 +42,8 @@
         "expo-notifications",
         {
           "color": "#4F46E5",
-          "defaultChannel": "planly-reminders"
+          "defaultChannel": "planly-reminders-v2",
+          "icon": "./assets/android-icon-monochrome.png"
         }
       ],
       "expo-font",

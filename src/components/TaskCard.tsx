@@ -61,11 +61,11 @@ export function TaskCard({
   };
 
   return (
-    <View style={styles.cardFrame}>
+    <View style={styles.cardShadow}>
       <View
         style={[
           styles.card,
-          { borderColor: cardAccent, borderLeftColor: cardAccent },
+          colorfulAccents && { borderLeftWidth: 4, borderLeftColor: cardAccent },
           task.completed && styles.cardCompleted,
         ]}
       >
@@ -121,38 +121,50 @@ export function TaskCard({
             style={styles.smallButton}
           />
         </View>
+
+        {priority !== 'none' ? (
+          <View
+            testID="task-card-priority-corner"
+            pointerEvents="none"
+            style={[styles.priorityCorner, { borderTopColor: priorityColors[priority] }]}
+          />
+        ) : null}
       </View>
-      {priority !== 'none' ? (
-        <View
-          pointerEvents="none"
-          style={[styles.priorityCorner, { borderTopColor: priorityColors[priority] }]}
-        />
-      ) : null}
     </View>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  cardFrame: {
+  cardShadow: {
+    backgroundColor: 'transparent',
     borderRadius: 16,
+    elevation: 2,
     marginBottom: 10,
-    overflow: 'hidden',
-    position: 'relative',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   card: {
     backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 16,
-    borderLeftWidth: 15,
-    borderWidth: 4,
+    borderWidth: 1,
     flexDirection: 'row',
-    padding: 12,
+    overflow: 'hidden',
+    padding: 13,
+    position: 'relative',
   },
-  cardCompleted: { backgroundColor: colors.surfaceMuted },
+  cardCompleted: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    opacity: 0.82,
+  },
   priorityCorner: {
     borderLeftColor: 'transparent',
-    borderLeftWidth: 32,
+    borderLeftWidth: 26,
     borderStyle: 'solid',
-    borderTopWidth: 32,
+    borderTopWidth: 26,
     height: 0,
     position: 'absolute',
     right: 0,
@@ -160,15 +172,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 0,
     zIndex: 1,
   },
-  checkButton: { paddingRight: 10, paddingTop: 2 },
+  checkButton: { paddingRight: 10, paddingTop: 1 },
   content: { flex: 1 },
   timeRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
   time: { color: colors.primary, fontSize: 13, fontWeight: '800' },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  meta: { color: colors.textMuted, fontSize: 12, fontWeight: '500' },
   completedMeta: { color: colors.textMuted },
-  title: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
+  title: { color: colors.text, fontSize: 15, fontWeight: '700', lineHeight: 20, marginTop: 4 },
   completedText: { color: colors.textMuted, textDecorationLine: 'line-through' },
   description: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
-  actions: { alignItems: 'flex-end', justifyContent: 'flex-end', marginLeft: 6 },
+  actions: { alignItems: 'flex-end', justifyContent: 'flex-end', marginLeft: 8 },
   smallButton: { borderRadius: 9, height: 30, width: 30 },
 });

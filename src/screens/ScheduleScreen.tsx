@@ -15,6 +15,7 @@ import { EmptyState } from '../components/EmptyState';
 import { IconButton } from '../components/IconButton';
 import { SortDropdown } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
+import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
 import {
   TaskFormModal,
   type TaskFormValues,
@@ -301,14 +302,19 @@ export function ScheduleScreen() {
         </View>
 
         {dayTasks.length ? (
-          dayTasks.map((task) => (
-            <TaskCard
+          dayTasks.map((task, index) => (
+            <AnimatedEntryItem
               key={task.id}
-              task={task}
-              onToggle={() => void toggleTask(task)}
-              onEdit={() => openEdit(task)}
-              onDelete={() => confirmDelete(task)}
-            />
+              index={index}
+              triggerKey={selectedDate}
+            >
+              <TaskCard
+                task={task}
+                onToggle={() => void toggleTask(task)}
+                onEdit={() => openEdit(task)}
+                onDelete={() => confirmDelete(task)}
+              />
+            </AnimatedEntryItem>
           ))
         ) : (
           <EmptyState

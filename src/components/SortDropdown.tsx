@@ -23,18 +23,28 @@ interface SortDropdownProps<T extends string = string> {
   options: SortOption<T>[];
   selectedKey: T;
   onSelect: (key: T) => void;
+  accessibilityLabel?: string;
+  buttonIcon?: keyof typeof MaterialIcons.glyphMap;
+  fullWidth?: boolean;
 }
 
 export function SortDropdown<T extends string = string>({
   options,
   selectedKey,
   onSelect,
+  accessibilityLabel,
+  buttonIcon = 'sort',
+  fullWidth = false,
 }: SortDropdownProps<T>) {
   const { colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const anchorRef = useRef<View>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [menuCoords, setMenuCoords] = useState<{ top: number; left: number }>({
+  const [menuCoords, setMenuCoords] = useState<{
+    top: number;
+    left: number;
+    width?: number;
+  }>({
     top: 100,
     left: 16,
   });
@@ -44,14 +54,15 @@ export function SortDropdown<T extends string = string>({
   function handleOpen() {
     anchorRef.current?.measureInWindow((x, y, width, height) => {
       const windowWidth = Dimensions.get('window').width;
-      const menuWidth = 145;
+      const menuWidth = fullWidth ? Math.min(width, windowWidth - 24) : 145;
       const left = Math.min(
-        Math.max(12, x + width - menuWidth),
+        Math.max(12, fullWidth ? x : x + width - menuWidth),
         windowWidth - menuWidth - 12,
       );
       setMenuCoords({
         top: y + height + 5,
         left,
+        width: fullWidth ? menuWidth : undefined,
       });
       setIsOpen(true);
     });
@@ -64,19 +75,28 @@ export function SortDropdown<T extends string = string>({
 
   return (
     <>
-      <View ref={anchorRef} collapsable={false}>
+      <View
+        ref={anchorRef}
+        collapsable={false}
+        style={fullWidth && styles.fullWidth}
+      >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('common.sort')}
+          accessibilityLabel={accessibilityLabel ?? t('common.sort')}
           onPress={handleOpen}
           style={({ pressed }) => [
             styles.button,
+            fullWidth && styles.fullWidthButton,
             pressed && styles.pressed,
             isOpen && styles.buttonActive,
           ]}
         >
-          <MaterialIcons name="sort" size={16} color={colors.primary} />
-          <Text style={styles.buttonText}>{selectedOption?.label ?? t('common.sort')}</Text>
+          <MaterialIcons name={buttonIcon} size={16} color={colors.primary} />
+          <Text
+            style={[styles.buttonText, fullWidth && styles.fullWidthButtonText]}
+          >
+            {selectedOption?.label ?? t('common.sort')}
+          </Text>
           <MaterialIcons
             name={isOpen ? 'arrow-drop-up' : 'arrow-drop-down'}
             size={18}
@@ -98,6 +118,7 @@ export function SortDropdown<T extends string = string>({
               {
                 top: menuCoords.top,
                 left: menuCoords.left,
+                width: menuCoords.width,
               },
             ]}
           >
@@ -162,6 +183,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: '800',
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  fullWidthButton: {
+    width: '100%',
+  },
+  fullWidthButtonText: {
+    flex: 1,
   },
   pressed: {
     opacity: 0.7,

@@ -5,6 +5,11 @@ import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
+import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
+import {
+  TaskNavigationProvider,
+  useTaskNavigation,
+} from '../navigation/TaskNavigationContext';
 import { initializeNotifications } from '../services/notifications';
 import { PlannerProvider, usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
@@ -13,7 +18,11 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 function AppShell() {
   const { state } = usePlanner();
   const { colors, hydrated: preferencesHydrated, language } = usePreferences();
+  const { requestTask } = useTaskNavigation();
   const styles = useThemedStyles(createStyles);
+  const appReady = state.hydrated && preferencesHydrated;
+
+  useNotificationTaskNavigation(requestTask, appReady);
 
   useEffect(() => {
     if (!preferencesHydrated) return;
@@ -22,7 +31,7 @@ function AppShell() {
     });
   }, [language, preferencesHydrated]);
 
-  if (!state.hydrated || !preferencesHydrated) {
+  if (!appReady) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -46,9 +55,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <PreferencesProvider>
-        <PlannerProvider>
-          <AppShell />
-        </PlannerProvider>
+        <TaskNavigationProvider>
+          <PlannerProvider>
+            <AppShell />
+          </PlannerProvider>
+        </TaskNavigationProvider>
       </PreferencesProvider>
     </SafeAreaProvider>
   );

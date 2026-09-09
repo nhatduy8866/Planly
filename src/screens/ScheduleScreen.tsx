@@ -28,6 +28,7 @@ import { AiScheduleModal } from '../components/ai/AiScheduleModal';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
+import { useTaskNavigation } from '../navigation/TaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlanner } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
@@ -147,6 +148,7 @@ export function ScheduleScreen() {
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const { mode, registerTodayHandler, setMode } = useCalendarNavigation();
+  const { registerTaskHandler } = useTaskNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
@@ -158,8 +160,14 @@ export function ScheduleScreen() {
   >(() => new Map());
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string>();
   const latestTasksRef = useRef(state.tasks);
   const pendingCompletionsRef = useRef<Map<string, PendingCompletion>>(new Map());
+  const scrollViewRef = useRef<ScrollView>(null);
+  const taskLayoutYRef = useRef(new Map<string, number>());
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const screenActiveRef = useRef(true);
   const calendarPeriodColorIndex = getCalendarPeriodColorIndex(cursor, mode);
   const calendarHeaderBackground = colorfulAccents
@@ -190,6 +198,41 @@ export function ScheduleScreen() {
     latestTasksRef.current = state.tasks;
   }, [state.tasks]);
 
+  const scrollToTask = useCallback((taskId: string) => {
+    const taskY = taskLayoutYRef.current.get(taskId);
+    if (taskY === undefined) return;
+    scrollViewRef.current?.scrollTo({
+      animated: true,
+      y: Math.max(0, taskY - 16),
+    });
+  }, []);
+
+  const focusTaskFromNotification = useCallback(
+    (taskId: string) => {
+      const task = latestTasksRef.current.find((item) => item.id === taskId);
+      if (!task) return;
+
+      animateTaskListTransition();
+      setSelectedDate(task.date);
+      setCursor(fromDateKey(task.date));
+      setTaskView('all');
+      setCurrentTime(new Date());
+      setHighlightedTaskId(task.id);
+
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
+        if (screenActiveRef.current) setHighlightedTaskId(undefined);
+      }, 3_500);
+      requestAnimationFrame(() => scrollToTask(task.id));
+    },
+    [scrollToTask],
+  );
+
+  useEffect(
+    () => registerTaskHandler(focusTaskFromNotification),
+    [focusTaskFromNotification, registerTaskHandler],
+  );
+
   useEffect(() => {
     screenActiveRef.current = true;
     const pendingCompletions = pendingCompletionsRef.current;
@@ -201,6 +244,7 @@ export function ScheduleScreen() {
         clearTimeout(timeoutId);
       });
       pendingCompletions.clear();
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
     };
   }, []);
 
@@ -407,6 +451,7 @@ export function ScheduleScreen() {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.calendarModeToggle}>
@@ -541,20 +586,28 @@ export function ScheduleScreen() {
             const completionUndoSeconds = pendingCompletionSeconds.get(task.id);
 
             return (
-              <AnimatedEntryItem
+              <View
                 key={task.id}
-                index={index}
-                triggerKey={`${selectedDate}-${taskView}`}
+                onLayout={({ nativeEvent }) => {
+                  taskLayoutYRef.current.set(task.id, nativeEvent.layout.y);
+                  if (highlightedTaskId === task.id) scrollToTask(task.id);
+                }}
               >
-                <TaskCard
-                  completionPending={completionUndoSeconds !== undefined}
-                  completionUndoSeconds={completionUndoSeconds}
-                  task={task}
-                  onToggle={handleTaskToggle}
-                  onEdit={openEdit}
-                  onDelete={confirmDelete}
-                />
-              </AnimatedEntryItem>
+                <AnimatedEntryItem
+                  index={index}
+                  triggerKey={`${selectedDate}-${taskView}`}
+                >
+                  <TaskCard
+                    completionPending={completionUndoSeconds !== undefined}
+                    completionUndoSeconds={completionUndoSeconds}
+                    highlighted={highlightedTaskId === task.id}
+                    task={task}
+                    onToggle={handleTaskToggle}
+                    onEdit={openEdit}
+                    onDelete={confirmDelete}
+                  />
+                </AnimatedEntryItem>
+              </View>
             );
           })
         ) : (

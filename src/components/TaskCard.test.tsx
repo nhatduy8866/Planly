@@ -111,4 +111,12 @@ describe('TaskCard Component', () => {
     });
     expect(noneTree.root.findAllByProps({ testID: 'task-card-priority-corner' }).length > 0).toBe(false);
   });
+
+  it('marks the card targeted by notification navigation', () => {
+    const { tree } = renderTaskCard({ highlighted: true });
+
+    expect(
+      tree.root.findAllByProps({ testID: 'highlighted-task-card' }).length,
+    ).toBeGreaterThan(0);
+  });
 });

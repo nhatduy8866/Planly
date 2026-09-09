@@ -17,6 +17,7 @@ interface TaskCardProps {
   compact?: boolean;
   completionPending?: boolean;
   completionUndoSeconds?: number;
+  highlighted?: boolean;
 }
 
 const CARD_ACCENT_KEYS = [
@@ -52,6 +53,7 @@ export const TaskCard = memo(function TaskCard({
   compact = false,
   completionPending = false,
   completionUndoSeconds,
+  highlighted = false,
 }: TaskCardProps) {
   const { colorfulAccents, colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
@@ -131,7 +133,9 @@ export const TaskCard = memo(function TaskCard({
         style={[
           styles.card,
           { borderColor: cardAccent, borderLeftColor: cardAccent },
+          highlighted && styles.highlightedCard,
         ]}
+        testID={highlighted ? 'highlighted-task-card' : undefined}
       >
         <Animated.View
           pointerEvents="none"
@@ -285,6 +289,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 4,
     flexDirection: 'row',
     padding: 12,
+  },
+  highlightedCard: {
+    borderColor: colors.primary,
+    borderLeftColor: colors.primary,
   },
   completedBackground: {
     backgroundColor: colors.surfaceMuted,

@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -10,9 +11,9 @@ import { IconButton } from './IconButton';
 
 interface TaskCardProps {
   task: Task;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onToggle: (task: Task) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
   compact?: boolean;
 }
 
@@ -41,7 +42,7 @@ function getStableAccentIndex(value: string): number {
   return Math.abs(hash) % CARD_ACCENT_KEYS.length;
 }
 
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   task,
   onToggle,
   onEdit,
@@ -60,6 +61,18 @@ export function TaskCard({
     low: colors.priorityLow,
   };
 
+  const handleToggle = useCallback(() => {
+    onToggle(task);
+  }, [onToggle, task]);
+
+  const handleEdit = useCallback(() => {
+    onEdit(task);
+  }, [onEdit, task]);
+
+  const handleDelete = useCallback(() => {
+    onDelete(task);
+  }, [onDelete, task]);
+
   return (
     <View style={styles.cardFrame}>
       <View
@@ -73,7 +86,7 @@ export function TaskCard({
           accessibilityRole="checkbox"
           accessibilityState={{ checked: task.completed }}
           accessibilityLabel={t('task.mark', { title: task.title })}
-          onPress={onToggle}
+          onPress={handleToggle}
           style={styles.checkButton}
         >
           <MaterialIcons
@@ -83,7 +96,7 @@ export function TaskCard({
           />
         </Pressable>
 
-        <Pressable onPress={onEdit} style={styles.content}>
+        <Pressable onPress={handleEdit} style={styles.content}>
           <View style={styles.timeRow}>
             <Text style={[styles.time, task.completed && styles.completedMeta]}>
               {task.startTime}
@@ -114,7 +127,7 @@ export function TaskCard({
           <IconButton
             icon="delete-outline"
             accessibilityLabel={t('task.delete')}
-            onPress={onDelete}
+            onPress={handleDelete}
             color={colors.danger}
             backgroundColor={colors.dangerSoft}
             size={18}
@@ -130,7 +143,7 @@ export function TaskCard({
       ) : null}
     </View>
   );
-}
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardFrame: {

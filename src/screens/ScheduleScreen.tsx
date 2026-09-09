@@ -158,10 +158,21 @@ export function ScheduleScreen() {
     setFormVisible(true);
   }
 
-  function openEdit(task: Task) {
+  const openEdit = useCallback((task: Task) => {
     setEditingTask(task);
     setFormVisible(true);
-  }
+  }, []);
+
+  const confirmDelete = useCallback((task: Task) => {
+    setDeletingTask(task);
+  }, []);
+
+  const handleToggleTask = useCallback(
+    (task: Task) => {
+      void toggleTask(task);
+    },
+    [toggleTask],
+  );
 
   function selectDate(date: string) {
     setSelectedDate(date);
@@ -179,10 +190,6 @@ export function ScheduleScreen() {
     setSelectedDate(values.date);
     setCursor(fromDateKey(values.date));
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }
-
-  function confirmDelete(task: Task) {
-    setDeletingTask(task);
   }
 
   return (
@@ -310,9 +317,9 @@ export function ScheduleScreen() {
             >
               <TaskCard
                 task={task}
-                onToggle={() => void toggleTask(task)}
-                onEdit={() => openEdit(task)}
-                onDelete={() => confirmDelete(task)}
+                onToggle={handleToggleTask}
+                onEdit={openEdit}
+                onDelete={confirmDelete}
               />
             </AnimatedEntryItem>
           ))

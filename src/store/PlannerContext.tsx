@@ -35,11 +35,17 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<PlannerState>) : {};
+        const cleanTasks = Array.isArray(parsed.tasks)
+          ? parsed.tasks.filter(
+              (t) => typeof t?.id === 'string' && !t.id.startsWith('perf-mock-task-'),
+            )
+          : [];
+
         if (active) {
           dispatch({
             type: 'hydrate',
             payload: {
-              tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+              tasks: cleanTasks,
               notes: Array.isArray(parsed.notes) ? parsed.notes : [],
             },
           });

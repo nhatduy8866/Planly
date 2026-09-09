@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -115,9 +115,21 @@ export function TasksScreen() {
     setFormVisible(true);
   }
 
-  function confirmDelete(task: Task) {
+  const handleEditTask = useCallback((task: Task) => {
+    setEditingTask(task);
+    setFormVisible(true);
+  }, []);
+
+  const handleDeleteTask = useCallback((task: Task) => {
     setDeletingTask(task);
-  }
+  }, []);
+
+  const handleToggleTask = useCallback(
+    (task: Task) => {
+      void toggleTask(task);
+    },
+    [toggleTask],
+  );
 
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
@@ -199,12 +211,9 @@ export function TasksScreen() {
                       <TaskCard
                         compact
                         task={task}
-                        onToggle={() => void toggleTask(task)}
-                        onEdit={() => {
-                          setEditingTask(task);
-                          setFormVisible(true);
-                        }}
-                        onDelete={() => confirmDelete(task)}
+                        onToggle={handleToggleTask}
+                        onEdit={handleEditTask}
+                        onDelete={handleDeleteTask}
                       />
                     </AnimatedEntryItem>
                   );

@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,8 +25,11 @@ import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
 import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
+import {
+  matchesTaskListFilter,
+  type TaskListFilter,
+} from '../utils/taskFilters';
 
-type TaskFilter = 'today' | 'all' | 'completed';
 type TaskSort = 'time' | 'priority' | 'title' | 'created';
 
 const PRIORITY_WEIGHT: Record<string, number> = {
@@ -40,16 +44,17 @@ export function TasksScreen() {
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
-  const [filter, setFilter] = useState<TaskFilter>('today');
+  const [filter, setFilter] = useState<TaskListFilter>('upcoming');
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
-  const filters: { key: TaskFilter; label: string }[] = [
-    { key: 'today', label: t('tasks.filterToday') },
+  const filters: { key: TaskListFilter; label: string }[] = [
+    { key: 'upcoming', label: t('tasks.filterUpcoming') },
+    { key: 'past', label: t('tasks.filterPast') },
     { key: 'all', label: t('tasks.filterAll') },
-    { key: 'completed', label: t('tasks.filterCompleted') },
   ];
   const sorts: SortOption<TaskSort>[] = [
     { key: 'time', label: t('sort.time'), icon: 'schedule' },
@@ -58,13 +63,33 @@ export function TasksScreen() {
     { key: 'created', label: t('sort.created'), icon: 'access-time' },
   ];
 
+  useEffect(() => {
+    const refreshCurrentTime = () => setCurrentTime(new Date());
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000);
+    const timeoutId = setTimeout(() => {
+      refreshCurrentTime();
+      intervalId = setInterval(refreshCurrentTime, 60_000);
+    }, millisecondsUntilNextMinute);
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (nextState) => {
+        if (nextState === 'active') refreshCurrentTime();
+      },
+    );
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId !== undefined) clearInterval(intervalId);
+      appStateSubscription.remove();
+    };
+  }, []);
+
   const groupedTasks = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-    const currentDate = todayKey();
     const filtered = state.tasks
       .filter((task) => {
-        if (filter === 'today' && task.date !== currentDate) return false;
-        if (filter === 'completed' && !task.completed) return false;
+        if (!matchesTaskListFilter(task, filter, currentTime)) return false;
         if (!normalizedQuery) return true;
         return `${task.title} ${task.description}`
           .toLocaleLowerCase(locale)
@@ -107,7 +132,7 @@ export function TasksScreen() {
       else groups.push({ date: task.date, tasks: [task] });
       return groups;
     }, []);
-  }, [filter, locale, query, sortBy, state.tasks]);
+  }, [currentTime, filter, locale, query, sortBy, state.tasks]);
 
   function openCreate() {
     setEditingTask(undefined);

@@ -6,7 +6,6 @@ import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task, TaskPriority } from '../types';
-import { formatDuration } from '../utils/date';
 import { IconButton } from './IconButton';
 
 interface TaskCardProps {
@@ -55,7 +54,7 @@ export function TaskCard({
   completionUndoSeconds,
   animatePresence = false,
 }: TaskCardProps) {
-  const { colorfulAccents, colors, locale, t } = usePreferences();
+  const { colorfulAccents, colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [entranceProgress] = useState(
     () => new Animated.Value(animatePresence ? 0 : 1),
@@ -190,13 +189,41 @@ export function TaskCard({
             <Text style={[styles.time, isCompleted && styles.completedMeta]}>
               {task.startTime}
             </Text>
-            <Text style={styles.meta}>· {formatDuration(task.durationMinutes, locale)}</Text>
             {task.reminderMinutes !== null ? (
-              <MaterialIcons
-                name="notifications"
-                size={14}
-                color={isCompleted ? colors.textMuted : colors.warning}
-              />
+              <>
+                <Text
+                  style={[styles.meta, isCompleted && styles.completedMeta]}
+                >
+                  ·{' '}
+                  {task.reminderMinutes === 0
+                    ? t('task.reminderOnTime')
+                    : t('task.reminderBefore', {
+                        count: task.reminderMinutes,
+                      })}
+                </Text>
+                <MaterialIcons
+                  name="notifications"
+                  size={14}
+                  color={isCompleted ? colors.textMuted : colors.warning}
+                />
+              </>
+            ) : null}
+            {task.batchId ? (
+              <View style={styles.batchBadge}>
+                <MaterialIcons
+                  name="repeat"
+                  size={12}
+                  color={isCompleted ? colors.textMuted : colors.primaryDark}
+                />
+                <Text
+                  style={[
+                    styles.batchBadgeText,
+                    isCompleted && styles.completedMeta,
+                  ]}
+                >
+                  {t('task.batchBadge')}
+                </Text>
+              </View>
             ) : null}
           </View>
           <Text
@@ -301,12 +328,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   checkButton: { paddingRight: 10, paddingTop: 2 },
   content: { flex: 1 },
-  timeRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+  timeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
   time: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   meta: { color: colors.textMuted, fontSize: 12 },
   completedMeta: { color: colors.textMuted },
   title: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
   completedText: { color: colors.textMuted, textDecorationLine: 'line-through' },
+  batchBadge: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 9,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  batchBadgeText: {
+    color: colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '800',
+  },
   description: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
   actions: { alignItems: 'flex-end', justifyContent: 'flex-end', marginLeft: 6 },
   smallButton: { borderRadius: 9, height: 30, width: 30 },

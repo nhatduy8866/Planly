@@ -40,7 +40,6 @@ export interface TaskFormValues {
   description: string;
   date: string;
   startTime: string;
-  durationMinutes: number;
   reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
   batchDates?: string[];
@@ -57,7 +56,6 @@ interface TaskFormModalProps {
 type PickerTarget = 'date' | 'time' | 'batchEnd' | null;
 type BatchMode = 'weekly' | 'monthly';
 
-const DEFAULT_TASK_DURATION_MINUTES = 30;
 const MAX_CUSTOM_REMINDER_MINUTES = 10_080;
 const REMINDER_PRESET_VALUES = [0, 5, 15, 30, 60] as const;
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -244,8 +242,6 @@ export function TaskFormModal({
         description: description.trim(),
         date,
         startTime,
-        durationMinutes:
-          task?.durationMinutes ?? DEFAULT_TASK_DURATION_MINUTES,
         reminderMinutes,
         priority,
         batchDates: !task && batchEnabled ? batchDates : undefined,
@@ -332,13 +328,7 @@ export function TaskFormModal({
 
               <View style={styles.row}>
                 <View style={styles.half}>
-                  <Text style={styles.label}>
-                    {t(
-                      !task && batchEnabled
-                        ? 'taskForm.batchStartDate'
-                        : 'taskForm.date',
-                    )}
-                  </Text>
+                  <Text style={styles.label}>{t('taskForm.date')}</Text>
                   {Platform.OS === 'web' ? (
                     <View style={styles.webPickerBox}>
                       <MaterialIcons

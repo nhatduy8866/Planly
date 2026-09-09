@@ -23,6 +23,8 @@ export function useTaskActions() {
         : Array.from(
             new Set(batchDates?.length ? batchDates : [values.date]),
           ).sort();
+      const batchId =
+        existing?.batchId ?? (!existing && batchDates ? createId('batch') : undefined);
       const nextOrderByDate = new Map<string, number>();
 
       for (const targetDate of targetDates) {
@@ -46,6 +48,8 @@ export function useTaskActions() {
         const task: Task = {
           ...taskValues,
           date: targetDate,
+          durationMinutes: existing?.durationMinutes ?? 0,
+          batchId,
           id: existing?.id ?? createId('task'),
           completed: existing?.completed ?? false,
           order: nextOrderByDate.get(targetDate) ?? 0,
@@ -75,6 +79,7 @@ export function useTaskActions() {
       const now = new Date().toISOString();
       const task: Task = {
         ...source,
+        batchId: undefined,
         id: createId('task'),
         title: `${source.title} (${t('task.copySuffix')})`,
         notificationId: undefined,

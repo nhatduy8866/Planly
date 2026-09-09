@@ -13,6 +13,7 @@ export interface Task {
   durationMinutes: number;
   reminderMinutes: ReminderMinutes;
   notificationId?: string;
+  batchId?: string;
   completed: boolean;
   order: number;
   priority?: TaskPriority;

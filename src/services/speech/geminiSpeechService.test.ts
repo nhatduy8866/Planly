@@ -58,7 +58,7 @@ describe('geminiSpeechService', () => {
         candidates: [
           {
             content: {
-              parts: [{ text: '“Mai 9h sáng họp team 1 tiếng”' }],
+              parts: [{ text: '“Mai 9h sáng họp team”' }],
             },
           },
         ],
@@ -87,7 +87,7 @@ describe('geminiSpeechService', () => {
       data: 'BASE64_AUDIO_CONTENT',
     });
 
-    expect(result).toBe('Mai 9h sáng họp team 1 tiếng');
+    expect(result).toBe('Mai 9h sáng họp team');
   });
 
   it('retries with fallback model when the primary model fails', async () => {

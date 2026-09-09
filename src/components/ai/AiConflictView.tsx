@@ -12,7 +12,6 @@ import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ScheduleConflict } from '../../types/ai';
-import { minutesToTime, timeToMinutes } from '../../utils/date';
 
 interface AiConflictViewProps {
   conflicts: ScheduleConflict[];
@@ -60,13 +59,7 @@ export function AiConflictView({
                 draft: currentConflict.draftTaskTitle,
                 existing: currentConflict.conflictingTask.title,
               })}{' '}
-              ({currentConflict.draftRange.startTime}–{currentConflict.draftRange.endTime} /{' '}
-              {currentConflict.conflictingTask.startTime}–
-              {minutesToTime(
-                timeToMinutes(currentConflict.conflictingTask.startTime) +
-                  currentConflict.conflictingTask.durationMinutes,
-              )}
-              )
+              ({currentConflict.draftTime})
             </Text>
           </View>
         </View>
@@ -95,13 +88,7 @@ export function AiConflictView({
                 />
                 <View style={styles.optionContent}>
                   <View style={styles.timeTitleRow}>
-                    {slot.isKeepOriginal ? (
-                      <Text style={styles.optionTime}>{t('ai.keepOriginal')}</Text>
-                    ) : (
-                      <Text style={styles.optionTime}>
-                        {slot.startTime} - {slot.endTime}
-                      </Text>
-                    )}
+                    <Text style={styles.optionTime}>{slot.startTime}</Text>
                     {slot.tag ? (
                       <View style={styles.suggestionTag}>
                         <Text style={styles.suggestionTagText}>{t('ai.suggestion')}</Text>
@@ -115,9 +102,7 @@ export function AiConflictView({
                         })
                       : slot.id === 'slot_afternoon'
                         ? t('ai.afternoon')
-                        : slot.id === 'keep_original'
-                          ? t('ai.keepOriginal')
-                          : t('ai.nextAvailable')}
+                        : t('ai.nextAvailable')}
                   </Text>
                 </View>
               </Pressable>
@@ -130,7 +115,12 @@ export function AiConflictView({
       <View style={styles.footer}>
         <Pressable
           onPress={onApply}
-          style={({ pressed }) => [styles.submitButton, pressed && styles.pressed]}
+          disabled={!currentConflict.suggestedSlots.length}
+          style={({ pressed }) => [
+            styles.submitButton,
+            !currentConflict.suggestedSlots.length && styles.submitButtonDisabled,
+            pressed && styles.pressed,
+          ]}
         >
           <Text style={styles.submitText}>{t('ai.updateSchedule')}</Text>
         </Pressable>
@@ -260,6 +250,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     paddingVertical: 14,
+  },
+  submitButtonDisabled: {
+    opacity: 0.45,
   },
   submitText: {
     color: colors.white,

@@ -12,7 +12,7 @@ import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
-import { formatDuration, formatLongDate, minutesToTime, timeToMinutes } from '../../utils/date';
+import { formatLongDate } from '../../utils/date';
 
 interface AiDraftPreviewViewProps {
   isUpdated?: boolean; // True nếu là Screen 7 (Kế hoạch đã cập nhật)
@@ -58,14 +58,7 @@ export function AiDraftPreviewView({
         </Text>
 
         {drafts.map((task) => {
-          let timeRange = '';
-          if (task.startTime) {
-            const startM = timeToMinutes(task.startTime);
-            const endM = startM + task.durationMinutes;
-            timeRange = `${task.startTime} - ${minutesToTime(endM)}`;
-          } else {
-            timeRange = t('ai.noTime');
-          }
+          const taskTime = task.startTime || t('ai.noTime');
 
           // Tag nhãn
           let tagLabel = t('ai.fromRequestTag');
@@ -94,7 +87,7 @@ export function AiDraftPreviewView({
                           : styles.dotNormal,
                     ]}
                   />
-                  <Text style={styles.timeRangeText}>{timeRange}</Text>
+                  <Text style={styles.timeText}>{taskTime}</Text>
                 </View>
 
                 <View style={styles.tagWrap}>
@@ -124,12 +117,6 @@ export function AiDraftPreviewView({
                   <MaterialIcons name="event" size={14} color={colors.primary} />
                   <Text style={[styles.metaText, { color: colors.primary, fontWeight: '700' }]}>
                     {formatLongDate(task.date || primaryDate, locale).split(',')[0]}
-                  </Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <MaterialIcons name="access-time" size={14} color={colors.textMuted} />
-                  <Text style={styles.metaText}>
-                    {formatDuration(task.durationMinutes, locale)}
                   </Text>
                 </View>
                 {task.reminderMinutes !== null ? (
@@ -241,7 +228,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   dotNormal: {
     backgroundColor: colors.primary,
   },
-  timeRangeText: {
+  timeText: {
     color: colors.text,
     fontSize: 14,
     fontWeight: '800',

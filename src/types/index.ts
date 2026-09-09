@@ -10,7 +10,6 @@ export interface Task {
   description: string;
   date: string;
   startTime: string;
-  durationMinutes: number;
   reminderMinutes: ReminderMinutes;
   notificationId?: string;
   batchId?: string;

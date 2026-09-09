@@ -97,21 +97,6 @@ export function timeToMinutes(time: string): number {
   return hours * 60 + minutes;
 }
 
-export function formatDuration(
-  minutes: number,
-  locale: 'vi-VN' | 'en-US' = 'vi-VN',
-): string {
-  if (minutes < 60) {
-    return locale === 'vi-VN' ? `${minutes} phút` : `${minutes} min`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (locale === 'vi-VN') {
-    return remainder ? `${hours}g ${remainder}p` : `${hours} giờ`;
-  }
-  return remainder ? `${hours}h ${remainder}m` : `${hours} hr`;
-}
-
 export function minutesToTime(totalMinutes: number): string {
   const normalized = Math.max(0, Math.min(23 * 60 + 59, totalMinutes));
   const hours = Math.floor(normalized / 60);

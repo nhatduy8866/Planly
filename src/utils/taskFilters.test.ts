@@ -10,7 +10,6 @@ function task(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-09',
     startTime: '09:00',
-    durationMinutes: 0,
     reminderMinutes: 0,
     completed: false,
     order: 0,

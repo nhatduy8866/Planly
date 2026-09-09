@@ -6,7 +6,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 
 ## 1. Thông tin nhánh và Commit
 - **Nhánh làm việc (Branches)**:
-  - `feature/web-support-and-form-pickers`: Hỗ trợ Web & nâng cấp bộ chọn ngày/giờ/thời lượng.
+  - `feature/web-support-and-form-pickers`: Hỗ trợ Web & nâng cấp bộ chọn ngày/giờ.
   - `fix/sort-and-delete-actions`: Sửa triệt để lỗi Xóa và Sắp xếp công việc/ghi chú trên Web & Mobile.
 - **Mã commit chính**:
   - `626962c` (`feat: add web support and improve task date time pickers`)
@@ -43,14 +43,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
   - **Trên Web**: Tích hợp bộ chọn giờ (`<input type="time">`), chọn nhanh giờ và phút.
   - **Trên Mobile**: Bấm vào mở bộ chọn giờ native hoặc con lăn thời gian.
 
-#### 3. Bộ chọn Thời lượng công việc dạng Quick Chips
-- **Trước đây**: Chỉ có một ô nhập số phút (`30`), người dùng phải bấm bàn phím số.
-- **Đã làm**:
-  - Thêm hàng nút chọn nhanh (Quick Chips): **`15 phút`**, **`30 phút`**, **`45 phút`**, **`1 giờ`**, **`1.5 giờ`**, **`2 giờ`**.
-  - Người dùng chỉ cần 1 chạm là chọn xong thời lượng cho 95% các tác vụ thường ngày.
-  - Bổ sung nút **`Khác`**: Khi bấm vào sẽ mở ô nhập số phút tùy chỉnh nếu công việc có thời lượng đặc biệt (ví dụ 10 phút, 25 phút...).
-
-#### 4. Khắc phục các lỗi hiển thị riêng trên iPhone (iOS)
+#### 3. Khắc phục các lỗi hiển thị riêng trên iPhone (iOS)
 - **Lỗi 1 - Nút giờ bị rớt xuống góc dưới bên trái**:
   - *Nguyên nhân*: Trên iOS, thư viện `DateTimePicker` mặc định render nút dạng inline compact tại vị trí component trong JSX (nằm ở cuối form sau mục Nhắc trước).
   - *Khắc phục*: Tách riêng luồng iOS thành một **Bottom Sheet chuẩn Apple**. Khi bấm Ngày hoặc Bắt đầu, một bảng Sheet sẽ trượt từ dưới lên kèm thanh tiêu đề và nút **"Xong"** để đóng lại. Hoàn toàn không còn nút xám bị rớt dưới đáy màn hình.
@@ -58,7 +51,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
   - *Nguyên nhân*: Khi iPhone bật chế độ Dark Mode của iOS, `UIDatePicker` tự động render chữ màu TRẮNG, trong khi khung Sheet của app lại có nền TRẮNG.
   - *Khắc phục*: Cấu hình cứng `themeVariant="light"`, `textColor={colors.text}` và `accentColor={colors.primary}`. Chữ và số ngày tháng trên iPhone luôn luôn hiển thị màu đậm sắc nét, độ tương phản cao, chuẩn màu thương hiệu xanh rêu của Planly.
 
-#### 5. Khắc phục lỗi co chiều cao Modal trên Web
+#### 4. Khắc phục lỗi co chiều cao Modal trên Web
 - *Hiện tượng*: Khi bấm "Thêm việc" trên Web, khung modal bị co lại thành một vạch trắng mảnh ở giữa màn hình do Flexbox thiếu chiều cao cố định cho ScrollView.
 - *Khắc phục*: Đã cấu hình kích thước chuẩn cho hộp thoại trên Web (`width: 92%`, `maxWidth: 480px`, `height: 88%`, `maxHeight: 700px`), cấp `flex: 1` cho ScrollView để hiển thị trọn vẹn toàn bộ form và cuộn mượt mà.
 
@@ -132,9 +125,9 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 #### 1. Kiến trúc tổng thể & Nguyên tắc thiết kế (Clean Architecture - No Hardcode)
 - **Thiết kế theo phân tầng chuẩn**:
   - **Tầng Domain & Thuật toán (`src/services/ai/`)**: Độc lập với UI, viết bằng pure TypeScript và có unit test cho các luồng cốt lõi.
-    - `nlpParser.ts`: Bộ phân tích xử lý ngôn ngữ tự nhiên offline tiếng Việt (nhận diện ngày mai/hôm nay/thứ X, giờ giấc "chiều 2h, tối 8h", thời lượng "1 tiếng, 90p", mức độ ưu tiên, lời nhắc và các lệnh hiệu chỉnh như "dời...", "bỏ...", "thêm...").
-    - `conflictDetector.ts`: Thuật toán phát hiện xung đột lịch trình và tự động đề xuất khung giờ thay thế thông minh (ngay sau lịch cũ, dời buổi chiều, hoặc giữ nguyên).
-    - `slottingEngine.ts`: Thuật toán tự động tìm slot trống thông minh cho các công việc không có giờ cố định dựa trên độ ưu tiên (Việc quan trọng ưu tiên buổi sáng, vừa ưu tiên đầu giờ chiều, thấp ưu tiên tối).
+    - `nlpParser.ts`: Bộ phân tích xử lý ngôn ngữ tự nhiên offline tiếng Việt (nhận diện ngày mai/hôm nay/thứ X, giờ giấc "chiều 2h, tối 8h", mức độ ưu tiên, lời nhắc và các lệnh hiệu chỉnh như "dời...", "bỏ...", "thêm...").
+    - `conflictDetector.ts`: Thuật toán phát hiện các công việc có cùng giờ bắt đầu và tự động đề xuất giờ thay thế.
+    - `slottingEngine.ts`: Thuật toán tự động chọn giờ bắt đầu chưa được sử dụng cho các công việc không có giờ cố định dựa trên độ ưu tiên (việc quan trọng ưu tiên buổi sáng, vừa ưu tiên đầu giờ chiều, thấp ưu tiên tối).
     - `promptEngine.ts`: Template nền cho System Prompt và ngữ cảnh lập lịch.
     - `aiProvider.ts`: `PlanlyAiProvider` triển khai mẫu thiết kế Provider linh hoạt: hỗ trợ gọi Google Gemini API trực tiếp (khi có `EXPO_PUBLIC_GEMINI_API_KEY`) và tự động fallback sang `nlpParser` offline siêu tốc khi offline hoặc không có API key.
   - **Tầng Điều phối State Machine (`src/hooks/useAiScheduler.ts`)**: Quản lý toàn bộ 10 bước chuyển màn hình, đồng bộ với dữ liệu lịch hiện tại của ngày đang chọn, tự động kiểm tra slotting và xung đột.
@@ -147,9 +140,9 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 3. **Màn hình 3 - Nhập yêu cầu bằng giọng nói / văn bản (`AiInputView.tsx`)**: Khung nhập liệu hỗ trợ đếm ký tự (tối đa 1000 ký tự), nút Mic, các gợi ý nhanh (chips) như: *"Sáng mai họp 9h rồi ăn trưa với Nam"*, *"Hôm nay cần tập gym và đọc sách"*. Nút "Tạo kế hoạch" chuyển màu nổi bật khi có nội dung.
 4. **Màn hình 4 - Đang phân tích kế hoạch (`AiAnalyzingView.tsx`)**: Hiệu ứng động 4 bước kiểm tra trực quan (Đọc yêu cầu ➔ Phân bổ thời gian ➔ Kiểm tra trùng lịch ➔ Hoàn thiện kế hoạch) kèm mẹo hữu ích.
 5. **Màn hình 5 - Xem trước kế hoạch (`AiDraftPreviewView.tsx`)**: Danh sách thẻ công việc được bóc tách với các tag trạng thái (`Từ yêu cầu`, `Đã cập nhật`, `Không đổi`), thông tin thời gian và độ ưu tiên. Người dùng có thể tinh chỉnh bằng AI hoặc thêm kế hoạch vào lịch.
-6. **Màn hình 6 - Tinh chỉnh bằng AI (`AiRefinementView.tsx`)**: Thanh chat tương tác với AI bên dưới danh sách draft, có các chip gợi ý nhanh như *"Dời gym sang chiều"*, *"Thêm 15p giải lao"*, *"Xóa việc..."*.
+6. **Màn hình 6 - Tinh chỉnh bằng AI (`AiRefinementView.tsx`)**: Thanh chat tương tác với AI bên dưới danh sách draft, có các chip gợi ý nhanh như *"Dời gym sang chiều"*, *"Thêm giải lao lúc 15h"*, *"Xóa việc..."*.
 7. **Màn hình 7 - Cập nhật sau tinh chỉnh (`AiDraftPreviewView.tsx`)**: Thể hiện các thay đổi vừa áp dụng với badge "Đã cập nhật" màu cam nổi bật.
-8. **Màn hình 8 - Tự động xếp lịch cho việc chưa có giờ (`AiAutoSlottingView.tsx`)**: Tự động phát hiện các việc chưa có khung giờ cụ thể, hiển thị danh sách và cung cấp nút "Tự sắp xếp cho tôi" để thuật toán `slottingEngine` tính toán lấp vào các khoảng trống trong ngày.
+8. **Màn hình 8 - Tự động xếp lịch cho việc chưa có giờ (`AiAutoSlottingView.tsx`)**: Tự động phát hiện các việc chưa có giờ bắt đầu, hiển thị danh sách và cung cấp nút "Tự sắp xếp cho tôi" để thuật toán `slottingEngine` chọn các giờ chưa được sử dụng trong ngày.
 9. **Màn hình 9 - Xử lý trùng lịch (`AiConflictView.tsx`)**: Hộp cảnh báo xung đột giờ màu cam/đỏ, chỉ rõ công việc bị trùng và hiển thị radio list các phương án giờ thay thế được tính toán tự động.
 10. **Màn hình 10 - Thêm lịch thành công (`AiSuccessView.tsx`)**: Hiệu ứng chúc mừng với vòng tròn checkmark xanh lá, icon pháo hoa confetti, thông báo số lượng công việc đã thêm vào ngày cụ thể, và 2 nút: "Xem lịch của tôi" (mở ngay ngày đó trên màn hình chính) và "Thêm kế hoạch khác".
 
@@ -163,7 +156,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 5. `src/types/index.ts`: Bổ sung TaskPriority vào Task model.
 6. `src/types/ai.ts`: *(Mới)* Kiểu dữ liệu chuyên biệt cho AI (bước modal, draft task, xung đột, context).
 7. `src/utils/date.ts`: Bổ sung tiện ích `minutesToTime` chuyển đổi phút trong ngày thành chuỗi `HH:mm`.
-8. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày/giờ/thời lượng, bổ sung bộ chọn Mức độ ưu tiên.
+8. `src/components/TaskFormModal.tsx`: Nâng cấp chọn ngày/giờ, bổ sung bộ chọn Mức độ ưu tiên.
 9. `src/components/NoteFormModal.tsx`: Đồng bộ giao diện web modal ghi chú.
 10. `src/components/ConfirmModal.tsx`: *(Mới)* Component modal xác nhận xóa chuẩn đa nền tảng.
 11. `src/components/SortDropdown.tsx`: *(Mới)* Component nút sắp xếp dạng menu sổ xuống (dropdown) tinh gọn.

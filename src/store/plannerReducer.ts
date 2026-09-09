@@ -17,6 +17,7 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 export type PlannerAction =
   | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
   | { type: 'upsert_task'; payload: Task }
+  | { type: 'upsert_tasks'; payload: Task[] }
   | { type: 'create_batch_tasks'; payload: Task[] }
   | { type: 'delete_task'; payload: { id: string } }
   | { type: 'toggle_task'; payload: { id: string } }
@@ -44,6 +45,22 @@ export function plannerReducer(
             task.id === action.payload.id ? action.payload : task,
           )
         : [...state.tasks, action.payload];
+      return { ...state, tasks };
+    }
+    case 'upsert_tasks': {
+      if (!action.payload.length) return state;
+      const updatesById = new Map(
+        action.payload.map((task) => [task.id, task]),
+      );
+      const existingIds = new Set(state.tasks.map((task) => task.id));
+      const tasks = state.tasks.map(
+        (task) => updatesById.get(task.id) ?? task,
+      );
+
+      for (const task of action.payload) {
+        if (!existingIds.has(task.id)) tasks.push(task);
+      }
+
       return { ...state, tasks };
     }
     case 'create_batch_tasks': {

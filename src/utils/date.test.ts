@@ -2,7 +2,6 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   addDays,
-  formatDuration,
   formatLongDate,
   fromDateKey,
   getMonthGrid,
@@ -37,10 +36,8 @@ describe('date utilities', () => {
     expect(timeToMinutes('13:45')).toBe(825);
   });
 
-  it('formats dates and durations for both supported languages', () => {
+  it('formats dates for both supported languages', () => {
     expect(formatLongDate('2026-09-07', 'en-US')).toContain('September');
     expect(formatLongDate('2026-09-07', 'vi-VN')).toContain('tháng 9');
-    expect(formatDuration(90, 'en-US')).toBe('1h 30m');
-    expect(formatDuration(90, 'vi-VN')).toBe('1g 30p');
   });
 });

@@ -33,6 +33,7 @@ import {
   buildTaskBatchDates,
   getTaskBatchRangeIssue,
 } from '../utils/taskBatch';
+import { TaskTimeConflictError } from '../utils/taskConflicts';
 import { IconButton } from './IconButton';
 
 export interface TaskFormValues {
@@ -43,6 +44,7 @@ export interface TaskFormValues {
   reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
   batchDates?: string[];
+  applyToBatch?: boolean;
 }
 
 interface TaskFormModalProps {
@@ -108,6 +110,7 @@ export function TaskFormModal({
     task?.priority ?? 'none',
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [applyToBatch, setApplyToBatch] = useState(false);
   const [batchEnabled, setBatchEnabled] = useState(false);
   const [batchMode, setBatchMode] = useState<BatchMode>('weekly');
   const [batchEndDate, setBatchEndDate] = useState(
@@ -245,10 +248,22 @@ export function TaskFormModal({
         reminderMinutes,
         priority,
         batchDates: !task && batchEnabled ? batchDates : undefined,
+        applyToBatch: task?.batchId ? applyToBatch : undefined,
       });
       onClose();
-    } catch {
-      setError(t('taskForm.saveError'));
+    } catch (submitError) {
+      if (submitError instanceof TaskTimeConflictError) {
+        const { conflict } = submitError;
+        setError(
+          t('taskForm.timeConflict', {
+            date: conflict.task.date.split('-').reverse().join('/'),
+            time: conflict.task.startTime,
+            title: conflict.conflictingTask.title,
+          }),
+        );
+      } else {
+        setError(t('taskForm.saveError'));
+      }
     } finally {
       setSaving(false);
     }
@@ -419,6 +434,8 @@ export function TaskFormModal({
                   )}
                 </View>
               </View>
+
+              {error ? <Text style={styles.error}>{error}</Text> : null}
 
               <Text style={styles.label}>{t('taskForm.reminder')}</Text>
               <View style={styles.chips}>
@@ -596,7 +613,49 @@ export function TaskFormModal({
                     })}
                   </View>
 
-                  {!task ? (
+                  {task?.batchId ? (
+                    <View style={styles.batchSection}>
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: applyToBatch }}
+                        onPress={() => {
+                          setApplyToBatch((current) => !current);
+                          void Haptics.selectionAsync();
+                        }}
+                        style={({ pressed }) => [
+                          styles.batchToggle,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <View style={styles.batchTitleRow}>
+                          <MaterialIcons
+                            name="repeat"
+                            size={20}
+                            color={colors.primary}
+                          />
+                          <View style={styles.batchTitleWrap}>
+                            <Text style={styles.batchTitle}>
+                              {t('taskForm.batchEdit')}
+                            </Text>
+                            <Text style={styles.batchDescription}>
+                              {t('taskForm.batchEditDescription')}
+                            </Text>
+                          </View>
+                        </View>
+                        <MaterialIcons
+                          name={
+                            applyToBatch
+                              ? 'check-box'
+                              : 'check-box-outline-blank'
+                          }
+                          size={24}
+                          color={
+                            applyToBatch ? colors.primary : colors.textMuted
+                          }
+                        />
+                      </Pressable>
+                    </View>
+                  ) : !task ? (
                     <View style={styles.batchSection}>
                       <Pressable
                         accessibilityRole="checkbox"
@@ -825,8 +884,6 @@ export function TaskFormModal({
                   ) : null}
                 </View>
               ) : null}
-
-              {error ? <Text style={styles.error}>{error}</Text> : null}
 
               {Platform.OS === 'android' && picker ? (
                 <DateTimePicker

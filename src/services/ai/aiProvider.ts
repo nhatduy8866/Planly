@@ -74,11 +74,6 @@ function normalizeStartTime(value: unknown): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-function normalizeDuration(value: unknown): number {
-  const duration = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(duration) && duration >= 5 ? Math.round(duration) : 30;
-}
-
 function normalizeReminder(value: unknown): AiDraftTask['reminderMinutes'] {
   const reminder = value === null ? null : value;
   return VALID_REMINDERS.has(reminder as AiDraftTask['reminderMinutes'])
@@ -100,7 +95,6 @@ function normalizeCloudDraft(
     title: nonEmptyString(item.title) || defaults.title,
     date: isValidDateKey(item.date) ? item.date : defaults.date,
     startTime: normalizeStartTime(item.startTime),
-    durationMinutes: normalizeDuration(item.durationMinutes),
     reminderMinutes: normalizeReminder(item.reminderMinutes),
     priority:
       priority && VALID_PRIORITIES.has(priority as AiDraftTask['priority'])
@@ -204,7 +198,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
       id: t.id,
       title: t.title,
       startTime: t.startTime,
-      durationMinutes: t.durationMinutes,
       priority: t.priority,
     }));
 
@@ -218,7 +211,7 @@ Yêu cầu của người dùng: "${prompt}"
 Quy tắc quan trọng:
 1. NẾU YÊU CẦU LÀ SẮP XẾP LẠI CÁC VIỆC TRONG NGÀY (Reorder / Reschedule cả ngày):
    - Tuyệt đối KHÔNG tạo một công việc mới mang tên "Sắp xếp các công việc" hay "Sắp xếp lại các công việc".
-   - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại khung giờ (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
+   - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại giờ bắt đầu (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
    - BẮT BUỘC giữ nguyên trường "id" của các công việc hiện có để hệ thống cập nhật giờ mà không bị trùng lặp công việc.
    - Nếu trong ngày chưa có công việc nào để sắp xếp, trả về mảng rỗng [].
 2. "date": Ngày diễn ra công việc (định dạng YYYY-MM-DD):
@@ -235,9 +228,8 @@ Quy tắc quan trọng:
      + Buổi chiều ("chiều", "buổi chiều"): gán "14:30" hoặc "15:00".
      + Buổi tối ("tối", "buổi tối" - lưu ý nhận diện lỗi gõ thiếu dấu "tôi" thành "tối" trong chuỗi: "sáng..., chiều..., tôi..."): gán "19:30" hoặc "20:00".
    - Chỉ để "" nếu hoàn toàn không có thông tin buổi hay giờ nào.
-5. "durationMinutes": Số phút làm việc (mặc định 30).
-6. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
-7. "priority": "high", "medium", "low", hoặc "none".
+5. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
+6. "priority": "high", "medium", "low", hoặc "none".
 
 Trả về duy nhất mảng JSON hợp lệ:
 [
@@ -246,7 +238,6 @@ Trả về duy nhất mảng JSON hợp lệ:
     "title": "string",
     "date": "YYYY-MM-DD",
     "startTime": "HH:mm",
-    "durationMinutes": 30,
     "priority": "none",
     "reminderMinutes": 15
   }
@@ -322,7 +313,7 @@ Danh sách hiện tại: ${JSON.stringify(currentDrafts)}
 Câu lệnh tinh chỉnh: "${instruction}"
 Ngữ cảnh ngày: ${context.targetDate}
 
-Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc, hoặc dời giờ/thời lượng).
+Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc hoặc dời giờ bắt đầu).
 Nếu công việc bị thay đổi, gán changeStatus: "updated".`;
 
     for (const model of models) {

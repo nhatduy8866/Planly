@@ -12,23 +12,21 @@ const context: AiSchedulingContext = {
 describe('nlpParser', () => {
   it('parses multi-task prompt from concept board accurately', () => {
     const prompt =
-      'Mai 9h họp team 1 tiếng, chiều 2h làm báo cáo 90 phút, tối 8h học tiếng Trung. Nhắc trước 15 phút.';
+      'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung. Nhắc trước 15 phút.';
 
     const drafts = parseVietnameseScheduleText(prompt, context);
 
     expect(drafts).toHaveLength(3);
 
-    // Task 1: Họp team (09:00, 60m, reminder 15)
+    // Task 1: Họp team (09:00, reminder 15)
     expect(drafts[0].title).toContain('Họp team');
     expect(drafts[0].startTime).toBe('09:00');
-    expect(drafts[0].durationMinutes).toBe(60);
     expect(drafts[0].reminderMinutes).toBe(15);
     expect(drafts[0].date).toBe('2026-09-08'); // ngày mai
 
-    // Task 2: Làm báo cáo (14:00, 90m, reminder 15)
+    // Task 2: Làm báo cáo (14:00, reminder 15)
     expect(drafts[1].title).toContain('Báo cáo');
     expect(drafts[1].startTime).toBe('14:00');
-    expect(drafts[1].durationMinutes).toBe(90);
     expect(drafts[1].reminderMinutes).toBe(15);
     expect(drafts[1].date).toBe('2026-09-08');
 
@@ -39,23 +37,21 @@ describe('nlpParser', () => {
     expect(drafts[2].date).toBe('2026-09-08');
   });
 
-  it('handles follow-up refinement: reschedule and change duration', () => {
+  it('handles follow-up refinement: reschedule a task', () => {
     const initial = parseVietnameseScheduleText(
-      'Mai 9h họp team 1 tiếng, chiều 2h làm báo cáo 90 phút, tối 8h học tiếng Trung',
+      'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung',
       context,
     );
 
-    // Refinement command: "Dời báo cáo sang 10h và thành 2 tiếng nhé"
     const refined = refineVietnameseSchedule(
       initial,
-      'Dời báo cáo sang 10h và thành 2 tiếng nhé',
+      'Dời báo cáo sang 10h nhé',
       context,
     );
 
     const reportTask = refined.find((t) => t.title.toLowerCase().includes('báo cáo'));
     expect(reportTask).toBeDefined();
     expect(reportTask?.startTime).toBe('10:00');
-    expect(reportTask?.durationMinutes).toBe(120);
     expect(reportTask?.changeStatus).toBe('updated');
   });
 
@@ -118,7 +114,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-07',
           startTime: '08:00',
-          durationMinutes: 60,
           reminderMinutes: 15,
           completed: false,
           order: 0,
@@ -131,7 +126,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-07',
           startTime: '19:00',
-          durationMinutes: 60,
           reminderMinutes: 15,
           completed: false,
           order: 1,
@@ -183,7 +177,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-09',
           startTime: '09:00',
-          durationMinutes: 30,
           reminderMinutes: null,
           priority: 'low',
           completed: false,
@@ -197,7 +190,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-09',
           startTime: '16:00',
-          durationMinutes: 60,
           reminderMinutes: 15,
           priority: 'high',
           completed: false,

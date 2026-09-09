@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
 
 export interface AnimatedEntryItemProps {
@@ -12,7 +12,7 @@ export interface AnimatedEntryItemProps {
   offsetY?: number;
 }
 
-export function AnimatedEntryItem({
+export const AnimatedEntryItem = memo(function AnimatedEntryItem({
   index,
   triggerKey,
   children,
@@ -63,4 +63,4 @@ export function AnimatedEntryItem({
       {children}
     </Animated.View>
   );
-}
+});

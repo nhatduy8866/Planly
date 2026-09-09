@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { usePreferences } from '../preferences/PreferencesContext';
@@ -42,7 +43,7 @@ function TaskCountBadge({
   );
 }
 
-export function CalendarPanel({
+export const CalendarPanel = memo(function CalendarPanel({
   mode,
   cursor,
   selectedDate,
@@ -51,23 +52,34 @@ export function CalendarPanel({
 }: CalendarPanelProps) {
   const { locale, showTaskBadges } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const mondayFirstLabels = locale === 'vi-VN'
-    ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-    : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  const taskCount = tasks.reduce<Record<string, number>>((count, task) => {
-    count[task.date] = (count[task.date] ?? 0) + 1;
-    return count;
-  }, {});
-  const highPriorityDates = new Set(
-    tasks
-      .filter((task) => task.priority === 'high')
-      .map((task) => task.date),
+  const mondayFirstLabels = useMemo(
+    () =>
+      locale === 'vi-VN'
+        ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+        : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    [locale],
   );
+  const { highPriorityDates, taskCount } = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const highPriorities = new Set<string>();
+
+    for (const task of tasks) {
+      counts[task.date] = (counts[task.date] ?? 0) + 1;
+      if (task.priority === 'high') {
+        highPriorities.add(task.date);
+      }
+    }
+
+    return { highPriorityDates: highPriorities, taskCount: counts };
+  }, [tasks]);
+
+  const weekDays = useMemo(() => getWeekDays(cursor), [cursor]);
+  const monthGrid = useMemo(() => getMonthGrid(cursor), [cursor]);
 
   if (mode === 'week') {
     return (
       <View style={styles.weekRow}>
-        {getWeekDays(cursor).map((date) => {
+        {weekDays.map((date) => {
           const key = toDateKey(date);
           const selected = key === selectedDate;
           const hasHighPriority = highPriorityDates.has(key);
@@ -113,7 +125,7 @@ export function CalendarPanel({
         ))}
       </View>
       <View style={styles.monthGrid}>
-        {getMonthGrid(cursor).map((date) => {
+        {monthGrid.map((date) => {
           const key = toDateKey(date);
           const selected = key === selectedDate;
           const outsideMonth = date.getMonth() !== cursor.getMonth();
@@ -152,7 +164,7 @@ export function CalendarPanel({
       </View>
     </View>
   );
-}
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   weekRow: { flexDirection: 'row', justifyContent: 'space-between' },

@@ -295,10 +295,21 @@ export function ScheduleScreen() {
     setFormVisible(true);
   }
 
-  function openEdit(task: Task) {
+  const openEdit = useCallback((task: Task) => {
     setEditingTask(task);
     setFormVisible(true);
-  }
+  }, []);
+
+  const confirmDelete = useCallback((task: Task) => {
+    setDeletingTask(task);
+  }, []);
+
+  const handleToggleTask = useCallback(
+    (task: Task) => {
+      void toggleTask(task);
+    },
+    [toggleTask],
+  );
 
   function selectDate(date: string) {
     animateTaskListTransition();
@@ -318,10 +329,6 @@ export function ScheduleScreen() {
     setSelectedDate(firstCreatedDate);
     setCursor(fromDateKey(firstCreatedDate));
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }
-
-  function confirmDelete(task: Task) {
-    setDeletingTask(task);
   }
 
   function removePendingCompletion(taskId: string) {
@@ -354,7 +361,7 @@ export function ScheduleScreen() {
     }
   }
 
-  function handleTaskToggle(task: Task) {
+  const handleTaskToggle = useCallback((task: Task) => {
     const pending = pendingCompletionsRef.current.get(task.id);
 
     if (pending) {
@@ -395,8 +402,7 @@ export function ScheduleScreen() {
     setPendingCompletionSeconds((current) =>
       new Map(current).set(task.id, 5),
     );
-  }
-
+  }, [toggleTask]);
   return (
     <View style={styles.container}>
       <ScrollView
@@ -544,9 +550,9 @@ export function ScheduleScreen() {
                   completionPending={completionUndoSeconds !== undefined}
                   completionUndoSeconds={completionUndoSeconds}
                   task={task}
-                  onToggle={() => handleTaskToggle(task)}
-                  onEdit={() => openEdit(task)}
-                  onDelete={() => confirmDelete(task)}
+                  onToggle={handleTaskToggle}
+                  onEdit={openEdit}
+                  onDelete={confirmDelete}
                 />
               </AnimatedEntryItem>
             );

@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,9 +11,9 @@ import { IconButton } from './IconButton';
 
 interface TaskCardProps {
   task: Task;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onToggle: (task: Task) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
   compact?: boolean;
   completionPending?: boolean;
   completionUndoSeconds?: number;
@@ -43,7 +44,7 @@ function getStableAccentIndex(value: string): number {
   return Math.abs(hash) % CARD_ACCENT_KEYS.length;
 }
 
-export function TaskCard({
+export const TaskCard = memo(function TaskCard({
   task,
   onToggle,
   onEdit,
@@ -71,6 +72,18 @@ export function TaskCard({
     medium: colors.priorityMedium,
     low: colors.priorityLow,
   };
+
+  const handleToggle = useCallback(() => {
+    onToggle(task);
+  }, [onToggle, task]);
+
+  const handleEdit = useCallback(() => {
+    onEdit(task);
+  }, [onEdit, task]);
+
+  const handleDelete = useCallback(() => {
+    onDelete(task);
+  }, [onDelete, task]);
 
   useEffect(() => {
     const animation = Animated.timing(completionProgress, {
@@ -132,7 +145,7 @@ export function TaskCard({
           accessibilityRole="checkbox"
           accessibilityState={{ checked: isCompleted }}
           accessibilityLabel={t('task.mark', { title: task.title })}
-          onPress={onToggle}
+          onPress={handleToggle}
           style={styles.checkButton}
         >
           <Animated.View style={{ transform: [{ scale: toggleScale }] }}>
@@ -146,7 +159,7 @@ export function TaskCard({
 
         <Pressable
           disabled={completionPending}
-          onPress={onEdit}
+          onPress={handleEdit}
           style={styles.content}
         >
           <View style={styles.timeRow}>
@@ -208,7 +221,7 @@ export function TaskCard({
             icon="delete-outline"
             accessibilityLabel={t('task.delete')}
             disabled={completionPending}
-            onPress={onDelete}
+            onPress={handleDelete}
             color={colors.danger}
             backgroundColor={colors.dangerSoft}
             size={18}
@@ -236,7 +249,7 @@ export function TaskCard({
           accessibilityRole="button"
           accessibilityLabel={t('task.undoCompletion', { title: task.title })}
           disabled={!completionPending}
-          onPress={onToggle}
+          onPress={handleToggle}
           style={({ pressed }) => [
             styles.completionOverlayPressable,
             pressed && styles.completionOverlayPressed,
@@ -255,7 +268,7 @@ export function TaskCard({
       </Animated.View>
     </View>
   );
-}
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardShadow: {

@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useEffect, useRef, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import {
   Animated,
   Easing,
@@ -40,7 +40,7 @@ export function EmptyState({
   const styles = useThemedStyles(createStyles);
 
   // Subtle entrance fade-in
-  const entryAnim = useRef(new Animated.Value(0)).current;
+  const [entryAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     entryAnim.setValue(0);

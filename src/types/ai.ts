@@ -22,7 +22,6 @@ export interface AiDraftTask {
   title: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:mm hoặc rỗng nếu chưa có giờ
-  durationMinutes: number; // Thời lượng tính theo phút (mặc định 30 nếu không rõ)
   reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
   source: 'direct_request' | 'auto_slotted' | 'conflict_resolved';
@@ -31,19 +30,17 @@ export interface AiDraftTask {
 }
 
 /**
- * Lựa chọn khung giờ thay thế khi phát hiện trùng lịch
+ * Lựa chọn giờ bắt đầu thay thế khi phát hiện trùng lịch
  */
 export interface ConflictSlotOption {
   id: string;
   startTime: string;
-  endTime: string;
-  label: string; // Ví dụ: "Sau khi kết thúc họp phòng", "Sau bữa trưa"
+  label: string;
   tag?: string; // Ví dụ: "Gợi ý"
-  isKeepOriginal?: boolean; // Tùy chọn giữ nguyên
 }
 
 /**
- * Công việc đang chiếm một khoảng thời gian và gây xung đột.
+ * Công việc có cùng giờ bắt đầu và gây xung đột.
  * Có thể là task đã lưu hoặc một draft khác trong cùng kế hoạch AI.
  */
 export interface ScheduleConflictTask {
@@ -51,7 +48,6 @@ export interface ScheduleConflictTask {
   title: string;
   date: string;
   startTime: string;
-  durationMinutes: number;
   origin: 'existing' | 'draft';
 }
 
@@ -61,10 +57,7 @@ export interface ScheduleConflictTask {
 export interface ScheduleConflict {
   draftTaskId: string;
   draftTaskTitle: string;
-  draftRange: {
-    startTime: string;
-    endTime: string;
-  };
+  draftTime: string;
   conflictingTask: ScheduleConflictTask;
   suggestedSlots: ConflictSlotOption[];
   selectedSlotId: string; // Slot đang được chọn (mặc định là slot gợi ý đầu tiên)

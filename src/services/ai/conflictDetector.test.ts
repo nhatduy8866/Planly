@@ -4,14 +4,13 @@ import type { Task } from '../../types';
 import type { AiDraftTask } from '../../types/ai';
 import { detectConflicts, validateScheduleByDate } from './conflictDetector';
 
-function makeTask(overrides: Partial<Task>): Task {
+function makeTask(overrides: Partial<Task> = {}): Task {
   return {
     id: 'task-1',
     title: 'Họp phòng',
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    durationMinutes: 60,
     reminderMinutes: null,
     completed: false,
     order: 0,
@@ -21,13 +20,12 @@ function makeTask(overrides: Partial<Task>): Task {
   };
 }
 
-function makeDraft(overrides: Partial<AiDraftTask>): AiDraftTask {
+function makeDraft(overrides: Partial<AiDraftTask> = {}): AiDraftTask {
   return {
     id: 'draft-1',
     title: 'Làm báo cáo',
     date: '2026-09-08',
     startTime: '09:00',
-    durationMinutes: 120,
     reminderMinutes: 15,
     priority: 'medium',
     source: 'direct_request',
@@ -36,53 +34,41 @@ function makeDraft(overrides: Partial<AiDraftTask>): AiDraftTask {
 }
 
 describe('conflictDetector', () => {
-  it('detects no conflicts when times do not overlap', () => {
-    const existing = [makeTask({ startTime: '09:00', durationMinutes: 60 })];
-    const drafts = [makeDraft({ startTime: '10:30', durationMinutes: 60 })];
-
-    const conflicts = detectConflicts(drafts, existing);
-    expect(conflicts).toHaveLength(0);
+  it('allows tasks with different start times', () => {
+    expect(
+      detectConflicts([makeDraft({ startTime: '09:15' })], [makeTask()]),
+    ).toHaveLength(0);
   });
 
-  it('detects conflict when draft overlaps existing task on same day', () => {
-    const existing = [makeTask({ title: 'Họp phòng', startTime: '09:00', durationMinutes: 60 })];
-    // Draft: 09:00 -> 11:00 (overlaps with existing 09:00 -> 10:00)
-    const drafts = [makeDraft({ title: 'Làm báo cáo', startTime: '09:00', durationMinutes: 120 })];
+  it('detects tasks with the same start time on the same day', () => {
+    const conflicts = detectConflicts(
+      [makeDraft({ title: 'Làm báo cáo' })],
+      [makeTask({ title: 'Họp phòng' })],
+    );
 
-    const conflicts = detectConflicts(drafts, existing);
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0].draftTaskTitle).toBe('Làm báo cáo');
+    expect(conflicts[0].draftTime).toBe('09:00');
     expect(conflicts[0].conflictingTask.title).toBe('Họp phòng');
     expect(conflicts[0].conflictingTask.origin).toBe('existing');
-    expect(conflicts[0].draftRange.startTime).toBe('09:00');
-    expect(conflicts[0].draftRange.endTime).toBe('11:00');
-
-    // Verify suggested slots
-    const suggestions = conflicts[0].suggestedSlots;
-    expect(suggestions.length).toBeGreaterThanOrEqual(2);
-    // Slot 1: after conflict (10:00 + 15m = 10:15 -> 12:15)
-    expect(suggestions[0].startTime).toBe('10:15');
-    expect(suggestions[0].endTime).toBe('12:15');
-    expect(suggestions[0].label).toContain('Họp phòng');
+    expect(conflicts[0].suggestedSlots[0].startTime).toBe('09:15');
+    expect(conflicts[0].suggestedSlots[0].label).toContain('Họp phòng');
   });
 
   it('ignores completed tasks and tasks on different dates', () => {
     const existing = [
-      makeTask({ id: 'done', startTime: '09:00', durationMinutes: 60, completed: true }),
-      makeTask({ id: 'other-day', date: '2026-09-09', startTime: '09:00', durationMinutes: 60 }),
+      makeTask({ id: 'done', completed: true }),
+      makeTask({ id: 'other-day', date: '2026-09-09' }),
     ];
-    const drafts = [makeDraft({ startTime: '09:00', durationMinutes: 120 })];
 
-    const conflicts = detectConflicts(drafts, existing);
-    expect(conflicts).toHaveLength(0);
+    expect(detectConflicts([makeDraft()], existing)).toHaveLength(0);
   });
 
-  it('detects conflicts between drafts on the same day', () => {
+  it('detects duplicate start times between drafts on the same day', () => {
     const drafts = [
-      makeDraft({ id: 'draft-a', startTime: '09:00', durationMinutes: 60 }),
-      makeDraft({ id: 'draft-b', startTime: '09:30', durationMinutes: 60 }),
+      makeDraft({ id: 'draft-a' }),
+      makeDraft({ id: 'draft-b' }),
     ];
-
     const validation = validateScheduleByDate(drafts, []);
     const conflicts = detectConflicts(drafts, []);
 
@@ -94,103 +80,75 @@ describe('conflictDetector', () => {
     expect(conflicts[0].conflictingTask.origin).toBe('draft');
   });
 
-  it('allows adjacent drafts and drafts on different days', () => {
+  it('allows drafts with different start times or dates', () => {
     const drafts = [
-      makeDraft({ id: 'draft-a', startTime: '09:00', durationMinutes: 60 }),
-      makeDraft({ id: 'draft-b', startTime: '10:00', durationMinutes: 60 }),
-      makeDraft({
-        id: 'draft-c',
-        date: '2026-09-09',
-        startTime: '09:30',
-        durationMinutes: 60,
-      }),
+      makeDraft({ id: 'draft-a' }),
+      makeDraft({ id: 'draft-b', startTime: '09:15' }),
+      makeDraft({ id: 'draft-c', date: '2026-09-09' }),
     ];
 
     expect(validateScheduleByDate(drafts, []).isValid).toBe(true);
   });
 
-  it('does not conflict with the existing version of a reordered task', () => {
-    const existing = [makeTask({ id: 'task-1', startTime: '09:00' })];
-    const drafts = [
-      makeDraft({ id: 'task-1', startTime: '10:00', durationMinutes: 60 }),
-    ];
-
-    expect(validateScheduleByDate(drafts, existing).isValid).toBe(true);
+  it('does not compare a draft with the stored version of the same task', () => {
+    expect(
+      validateScheduleByDate(
+        [makeDraft({ id: 'task-1' })],
+        [makeTask({ id: 'task-1' })],
+      ).isValid,
+    ).toBe(true);
   });
 
-  it('moves suggestions past other occupied tasks', () => {
+  it('skips occupied start times when creating suggestions', () => {
     const existing = [
-      makeTask({ id: 'meeting', startTime: '09:00', durationMinutes: 60 }),
-      makeTask({
-        id: 'next-meeting',
-        startTime: '10:15',
-        durationMinutes: 60,
-      }),
+      makeTask({ id: 'meeting', startTime: '09:00' }),
+      makeTask({ id: 'next-meeting', startTime: '09:15' }),
     ];
-    const drafts = [makeDraft({ startTime: '09:00', durationMinutes: 60 })];
+    const conflicts = detectConflicts([makeDraft()], existing);
 
-    const conflicts = detectConflicts(drafts, existing);
-    const alternatives = conflicts[0].suggestedSlots.filter(
-      (slot) => !slot.isKeepOriginal,
-    );
-
-    expect(alternatives[0].startTime).toBe('11:15');
-    expect(alternatives.some((slot) => slot.startTime === '10:15')).toBe(false);
+    expect(conflicts[0].suggestedSlots[0].startTime).toBe('09:30');
+    expect(
+      conflicts[0].suggestedSlots.some((slot) => slot.startTime === '09:15'),
+    ).toBe(false);
   });
 
   it('keeps suggestions clear of other drafts in the plan', () => {
-    const existing = [
-      makeTask({ id: 'meeting', startTime: '09:00', durationMinutes: 60 }),
-    ];
     const drafts = [
-      makeDraft({ id: 'draft-target', startTime: '09:00', durationMinutes: 60 }),
-      makeDraft({
-        id: 'draft-blocker',
-        startTime: '10:15',
-        durationMinutes: 120,
-      }),
+      makeDraft({ id: 'draft-target' }),
+      makeDraft({ id: 'draft-blocker', startTime: '09:15' }),
     ];
+    const targetConflict = detectConflicts(
+      drafts,
+      [makeTask({ id: 'meeting' })],
+    ).find((conflict) => conflict.draftTaskId === 'draft-target');
 
-    const targetConflict = detectConflicts(drafts, existing).find(
-      (conflict) => conflict.draftTaskId === 'draft-target',
-    );
-    const alternatives = targetConflict?.suggestedSlots.filter(
-      (slot) => !slot.isKeepOriginal,
-    );
-
-    expect(alternatives?.[0].startTime).toBe('12:15');
+    expect(targetConflict?.suggestedSlots[0].startTime).toBe('09:30');
   });
 
-  it('offers only the explicit keep-original override when no free slot exists', () => {
-    const existing = [
-      makeTask({ startTime: '08:00', durationMinutes: 13 * 60 + 30 }),
-    ];
-    const drafts = [makeDraft({ startTime: '09:00', durationMinutes: 60 })];
+  it('returns no suggestion when every supported start time is occupied', () => {
+    const existing = Array.from({ length: 55 }, (_, index) => {
+      const totalMinutes = 8 * 60 + index * 15;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const minutes = String(totalMinutes % 60).padStart(2, '0');
+      return makeTask({ id: `task-${index}`, startTime: `${hours}:${minutes}` });
+    });
 
-    const conflicts = detectConflicts(drafts, existing);
+    const conflicts = detectConflicts([makeDraft()], existing);
 
-    expect(conflicts[0].suggestedSlots).toHaveLength(1);
-    expect(conflicts[0].suggestedSlots[0].isKeepOriginal).toBe(true);
+    expect(conflicts[0].suggestedSlots).toHaveLength(0);
+    expect(conflicts[0].selectedSlotId).toBe('');
   });
 
-  it('reports every collision when one draft overlaps multiple existing tasks', () => {
+  it('reports every task that has the same start time as one draft', () => {
     const existing = [
-      makeTask({ id: 'first', startTime: '09:00', durationMinutes: 60 }),
-      makeTask({ id: 'second', startTime: '10:00', durationMinutes: 60 }),
+      makeTask({ id: 'first' }),
+      makeTask({ id: 'second' }),
     ];
-    const drafts = [
-      makeDraft({ id: 'long-draft', startTime: '09:30', durationMinutes: 90 }),
-    ];
+    const conflicts = detectConflicts([makeDraft({ id: 'target' })], existing);
 
-    const conflicts = detectConflicts(drafts, existing);
-
-    expect(conflicts).toHaveLength(2);
     expect(conflicts.map((conflict) => conflict.conflictingTask.id)).toEqual([
       'first',
       'second',
     ]);
-    expect(
-      conflicts.every((conflict) => conflict.draftTaskId === 'long-draft'),
-    ).toBe(true);
   });
 });

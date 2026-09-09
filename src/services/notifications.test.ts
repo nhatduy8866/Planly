@@ -89,8 +89,10 @@ describe('notification foundation', () => {
         enableVibrate: true,
         importance: 6,
         lockscreenVisibility: 1,
-        sound: 'default',
       }),
+    );
+    expect(setNotificationChannelAsync.mock.calls[0]?.[1]).not.toHaveProperty(
+      'sound',
     );
     expect(setNotificationChannelAsync.mock.invocationCallOrder[0]).toBeLessThan(
       getPermissionsAsync.mock.invocationCallOrder[0],

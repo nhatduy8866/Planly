@@ -31,6 +31,44 @@ function makeTask(overrides: Partial<Task>): Task {
 }
 
 describe('PlanlyAiProvider', () => {
+  it.each(['Mua sách', 'Them viec mua sach'])(
+    'updates an existing %s at 20:00 without creating a task', async (title) => {
+      const task = makeTask({ id: 'book-task', title, date: context.targetDate });
+      const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+        'cap nhat viec mua sach vao luc 8h toi',
+        { ...context, existingTasks: [task] },
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: task.id, title, startTime: '20:00', changeStatus: 'updated' });
+    },
+  );
+
+  it('does not create a task for an update with no matching target', async () => {
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'cap nhat viec mua sach vao luc 8h toi', context,
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('repairs a cloud result that merges two independently timed tasks', async () => {
+    const response = (items: object[]) => ({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(items) }] } }] }),
+    } as Response);
+    const first = { id: 'exercise', title: 'Tập thể dục', date: context.targetDate, startTime: '08:00', reminderMinutes: 15, priority: 'none' };
+    const second = { ...first, id: 'study', title: 'Học tiếng Anh', startTime: '14:00' };
+    const fetchMock = jest.fn<typeof fetch>()
+      .mockResolvedValueOnce(response([{ ...first, title: 'Tap the duc va 14h hoc tieng anh' }]))
+      .mockResolvedValueOnce(response([first, second]));
+    global.fetch = fetchMock;
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'tao lich 8h sang tap the duc va 14h hoc tieng anh', context,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.map((task) => task.startTime)).toEqual(['08:00', '14:00']);
+    expect(String(fetchMock.mock.calls[1][1]?.body)).toContain('task_count_mismatch');
+  });
+
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -232,9 +270,10 @@ describe('PlanlyAiProvider', () => {
     );
 
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-      generationConfig: { responseSchema?: { type?: string } };
+      generationConfig: { responseJsonSchema?: { type?: string }; responseSchema?: unknown };
     };
-    expect(request.generationConfig.responseSchema?.type).toBe('array');
+    expect(request.generationConfig.responseJsonSchema?.type).toBe('array');
+    expect(request.generationConfig.responseSchema).toBeUndefined();
   });
 
   it('falls back locally after one unsuccessful Gemini repair', async () => {

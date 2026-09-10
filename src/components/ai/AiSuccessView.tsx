@@ -13,12 +13,14 @@ import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiSuccessViewProps {
   tasksCount: number;
+  primaryActionLabel?: string;
   onViewSchedule: () => void;
   onAddAnother: () => void;
 }
 
 export function AiSuccessView({
   tasksCount,
+  primaryActionLabel,
   onViewSchedule,
   onAddAnother,
 }: AiSuccessViewProps) {
@@ -53,7 +55,9 @@ export function AiSuccessView({
           onPress={onViewSchedule}
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.primaryButtonText}>{t('ai.viewSchedule')}</Text>
+          <Text style={styles.primaryButtonText}>
+            {primaryActionLabel ?? t('ai.viewSchedule')}
+          </Text>
         </Pressable>
 
         <Pressable

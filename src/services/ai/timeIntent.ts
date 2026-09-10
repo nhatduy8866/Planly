@@ -37,7 +37,12 @@ export function parseVietnameseTime(
     let hours = Number(match[3]);
     const minutes = Number(match[4] || match[5] || 0);
     const prefixPeriod = normalizePeriod(match[2], Boolean(match[1]), true);
-    const suffixPeriod = normalizePeriod(match[7], Boolean(match[6]), false);
+    const trailingText = text.slice((match.index ?? 0) + match[0].length).trim();
+    const terminalEvening = match[7]?.toLowerCase() === 'toi' &&
+      /^(?:(?:nhe|nha|nhé|nay)\s*)?[.!?,;]*$/i.test(trailingText);
+    const suffixPeriod = terminalEvening
+      ? 'toi'
+      : normalizePeriod(match[7], Boolean(match[6]), false);
     const period = prefixPeriod || suffixPeriod;
     let matchedText = match[0].trim();
     if (match[7] && !suffixPeriod) {

@@ -24,6 +24,8 @@ import {
   TaskFormModal,
   type TaskFormValues,
 } from '../components/TaskFormModal';
+import { AiScheduleModal } from '../components/ai/AiScheduleModal';
+import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { usePreferences } from '../preferences/PreferencesContext';
@@ -64,6 +66,8 @@ export function TasksScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const aiTargetDate = todayKey();
+  const aiScheduler = useAiScheduler(aiTargetDate);
   const filters: { key: TaskListFilter; label: string }[] = [
     { key: 'upcoming', label: t('tasks.filterUpcoming') },
     { key: 'past', label: t('tasks.filterPast') },
@@ -175,6 +179,22 @@ export function TasksScreen() {
                   </Pressable>
                 ) : null}
               </View>
+              <Pressable
+                accessibilityLabel={t('tasks.addWithAi')}
+                accessibilityRole="button"
+                onPress={aiScheduler.openDirectPrompt}
+                style={({ pressed }) => [
+                  styles.aiButton,
+                  pressed && styles.actionPressed,
+                ]}
+              >
+                <MaterialIcons
+                  name="auto-awesome"
+                  size={18}
+                  color={colors.primaryDark}
+                />
+                <Text style={styles.aiButtonText}>AI</Text>
+              </Pressable>
               <Pressable onPress={openCreate} style={styles.addButton}>
                 <MaterialIcons name="add" size={21} color={colors.white} />
                 <Text style={styles.addText}>{t('common.add')}</Text>
@@ -222,6 +242,11 @@ export function TasksScreen() {
             description={
               t(query ? 'tasks.noResultsDescription' : 'tasks.emptyDescription')
             }
+            primaryActionLabel={query ? undefined : t('tasks.addWithAi')}
+            primaryActionIcon={query ? undefined : 'auto-awesome'}
+            onPrimaryAction={
+              query ? undefined : aiScheduler.openDirectPrompt
+            }
             actionLabel={query ? undefined : t('schedule.addTask')}
             onAction={query ? undefined : openCreate}
           />
@@ -258,6 +283,13 @@ export function TasksScreen() {
         windowSize={7}
       />
 
+      <AiScheduleModal
+        scheduler={aiScheduler}
+        successPrimaryLabel={t('tasks.viewList')}
+        targetDate={aiTargetDate}
+        onOpenManualTaskModal={openCreate}
+      />
+
       {formVisible ? (
         <TaskFormModal
           visible
@@ -287,6 +319,24 @@ export function TasksScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16, paddingTop: 14 },
+  actionPressed: { opacity: 0.72 },
+  aiButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    borderRadius: 13,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+  },
+  aiButtonText: {
+    color: colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,

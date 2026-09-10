@@ -74,6 +74,25 @@ describe('replaceTaskReminders', () => {
       1,
       expect.objectContaining({ id: 'task-1' }),
       'en',
+      'notification',
+    );
+  });
+
+  it('passes the selected alarm mode to each replacement', async () => {
+    const scheduleReminder = jest.fn(async () => 'alarm:new-1');
+
+    await replaceTaskReminders([makeTask()], [], {
+      dependencies: {
+        cancelReminder: jest.fn(async () => undefined),
+        scheduleReminder,
+      },
+      reminderDeliveryMode: 'alarm',
+    });
+
+    expect(scheduleReminder).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-1' }),
+      'vi',
+      'alarm',
     );
   });
 
@@ -120,6 +139,7 @@ describe('rollbackTaskReminders', () => {
     expect(scheduleReminder).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'updated', notificationId: undefined }),
       'vi',
+      'notification',
     );
     expect(restored).toEqual([
       expect.objectContaining({

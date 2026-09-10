@@ -3,13 +3,25 @@ import * as Notifications from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 
 import type { Task } from '../types';
+import * as Alarms from './alarms';
 import {
+  cancelTaskReminder,
+  getAllScheduledTaskReminders,
   getNotificationPermission,
+  getTaskReminderReadiness,
   initializeNotifications,
   openNotificationSettings,
   requestNotificationPermission,
   scheduleTaskReminder,
 } from './notifications';
+
+jest.mock('./alarms', () => ({
+  cancelTaskAlarm: jest.fn(async () => undefined),
+  getAlarmPermission: jest.fn(),
+  getScheduledTaskAlarms: jest.fn(async () => []),
+  isAlarmReminderId: jest.fn((id?: string) => id?.startsWith('alarm:')),
+  scheduleTaskAlarm: jest.fn(),
+}));
 
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { HIGH: 6 },
@@ -17,6 +29,7 @@ jest.mock('expo-notifications', () => ({
   IosAuthorizationStatus: { PROVISIONAL: 3 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
   cancelScheduledNotificationAsync: jest.fn(async () => undefined),
+  getAllScheduledNotificationsAsync: jest.fn(async () => []),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
@@ -25,11 +38,18 @@ jest.mock('expo-notifications', () => ({
 }));
 
 const getPermissionsAsync = jest.mocked(Notifications.getPermissionsAsync);
+const getAllScheduledNotificationsAsync = jest.mocked(
+  Notifications.getAllScheduledNotificationsAsync,
+);
 const requestPermissionsAsync = jest.mocked(Notifications.requestPermissionsAsync);
 const scheduleNotificationAsync = jest.mocked(Notifications.scheduleNotificationAsync);
 const setNotificationChannelAsync = jest.mocked(
   Notifications.setNotificationChannelAsync,
 );
+const mockCancelTaskAlarm = jest.mocked(Alarms.cancelTaskAlarm);
+const mockGetAlarmPermission = jest.mocked(Alarms.getAlarmPermission);
+const mockGetScheduledTaskAlarms = jest.mocked(Alarms.getScheduledTaskAlarms);
+const mockScheduleTaskAlarm = jest.mocked(Alarms.scheduleTaskAlarm);
 
 function permission(
   status: 'denied' | 'granted' | 'undetermined',
@@ -65,6 +85,16 @@ describe('notification foundation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAlarmPermission.mockResolvedValue({
+      available: true,
+      canOpenSettings: true,
+      canPostNotifications: true,
+      canScheduleExactAlarms: true,
+      canUseFullScreenIntent: true,
+      state: 'granted',
+    });
+    mockGetScheduledTaskAlarms.mockResolvedValue([]);
+    mockScheduleTaskAlarm.mockResolvedValue('alarm:native-1');
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
   });
 
@@ -158,6 +188,84 @@ describe('notification foundation', () => {
         trigger: expect.objectContaining({ channelId: 'planly-reminders-v2' }),
       }),
     );
+  });
+
+  it('schedules an alarm when that mode is selected and permissions are ready', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+
+    await expect(
+      scheduleTaskReminder(makeFutureTask(), 'vi', 'alarm'),
+    ).resolves.toBe('alarm:native-1');
+
+    expect(mockScheduleTaskAlarm).toHaveBeenCalledWith(
+      makeFutureTask(),
+      'vi',
+      expect.objectContaining({
+        source: 'planly-task-reminder',
+        taskId: 'task-1',
+      }),
+    );
+    expect(scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a standard notification when exact alarm access is unavailable', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    mockGetAlarmPermission.mockResolvedValue({
+      available: true,
+      canOpenSettings: true,
+      canPostNotifications: true,
+      canScheduleExactAlarms: false,
+      canUseFullScreenIntent: true,
+      state: 'denied',
+    });
+    scheduleNotificationAsync.mockResolvedValue('notification-fallback');
+
+    await expect(
+      scheduleTaskReminder(makeFutureTask(), 'vi', 'alarm'),
+    ).resolves.toBe('notification-fallback');
+
+    expect(mockScheduleTaskAlarm).not.toHaveBeenCalled();
+    expect(scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports alarm readiness and combines both native reminder queues', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    getAllScheduledNotificationsAsync.mockResolvedValue([
+      {
+        content: {
+          data: {
+            reminderKey: 'notification-key',
+            source: 'planly-task-reminder',
+            taskId: 'task-1',
+          },
+        },
+        identifier: 'notification-1',
+        trigger: null,
+      } as unknown as Notifications.NotificationRequest,
+    ]);
+    mockGetScheduledTaskAlarms.mockResolvedValue([
+      {
+        identifier: 'alarm:native-1',
+        reminderKey: 'alarm-key',
+        source: 'planly-task-reminder',
+        taskId: 'task-2',
+      },
+    ]);
+
+    await expect(getTaskReminderReadiness('alarm', 'vi')).resolves.toEqual({
+      canSchedule: true,
+      deliveryMode: 'alarm',
+    });
+    await expect(getAllScheduledTaskReminders()).resolves.toHaveLength(2);
+  });
+
+  it('routes alarm IDs to the native alarm canceler', async () => {
+    await cancelTaskReminder('alarm:native-1');
+
+    expect(mockCancelTaskAlarm).toHaveBeenCalledWith('alarm:native-1');
+    expect(
+      Notifications.cancelScheduledNotificationAsync,
+    ).not.toHaveBeenCalled();
   });
 
   it('opens the native app settings when permission must be changed manually', async () => {

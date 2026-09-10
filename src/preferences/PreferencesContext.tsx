@@ -19,6 +19,7 @@ import {
   type ThemeColors,
   type ThemeMode,
 } from '../theme/colors';
+import type { ReminderDeliveryMode } from '../types';
 
 const STORAGE_KEY = '@planly/preferences/v1';
 
@@ -27,6 +28,7 @@ interface StoredPreferences {
   language: Language;
   colorfulAccents: boolean;
   showTaskBadges: boolean;
+  reminderDeliveryMode: ReminderDeliveryMode;
 }
 
 interface PreferencesContextValue extends StoredPreferences {
@@ -35,6 +37,7 @@ interface PreferencesContextValue extends StoredPreferences {
   locale: 'vi-VN' | 'en-US';
   setColorfulAccents: (enabled: boolean) => void;
   setLanguage: (language: Language) => void;
+  setReminderDeliveryMode: (mode: ReminderDeliveryMode) => void;
   setShowTaskBadges: (enabled: boolean) => void;
   setTheme: (theme: ThemeMode) => void;
   t: Translate;
@@ -54,11 +57,17 @@ function isLanguage(value: unknown): value is Language {
   return value === 'vi' || value === 'en';
 }
 
+function isReminderDeliveryMode(value: unknown): value is ReminderDeliveryMode {
+  return value === 'notification' || value === 'alarm';
+}
+
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [language, setLanguage] = useState<Language>('vi');
   const [colorfulAccents, setColorfulAccents] = useState(true);
   const [showTaskBadges, setShowTaskBadges] = useState(true);
+  const [reminderDeliveryMode, setReminderDeliveryMode] =
+    useState<ReminderDeliveryMode>('notification');
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -77,6 +86,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (typeof parsed.showTaskBadges === 'boolean') {
           setShowTaskBadges(parsed.showTaskBadges);
         }
+        if (isReminderDeliveryMode(parsed.reminderDeliveryMode)) {
+          setReminderDeliveryMode(parsed.reminderDeliveryMode);
+        }
       } catch {
         // Invalid or unavailable storage falls back to the default preferences.
       } finally {
@@ -94,9 +106,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     void AsyncStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ colorfulAccents, language, showTaskBadges, theme }),
+      JSON.stringify({
+        colorfulAccents,
+        language,
+        reminderDeliveryMode,
+        showTaskBadges,
+        theme,
+      }),
     );
-  }, [colorfulAccents, hydrated, language, showTaskBadges, theme]);
+  }, [
+    colorfulAccents,
+    hydrated,
+    language,
+    reminderDeliveryMode,
+    showTaskBadges,
+    theme,
+  ]);
 
   const t = useCallback<Translate>(
     (key, values) => translate(language, key, values),
@@ -110,8 +135,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       hydrated,
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
+      reminderDeliveryMode,
       setColorfulAccents,
       setLanguage,
+      setReminderDeliveryMode,
       setShowTaskBadges,
       setTheme,
       showTaskBadges,
@@ -120,7 +147,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       toggleLanguage: () => setLanguage((current) => (current === 'vi' ? 'en' : 'vi')),
       toggleTheme: () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
     }),
-    [colorfulAccents, hydrated, language, showTaskBadges, t, theme],
+    [
+      colorfulAccents,
+      hydrated,
+      language,
+      reminderDeliveryMode,
+      showTaskBadges,
+      t,
+      theme,
+    ],
   );
 
   return (

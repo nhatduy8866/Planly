@@ -1,7 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type * as Notifications from 'expo-notifications';
 
-import type { Task } from '../types';
+import type { ScheduledTaskReminder, Task } from '../types';
 import { getTaskReminderKey, TASK_REMINDER_SOURCE } from './notifications';
 import {
   reconcileTaskReminders,
@@ -46,25 +45,30 @@ function request(
     legacy?: boolean;
     source?: string;
   } = {},
-): Notifications.NotificationRequest {
-  const data: Record<string, unknown> = { taskId: target.id };
-  if (!options.legacy) {
-    data.source = options.source ?? TASK_REMINDER_SOURCE;
-    data.reminderKey = options.key ?? getTaskReminderKey(target, 'vi');
-  }
-  return {
-    content: { data },
+): ScheduledTaskReminder {
+  const reminder: ScheduledTaskReminder = {
     identifier,
-    trigger: null,
-  } as unknown as Notifications.NotificationRequest;
+    taskId: target.id,
+  };
+  if (!options.legacy) {
+    reminder.source = options.source ?? TASK_REMINDER_SOURCE;
+    reminder.reminderKey = options.key ?? getTaskReminderKey(target, 'vi');
+  }
+  return reminder;
 }
 
 function dependencies(
-  scheduled: Notifications.NotificationRequest[],
+  scheduled: ScheduledTaskReminder[],
   permissionState: 'denied' | 'granted' = 'granted',
 ): ReminderReconciliationDependencies & {
   cancelReminder: jest.Mock<(notificationId?: string) => Promise<void>>;
-  scheduleReminder: jest.Mock<(target: Task) => Promise<string | undefined>>;
+  scheduleReminder: jest.Mock<
+    (
+      target: Task,
+      language: 'vi' | 'en',
+      deliveryMode: 'notification' | 'alarm',
+    ) => Promise<string | undefined>
+  >;
 } {
   let nextId = 1;
   const cancelReminder = jest.fn(async (notificationId?: string) => {
@@ -73,16 +77,22 @@ function dependencies(
     );
     if (index >= 0) scheduled.splice(index, 1);
   });
-  const scheduleReminder = jest.fn(async (target: Task) => {
+  const scheduleReminder = jest.fn(
+    async (target: Task, language: 'vi' | 'en', deliveryMode: 'notification' | 'alarm') => {
     const identifier = `new-${nextId++}`;
-    scheduled.push(request(target, identifier));
+    scheduled.push(
+      request(target, identifier, {
+        key: getTaskReminderKey(target, language, deliveryMode),
+      }),
+    );
     return identifier;
-  });
+    },
+  );
   return {
     cancelReminder,
-    getPermission: async () => ({
-      canAskAgain: permissionState !== 'denied',
-      state: permissionState,
+    getReadiness: async (preferredMode) => ({
+      canSchedule: permissionState === 'granted',
+      deliveryMode: preferredMode,
     }),
     getScheduledReminders: async () => [...scheduled],
     now: () => new Date(2099, 0, 1, 0, 0, 0).getTime(),
@@ -108,7 +118,12 @@ describe('reconcileTaskReminders', () => {
     const scheduled = [request(target, 'current-1')];
     const deps = dependencies(scheduled);
 
-    const result = await reconcileTaskReminders([target], 'vi', deps);
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'notification',
+      deps,
+    );
 
     expect(result).toEqual({
       canceled: 0,
@@ -121,12 +136,22 @@ describe('reconcileTaskReminders', () => {
 
   it('schedules a missing reminder and is idempotent on the next run', async () => {
     let tasks = [task()];
-    const scheduled: Notifications.NotificationRequest[] = [];
+    const scheduled: ScheduledTaskReminder[] = [];
     const deps = dependencies(scheduled);
 
-    const first = await reconcileTaskReminders(tasks, 'vi', deps);
+    const first = await reconcileTaskReminders(
+      tasks,
+      'vi',
+      'notification',
+      deps,
+    );
     tasks = applyUpdates(tasks, first.notificationIdUpdates);
-    const second = await reconcileTaskReminders(tasks, 'vi', deps);
+    const second = await reconcileTaskReminders(
+      tasks,
+      'vi',
+      'notification',
+      deps,
+    );
 
     expect(first.notificationIdUpdates).toEqual([
       { id: 'task-1', notificationId: 'new-1' },
@@ -146,7 +171,7 @@ describe('reconcileTaskReminders', () => {
     ];
     const deps = dependencies(scheduled);
 
-    const result = await reconcileTaskReminders([], 'vi', deps);
+    const result = await reconcileTaskReminders([], 'vi', 'notification', deps);
 
     expect(deps.cancelReminder).toHaveBeenCalledTimes(1);
     expect(deps.cancelReminder).toHaveBeenCalledWith('orphan-1');
@@ -164,7 +189,12 @@ describe('reconcileTaskReminders', () => {
     ];
     const deps = dependencies(scheduled);
 
-    const result = await reconcileTaskReminders([target], 'vi', deps);
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'notification',
+      deps,
+    );
 
     expect(result.canceled).toBe(3);
     expect(result.notificationIdUpdates).toEqual([]);
@@ -193,6 +223,7 @@ describe('reconcileTaskReminders', () => {
     const result = await reconcileTaskReminders(
       [completed, past, disabled],
       'vi',
+      'notification',
       deps,
     );
 
@@ -209,7 +240,12 @@ describe('reconcileTaskReminders', () => {
     const target = task({ notificationId: 'missing-native-id' });
     const deps = dependencies([], 'denied');
 
-    const result = await reconcileTaskReminders([target], 'vi', deps);
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'notification',
+      deps,
+    );
 
     expect(deps.scheduleReminder).not.toHaveBeenCalled();
     expect(result.notificationIdUpdates).toEqual([
@@ -222,10 +258,38 @@ describe('reconcileTaskReminders', () => {
     const scheduled = [request(target, 'old-1', { key: 'old-key' })];
     const deps = dependencies(scheduled);
 
-    const result = await reconcileTaskReminders([target], 'en', deps);
+    const result = await reconcileTaskReminders(
+      [target],
+      'en',
+      'notification',
+      deps,
+    );
 
     expect(deps.cancelReminder).toHaveBeenCalledWith('old-1');
-    expect(deps.scheduleReminder).toHaveBeenCalledWith(target, 'en');
+    expect(deps.scheduleReminder).toHaveBeenCalledWith(
+      target,
+      'en',
+      'notification',
+    );
+    expect(result.notificationIdUpdates).toEqual([
+      { id: 'task-1', notificationId: 'new-1' },
+    ]);
+  });
+
+  it('replaces a standard notification after switching to alarm mode', async () => {
+    const target = task({ notificationId: 'notification-1' });
+    const scheduled = [request(target, 'notification-1')];
+    const deps = dependencies(scheduled);
+
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'alarm',
+      deps,
+    );
+
+    expect(deps.cancelReminder).toHaveBeenCalledWith('notification-1');
+    expect(deps.scheduleReminder).toHaveBeenCalledWith(target, 'vi', 'alarm');
     expect(result.notificationIdUpdates).toEqual([
       { id: 'task-1', notificationId: 'new-1' },
     ]);

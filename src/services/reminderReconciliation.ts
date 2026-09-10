@@ -1,15 +1,18 @@
-import * as Notifications from 'expo-notifications';
-
 import type { Language } from '../i18n/translations';
-import type { Task } from '../types';
+import type {
+  ReminderDeliveryMode,
+  ScheduledTaskReminder,
+  Task,
+} from '../types';
 import {
   cancelTaskReminder,
-  getNotificationPermission,
+  getAllScheduledTaskReminders,
   getTaskReminderDate,
   getTaskReminderKey,
+  getTaskReminderReadiness,
   scheduleTaskReminder,
   TASK_REMINDER_SOURCE,
-  type NotificationPermissionSummary,
+  type TaskReminderReadiness,
 } from './notifications';
 
 export interface NotificationIdUpdate {
@@ -26,40 +29,48 @@ export interface ReminderReconciliationResult {
 
 export interface ReminderReconciliationDependencies {
   cancelReminder(notificationId?: string): Promise<void>;
-  getPermission(language: Language): Promise<NotificationPermissionSummary>;
-  getScheduledReminders(): Promise<Notifications.NotificationRequest[]>;
+  getReadiness(
+    preferredMode: ReminderDeliveryMode,
+    language: Language,
+  ): Promise<TaskReminderReadiness>;
+  getScheduledReminders(): Promise<ScheduledTaskReminder[]>;
   now(): number;
-  scheduleReminder(task: Task, language: Language): Promise<string | undefined>;
+  scheduleReminder(
+    task: Task,
+    language: Language,
+    deliveryMode: ReminderDeliveryMode,
+  ): Promise<string | undefined>;
 }
 
 const defaultDependencies: ReminderReconciliationDependencies = {
   cancelReminder: cancelTaskReminder,
-  getPermission: getNotificationPermission,
-  getScheduledReminders: Notifications.getAllScheduledNotificationsAsync,
+  getReadiness: getTaskReminderReadiness,
+  getScheduledReminders: getAllScheduledTaskReminders,
   now: Date.now,
   scheduleReminder: scheduleTaskReminder,
 };
 
 function taskIdFromRequest(
-  request: Notifications.NotificationRequest,
+  request: ScheduledTaskReminder,
 ): string | undefined {
-  const taskId = request.content.data?.taskId;
+  const taskId = request.taskId;
   if (typeof taskId !== 'string' || taskId.length === 0) return undefined;
 
-  const source = request.content.data?.source;
+  const source = request.source;
   // Notifications created before reconciliation was introduced only had taskId.
   if (source !== undefined && source !== TASK_REMINDER_SOURCE) return undefined;
   return taskId;
 }
 
 function isCurrentReminder(
-  request: Notifications.NotificationRequest,
+  request: ScheduledTaskReminder,
   task: Task,
   language: Language,
+  deliveryMode: ReminderDeliveryMode,
 ): boolean {
   return (
-    request.content.data?.source === TASK_REMINDER_SOURCE &&
-    request.content.data?.reminderKey === getTaskReminderKey(task, language)
+    request.source === TASK_REMINDER_SOURCE &&
+    request.reminderKey === getTaskReminderKey(task, language, deliveryMode)
   );
 }
 
@@ -71,6 +82,7 @@ function isEligibleForReminder(task: Task, now: number): boolean {
 export async function reconcileTaskReminders(
   tasks: Task[],
   language: Language = 'vi',
+  preferredMode: ReminderDeliveryMode = 'notification',
   dependencies: ReminderReconciliationDependencies = defaultDependencies,
 ): Promise<ReminderReconciliationResult> {
   const result: ReminderReconciliationResult = {
@@ -79,12 +91,12 @@ export async function reconcileTaskReminders(
     notificationIdUpdates: [],
     scheduled: 0,
   };
-  const [scheduledRequests, permission] = await Promise.all([
+  const [scheduledRequests, readiness] = await Promise.all([
     dependencies.getScheduledReminders(),
-    dependencies.getPermission(language),
+    dependencies.getReadiness(preferredMode, language),
   ]);
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const requestsByTaskId = new Map<string, Notifications.NotificationRequest[]>();
+  const requestsByTaskId = new Map<string, ScheduledTaskReminder[]>();
 
   for (const request of scheduledRequests) {
     const taskId = taskIdFromRequest(request);
@@ -119,7 +131,7 @@ export async function reconcileTaskReminders(
     }
 
     const currentRequests = requests.filter((request) =>
-      isCurrentReminder(request, task, language),
+      isCurrentReminder(request, task, language, readiness.deliveryMode),
     );
     const keptRequest =
       currentRequests.find(
@@ -143,9 +155,13 @@ export async function reconcileTaskReminders(
     }
 
     let notificationId: string | undefined;
-    if (permission.state === 'granted') {
+    if (readiness.canSchedule) {
       try {
-        notificationId = await dependencies.scheduleReminder(task, language);
+        notificationId = await dependencies.scheduleReminder(
+          task,
+          language,
+          readiness.deliveryMode,
+        );
         if (notificationId !== undefined) result.scheduled += 1;
       } catch {
         result.errors += 1;

@@ -5,6 +5,7 @@ import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
+import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
 import {
@@ -25,13 +26,25 @@ function AppShell() {
   const plannerHydrated = usePlannerHydrated();
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
-  const { colors, hydrated: preferencesHydrated, language } = usePreferences();
+  const {
+    colors,
+    hydrated: preferencesHydrated,
+    language,
+    reminderDeliveryMode,
+  } = usePreferences();
   const { requestTask } = useTaskNavigation();
   const styles = useThemedStyles(createStyles);
   const appReady = plannerHydrated && preferencesHydrated;
 
+  useAlarmTaskNavigation(requestTask, appReady);
   useNotificationTaskNavigation(requestTask, appReady);
-  useReminderReconciliation(tasks, language, appReady, dispatch);
+  useReminderReconciliation(
+    tasks,
+    language,
+    reminderDeliveryMode,
+    appReady,
+    dispatch,
+  );
 
   useEffect(() => {
     if (!preferencesHydrated) return;

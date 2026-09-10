@@ -25,14 +25,20 @@ const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => Promise<Task[]>
 >();
 const mockRollbackTaskReminders = jest.fn<
   (
     savedTasks: Task[],
     previousTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => Promise<Task[]>
 >();
 
@@ -50,6 +56,7 @@ jest.mock('../preferences/PreferencesContext', () => {
     usePreferences: () => ({
       language: 'vi',
       locale: 'vi-VN',
+      reminderDeliveryMode: 'notification',
       t: (
         key: Parameters<typeof translate>[1],
         values?: Parameters<typeof translate>[2],
@@ -71,12 +78,18 @@ jest.mock('../services/reminderTransaction', () => ({
   replaceTaskReminders: (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => mockReplaceTaskReminders(tasks, existingTasks, options),
   rollbackTaskReminders: (
     savedTasks: Task[],
     previousTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => mockRollbackTaskReminders(savedTasks, previousTasks, options),
 }));
 
@@ -314,7 +327,7 @@ describe('useAiScheduler', () => {
     expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
       expect.any(Array),
       mockPlannerState.tasks,
-      { language: 'vi' },
+      { language: 'vi', reminderDeliveryMode: 'notification' },
     );
     expect(scheduler.visible).toBe(false);
     expect(scheduler.saveFeedback).toMatchObject({
@@ -397,7 +410,7 @@ describe('useAiScheduler', () => {
     expect(mockRollbackTaskReminders).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: previous.id })]),
       [previous],
-      { language: 'vi' },
+      { language: 'vi', reminderDeliveryMode: 'notification' },
     );
     expect(mockDispatch).toHaveBeenLastCalledWith({
       type: 'rollback_task_batch',

@@ -19,7 +19,7 @@ import type { TaskFormValues } from '../components/TaskFormModal';
 export function useTaskActions() {
   const plannerTasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
-  const { language, t } = usePreferences();
+  const { language, reminderDeliveryMode, t } = usePreferences();
 
   const saveTask = useCallback(
     async (values: TaskFormValues, existing?: Task) => {
@@ -35,7 +35,7 @@ export function useTaskActions() {
         const tasksWithReminders = await replaceTaskReminders(
           editedTasks,
           plannerTasks,
-          { language },
+          { language, reminderDeliveryMode },
         );
 
         if (tasksWithReminders.length === 1) {
@@ -80,7 +80,11 @@ export function useTaskActions() {
       const tasksWithReminders = await Promise.all(
         newTasks.map(async (task) => {
           try {
-            const notificationId = await scheduleTaskReminder(task, language);
+            const notificationId = await scheduleTaskReminder(
+              task,
+              language,
+              reminderDeliveryMode,
+            );
             return { ...task, notificationId };
           } catch {
             return { ...task, notificationId: undefined };
@@ -94,7 +98,7 @@ export function useTaskActions() {
         dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
     },
-    [dispatch, language, plannerTasks],
+    [dispatch, language, plannerTasks, reminderDeliveryMode],
   );
 
   const duplicateTask = useCallback(
@@ -116,13 +120,17 @@ export function useTaskActions() {
       };
       assertNoTaskTimeConflicts([task], plannerTasks);
       try {
-        task.notificationId = await scheduleTaskReminder(task, language);
+        task.notificationId = await scheduleTaskReminder(
+          task,
+          language,
+          reminderDeliveryMode,
+        );
       } catch {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, language, plannerTasks, t],
+    [dispatch, language, plannerTasks, reminderDeliveryMode, t],
   );
 
   const deleteTask = useCallback(
@@ -149,14 +157,18 @@ export function useTaskActions() {
       await cancelTaskReminder(source.notificationId);
       if (!task.completed) {
         try {
-          task.notificationId = await scheduleTaskReminder(task, language);
+          task.notificationId = await scheduleTaskReminder(
+            task,
+            language,
+            reminderDeliveryMode,
+          );
         } catch {
           task.notificationId = undefined;
         }
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, language],
+    [dispatch, language, reminderDeliveryMode],
   );
 
   return { deleteTask, duplicateTask, saveTask, toggleTask };

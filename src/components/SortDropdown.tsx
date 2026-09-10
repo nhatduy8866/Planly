@@ -12,6 +12,7 @@ import {
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import type { SortDirection } from '../types';
 
 export interface SortOption<T extends string = string> {
   key: T;
@@ -25,6 +26,7 @@ interface SortDropdownProps<T extends string = string> {
   onSelect: (key: T) => void;
   accessibilityLabel?: string;
   buttonIcon?: keyof typeof MaterialIcons.glyphMap;
+  direction?: SortDirection;
   fullWidth?: boolean;
 }
 
@@ -34,6 +36,7 @@ export function SortDropdown<T extends string = string>({
   onSelect,
   accessibilityLabel,
   buttonIcon = 'sort',
+  direction,
   fullWidth = false,
 }: SortDropdownProps<T>) {
   const { colors, t } = usePreferences();
@@ -97,6 +100,15 @@ export function SortDropdown<T extends string = string>({
           >
             {selectedOption?.label ?? t('common.sort')}
           </Text>
+          {direction ? (
+            <MaterialIcons
+              name={
+                direction === 'ascending' ? 'arrow-upward' : 'arrow-downward'
+              }
+              size={14}
+              color={colors.primary}
+            />
+          ) : null}
           <MaterialIcons
             name={isOpen ? 'arrow-drop-up' : 'arrow-drop-down'}
             size={18}
@@ -153,7 +165,17 @@ export function SortDropdown<T extends string = string>({
                       </Text>
                     </View>
                     {isSelected ? (
-                      <MaterialIcons name="check" size={16} color={colors.primaryDark} />
+                      <MaterialIcons
+                        name={
+                          direction
+                            ? direction === 'ascending'
+                              ? 'arrow-upward'
+                              : 'arrow-downward'
+                            : 'check'
+                        }
+                        size={16}
+                        color={colors.primaryDark}
+                      />
                     ) : null}
                   </Pressable>
                 </View>

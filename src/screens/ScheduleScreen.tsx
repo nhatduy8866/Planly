@@ -31,7 +31,6 @@ import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { useTaskNavigation } from '../navigation/TaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
-  usePlannerDispatch,
   usePlannerTasks,
 } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
@@ -42,7 +41,6 @@ import {
   formatLongDate,
   formatMonthTitle,
   fromDateKey,
-  timeToMinutes,
   toDateKey,
   todayKey,
 } from '../utils/date';
@@ -51,6 +49,11 @@ import {
   groupScheduleTasksForView,
   type ScheduleTaskView,
 } from '../utils/scheduleTasks';
+import {
+  compareTasks,
+  nextTaskSortState,
+  type TaskSortState,
+} from '../utils/taskSorting';
 
 const CALENDAR_HEADER_BACKGROUND_KEYS = [
   'calendarHeaderLavender',
@@ -147,7 +150,6 @@ function shiftMonth(date: Date, amount: number): Date {
 
 export function ScheduleScreen() {
   const tasks = usePlannerTasks();
-  const dispatch = usePlannerDispatch();
   const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
@@ -156,7 +158,9 @@ export function ScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
-  const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
+  const [taskSort, setTaskSort] = useState<
+    TaskSortState<'time' | 'title' | 'priority'>
+  >({ direction: 'ascending', key: 'time' });
   const [taskView, setTaskView] = useState<ScheduleTaskView>('upcoming');
   const [currentTime, refreshCurrentTime] = useMinuteClock(
     selectedDate === todayKey(),
@@ -264,13 +268,16 @@ export function ScheduleScreen() {
     () =>
       tasks
         .filter((task) => task.date === selectedDate)
-        .sort(
-          (a, b) =>
-            (a.order ?? 0) - (b.order ?? 0) ||
-            timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
-            a.createdAt.localeCompare(b.createdAt),
+        .sort((first, second) =>
+          compareTasks(
+            first,
+            second,
+            taskSort.key,
+            taskSort.direction,
+            locale,
+          ),
         ),
-    [selectedDate, tasks],
+    [locale, selectedDate, taskSort, tasks],
   );
 
   const taskGroups = useMemo(
@@ -468,26 +475,6 @@ export function ScheduleScreen() {
           </View>
           {dayTasks.length ? (
             <View style={styles.listActions}>
-              {dayTasks.length > 1 ? (
-                <SortDropdown
-                  options={[
-                    { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                    { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                    { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-                  ]}
-                  selectedKey={sortMode}
-                  onSelect={(key) => {
-                    const nextSort = key as 'time' | 'title' | 'priority';
-                    animateTaskListTransition();
-                    setSortMode(nextSort);
-                    dispatch({
-                      type: 'sort_day',
-                      payload: { date: selectedDate, by: nextSort },
-                    });
-                    void Haptics.selectionAsync();
-                  }}
-                />
-              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('schedule.addTask')}
@@ -502,19 +489,37 @@ export function ScheduleScreen() {
         </View>
 
         <View style={styles.taskViewBar}>
-          <SortDropdown<ScheduleTaskView>
-            accessibilityLabel={t('schedule.taskView')}
-            buttonIcon="filter-list"
-            fullWidth
-            options={taskViewOptions}
-            selectedKey={taskView}
-            onSelect={(nextView) => {
-              animateTaskListTransition();
-              setTaskView(nextView);
-              refreshCurrentTime();
-              void Haptics.selectionAsync();
-            }}
-          />
+          <View style={styles.taskViewPicker}>
+            <SortDropdown<ScheduleTaskView>
+              accessibilityLabel={t('schedule.taskView')}
+              buttonIcon="filter-list"
+              fullWidth
+              options={taskViewOptions}
+              selectedKey={taskView}
+              onSelect={(nextView) => {
+                animateTaskListTransition();
+                setTaskView(nextView);
+                refreshCurrentTime();
+                void Haptics.selectionAsync();
+              }}
+            />
+          </View>
+          {dayTasks.length > 1 ? (
+            <SortDropdown<'time' | 'title' | 'priority'>
+              direction={taskSort.direction}
+              options={[
+                { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+              ]}
+              selectedKey={taskSort.key}
+              onSelect={(key) => {
+                animateTaskListTransition();
+                setTaskSort((current) => nextTaskSortState(current, key));
+                void Haptics.selectionAsync();
+              }}
+            />
+          ) : null}
         </View>
 
         {visibleDayTasks.length ? (
@@ -531,7 +536,7 @@ export function ScheduleScreen() {
               >
                 <AnimatedEntryItem
                   index={index}
-                  triggerKey={`${selectedDate}-${taskView}`}
+                  triggerKey={`${selectedDate}-${taskView}-${taskSort.key}-${taskSort.direction}`}
                 >
                   <TaskCard
                     completionPending={completionPending}
@@ -680,7 +685,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   taskViewBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 12,
+  },
+  taskViewPicker: {
+    flex: 1,
+    minWidth: 0,
   },
   addButton: {
     alignItems: 'center',

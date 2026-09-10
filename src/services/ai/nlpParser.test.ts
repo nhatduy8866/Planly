@@ -52,6 +52,38 @@ describe('nlpParser', () => {
     expect(drafts.every((draft) => draft.startTime === '18:00')).toBe(true);
   });
 
+  it('expands a daily routine expressed as a day period', () => {
+    const drafts = parseVietnameseScheduleText(
+      'moi sang di bo 6h sang den ngay 10/09/2026',
+      context,
+    );
+
+    expect(drafts.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-08',
+      '2026-09-09',
+      '2026-09-10',
+    ]);
+    expect(drafts.every((draft) => draft.title === 'Di bo')).toBe(true);
+    expect(drafts.every((draft) => draft.startTime === '06:00')).toBe(true);
+  });
+
+  it('keeps linked weekday wording inside one weekly rule', () => {
+    const drafts = parseVietnameseScheduleText(
+      'MỖI SÁNG THỨ 2 VÀ THỨ 5 HÀNG THÁNG VÀO LÚC 5H SẼ HỌC YOGA đến ngày 17/09/2026',
+      context,
+    );
+
+    expect(drafts.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-10',
+      '2026-09-14',
+      '2026-09-17',
+    ]);
+    expect(drafts.every((draft) => draft.title === 'HỌC YOGA')).toBe(true);
+    expect(drafts.every((draft) => draft.startTime === '05:00')).toBe(true);
+  });
+
   it('parses multi-task prompt from concept board accurately', () => {
     const prompt =
       'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung. Nhắc trước 15 phút.';

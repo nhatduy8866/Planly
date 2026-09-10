@@ -4,8 +4,10 @@ import {
   normalizeVietnameseText,
   replaceVietnameseMatches,
 } from '../../utils/vietnameseText';
+import { getTaskBatchRangeIssue } from '../../utils/taskBatch';
 import { parseVietnameseTime } from './timeIntent';
 import { isAiBatchIntent } from './batchIntent';
+import { isValidDateKey } from './dateIntent';
 import { separateTimedConjunctions } from './nlpParser';
 
 export type AiScheduleValidationCode =
@@ -40,7 +42,7 @@ function expectedTaskCount(
 ): number | undefined {
   const normalized = normalizeVietnameseText(prompt);
   if (isAiBatchIntent(prompt) && localDrafts.length > 0) {
-    return localDrafts.length;
+    return logicalTaskCount(localDrafts);
   }
   const timedClauses = separateTimedConjunctions(prompt).split(';');
   if (timedClauses.length > 1 && localDrafts.length > 1) {
@@ -63,17 +65,42 @@ function expectedTaskCount(
     : undefined;
 }
 
-function batchSignatures(drafts: AiDraftTask[]): string[] {
-  const groups = new Map<string, string[]>();
+function batchGroups(drafts: AiDraftTask[]): Map<string, AiDraftTask[]> {
+  const groups = new Map<string, AiDraftTask[]>();
   for (const draft of drafts) {
     if (!draft.batchGroupId) continue;
-    const dates = groups.get(draft.batchGroupId) ?? [];
-    dates.push(draft.date);
-    groups.set(draft.batchGroupId, dates);
+    const group = groups.get(draft.batchGroupId) ?? [];
+    group.push(draft);
+    groups.set(draft.batchGroupId, group);
   }
-  return Array.from(groups.values())
-    .map((dates) => dates.sort().join(','))
-    .sort();
+  return groups;
+}
+
+function logicalTaskCount(drafts: AiDraftTask[]): number {
+  const groups = batchGroups(drafts);
+  return groups.size + drafts.filter((draft) => !draft.batchGroupId).length;
+}
+
+function hasInvalidBatch(drafts: AiDraftTask[]): boolean {
+  for (const group of batchGroups(drafts).values()) {
+    const dates = group.map((draft) => draft.date).sort();
+    const first = group[0];
+    if (
+      group.length < 2 ||
+      first.batchGroupId?.startsWith('invalid-ai-recurrence') ||
+      new Set(dates).size !== dates.length ||
+      dates.some((date) => !isValidDateKey(date)) ||
+      getTaskBatchRangeIssue(dates[0], dates[dates.length - 1]) ||
+      group.some((draft) =>
+        draft.title !== first.title ||
+        draft.startTime !== first.startTime ||
+        draft.priority !== first.priority ||
+        draft.reminderMinutes !== first.reminderMinutes)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasExplicitReminder(prompt: string): boolean {
@@ -105,20 +132,23 @@ export function validateAiScheduleResult(
   }
 
   const expectedCount = expectedTaskCount(prompt, localDrafts);
-  if (expectedCount !== undefined && drafts.length !== expectedCount) {
+  const receivedCount = batchGroups(drafts).size > 0
+    ? logicalTaskCount(drafts)
+    : drafts.length;
+  if (expectedCount !== undefined && receivedCount !== expectedCount) {
     issues.push({
       code: 'task_count_mismatch',
-      message: `Expected ${expectedCount} task(s), but received ${drafts.length}. Attribute clauses must remain attached to their task.`,
+      message: `Expected ${expectedCount} logical task(s), but received ${receivedCount}. Attribute clauses must remain attached to their task.`,
     });
   }
 
-  const expectedBatches = batchSignatures(localDrafts);
   if (
-    JSON.stringify(batchSignatures(drafts)) !== JSON.stringify(expectedBatches)
+    (isAiBatchIntent(prompt) && batchGroups(drafts).size === 0) ||
+    hasInvalidBatch(drafts)
   ) {
     issues.push({
       code: 'batch_mismatch',
-      message: 'Recurring task occurrences or their batch grouping do not match the requested schedule.',
+      message: 'The recurring task must be a valid, bounded group with unique dates and consistent task fields.',
     });
   }
 
@@ -154,7 +184,7 @@ export function validateAiScheduleResult(
     semanticTasks.add(semanticKey);
   }
 
-  if (drafts.length === 1 && localDrafts.length === 1) {
+  if (logicalTaskCount(drafts) === 1 && logicalTaskCount(localDrafts) === 1) {
     const [draft] = drafts;
     const [local] = localDrafts;
     if (

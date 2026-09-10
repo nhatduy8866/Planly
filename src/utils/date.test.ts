@@ -40,4 +40,11 @@ describe('date utilities', () => {
     expect(formatLongDate('2026-09-07', 'en-US')).toContain('September');
     expect(formatLongDate('2026-09-07', 'vi-VN')).toContain('tháng 9');
   });
+
+  it('formats date ranges clearly without ambiguity', () => {
+    const { formatDateRange } = require('./date');
+    expect(formatDateRange('2026-09-14', '2027-09-07')).toBe('14/09/2026 – 07/09/2027');
+    expect(formatDateRange('2026-09-10', '2026-09-20')).toBe('10/09/2026 – 20/09/2026');
+    expect(formatDateRange('2026-09-14', '2026-09-14')).toBe('14/09/2026');
+  });
 });

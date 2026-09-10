@@ -10,7 +10,9 @@ import {
   stripScheduleDateReferences,
 } from './dateIntent';
 import {
+  isAiBatchIntent,
   parseAiBatchSchedule,
+  resolveAiRecurrenceEndDate,
   stripAiBatchScheduleReferences,
 } from './batchIntent';
 import { isReorderIntent } from './scheduleIntent';
@@ -97,14 +99,28 @@ function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
   title = replaceVietnameseMatches(title, /^toi\s+/, '');
   title = replaceVietnameseMatches(
     title,
-    /^(?:lam|can|phai|hay)\s+/,
+    /^(?:lam|can|phai|hay|se)\s+/,
     '',
   );
   title = title.replace(/\s+(?:nhé|nhe)\s*(?=$|[, .!?])/gi, ' ');
-  return title
+  title = replaceVietnameseMatches(
+    title,
+    /\s+(?:vao|va|voi|luc|cho|den|tu)\s*$/g,
+    '',
+  );
+  title = replaceVietnameseMatches(
+    title,
+    /^\s*(?:vao|va|voi|luc|cho|den|tu)\s+/g,
+    '',
+  );
+  title = title
     .replace(/\s*[,.;]+\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  if (/^(?:va|voi|vao|luc|cho|den|tu)$/i.test(normalizeVietnameseText(title))) {
+    return '';
+  }
+  return title;
 }
 
 /**
@@ -185,7 +201,28 @@ export function parseVietnameseScheduleText(
           /\b(?:buoi\s*)?(?:sang|trua|chieu|toi)\b/.test(
             normalizeVietnameseText(withoutDuration),
           );
-        if (hasTime && !startsWithTaskAttribute(p)) {
+
+        const normCurrent = normalizeVietnameseText(currentPart);
+        const normP = normalizeVietnameseText(p);
+        const isListingDays =
+          /\b(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat|ngay\s*\d{1,2})\s*$/i.test(
+            normCurrent,
+          ) &&
+          /^\s*(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat|ngay\s*\d{1,2})\b/i.test(
+            normP,
+          );
+        const currentHasTime =
+          parseVietnameseTime(
+            replaceVietnameseMatches(currentPart, DURATION_CLAUSE_PATTERN),
+          ) !== null ||
+          /\b(?:buoi\s*)?(?:sang|trua|chieu|toi)\b/.test(normCurrent);
+
+        if (
+          hasTime &&
+          currentHasTime &&
+          !isListingDays &&
+          !startsWithTaskAttribute(p)
+        ) {
           rawSegments.push(currentPart);
           currentPart = p;
         } else {
@@ -201,12 +238,13 @@ export function parseVietnameseScheduleText(
   const drafts: AiDraftTask[] = [];
   let index = 1;
   let inheritedTaskDate = context.targetDate;
+  const globalBatchEndDate = resolveAiRecurrenceEndDate(cleanNormalized, context);
 
   for (const seg of rawSegments) {
     if (seg.length < 3) continue;
 
     // 1. Phân tích Ngày (Date) từ cùng một resolver dùng bởi provider.
-    const batchSchedule = parseAiBatchSchedule(seg, context);
+    const batchSchedule = parseAiBatchSchedule(seg, context, globalBatchEndDate);
     const dateResolution = resolveScheduleDate(seg, context);
     if (batchSchedule?.dates[0]) {
       inheritedTaskDate = batchSchedule.dates[0];
@@ -243,7 +281,14 @@ export function parseVietnameseScheduleText(
 
     // Viết hoa chữ cái đầu
     if (title) {
-      title = title.charAt(0).toUpperCase() + title.slice(1);
+      const isInputAllCaps =
+        cleanNormalized === cleanNormalized.toUpperCase() &&
+        /[A-Z]/.test(cleanNormalized);
+      if (isInputAllCaps && title === title.toUpperCase()) {
+        title = title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
+      } else {
+        title = title.charAt(0).toUpperCase() + title.slice(1);
+      }
     } else {
       title = `Công việc ${index}`;
     }
@@ -280,13 +325,33 @@ export function separateTimedConjunctions(text: string): string {
   const parts = text.split(/\s+(?:và|va)\s+/i);
   let result = parts[0];
   for (const part of parts.slice(1)) {
+    const normResult = normalizeVietnameseText(result);
+    const normPart = normalizeVietnameseText(part);
+
+    const isListingDays =
+      /\b(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat|ngay\s*\d{1,2})\s*$/i.test(
+        normResult,
+      ) &&
+      /^\s*(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat|ngay\s*\d{1,2})\b/i.test(
+        normPart,
+      );
+
     const hasOwnTime = parseVietnameseTime(
       replaceVietnameseMatches(part, DURATION_CLAUSE_PATTERN),
     ) !== null;
     const previousHasTime = parseVietnameseTime(result) !== null;
-    result += hasOwnTime && previousHasTime && !startsWithTaskAttribute(part)
-      ? `;${part}`
-      : ` và ${part}`;
+    const hasOwnBatch = isAiBatchIntent(part);
+    const previousHasBatch = isAiBatchIntent(result);
+    const previousHasTitle = cleanTaskTitle(result).length >= 2;
+    const ownHasTitle = cleanTaskTitle(part).length >= 2;
+
+    const shouldSeparate =
+      !isListingDays &&
+      !startsWithTaskAttribute(part) &&
+      previousHasTitle &&
+      ownHasTitle &&
+      ((hasOwnTime && previousHasTime) || (hasOwnBatch && previousHasBatch));
+    result += shouldSeparate ? `;${part}` : ` và ${part}`;
   }
   return result;
 }

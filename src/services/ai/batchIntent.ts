@@ -1,4 +1,9 @@
 import type { AiSchedulingContext } from '../../types/ai';
+import type {
+  MonthlyWeekdayRule,
+  TaskRecurrenceFrequency,
+  TaskRecurrenceRule,
+} from '../../types/recurrence';
 import { fromDateKey } from '../../utils/date';
 import {
   normalizeVietnameseText,
@@ -6,13 +11,14 @@ import {
 } from '../../utils/vietnameseText';
 import {
   addCalendarMonths,
-  buildTaskBatchDates,
+  buildTaskRecurrenceDates,
 } from '../../utils/taskBatch';
 import { resolveScheduleDate } from './dateIntent';
 
 export interface AiBatchSchedule {
   dates: string[];
-  mode: 'weekly' | 'monthly';
+  mode: TaskRecurrenceFrequency;
+  rule: TaskRecurrenceRule;
 }
 
 export class AiBatchScheduleError extends Error {
@@ -25,7 +31,7 @@ export class AiBatchScheduleError extends Error {
 function requireBatchSchedule(
   dates: string[],
   mode: AiBatchSchedule['mode'],
-): AiBatchSchedule {
+): Pick<AiBatchSchedule, 'dates' | 'mode'> {
   if (!dates.length) throw new AiBatchScheduleError();
   return { dates, mode };
 }
@@ -51,7 +57,7 @@ const WEEKDAY_VALUES: Record<string, number> = {
 
 export function isAiBatchIntent(text: string): boolean {
   const normalized = normalizeVietnameseText(text);
-  return /\b(?:moi\s+(?:ngay|tuan|thang|thu)|hang\s+(?:tuan|thang)|cac\s+thu)\b/.test(
+  return /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang|thu)|hang\s+(?:ngay|tuan|thang)|cac\s+thu|lap\s+lai|dinh\s+ky|cu\s+(?:\d+\s+)?(?:ngay|tuan|thang|cach\s+nhat|nhat)|cach\s+(?:\d+\s+ngay|nhat|ngay)|every\s+(?:day|week|month))\b/.test(
     normalized,
   );
 }
@@ -68,6 +74,15 @@ function resolveBoundDate(
     new RegExp(`\\b${prefix}\\s+(${DATE_EXPRESSION})(?=$|[\\s,.!?])`),
   );
   return match ? resolveScheduleDate(match[1], context).date : null;
+}
+
+/** Explicit user bounds are deterministic constraints, not model suggestions. */
+export function resolveAiRecurrenceEndDate(
+  text: string,
+  context: AiSchedulingContext,
+): string | null {
+  const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
+  return resolveBoundDate(normalized, 'end', context);
 }
 
 function parseWeekdays(text: string): number[] {
@@ -94,26 +109,63 @@ function parseWeekdays(text: string): number[] {
 
 function parseMonthDays(text: string): number[] {
   const values = new Set<number>();
-  for (const match of text.matchAll(/\bngay\s+(\d{1,2})\b/g)) {
-    const value = Number(match[1]);
-    if (value >= 1 && value <= 31) values.add(value);
+  for (const match of text.matchAll(
+    /\bngay\s+(\d{1,2}(?:\s*(?:,|\/|&|va)\s*(?:ngay\s+)?\d{1,2})*)/g,
+  )) {
+    for (const rawValue of match[1].match(/\d{1,2}/g) ?? []) {
+      const value = Number(rawValue);
+      if (value >= 1 && value <= 31) values.add(value);
+    }
   }
   return Array.from(values).sort((first, second) => first - second);
 }
 
-export function parseAiBatchSchedule(
+function parseInterval(
+  text: string,
+  frequency: TaskRecurrenceFrequency,
+): number {
+  if (frequency === 'daily') {
+    if (/\b(?:cu\s+)?cach\s+nhat\b/.test(text)) {
+      return 2;
+    }
+    const dayIntervalMatch = text.match(/\b(?:cu|cach)\s+(\d{1,2})\s+ngay\b/);
+    if (dayIntervalMatch) {
+      return Math.max(1, Number(dayIntervalMatch[1]));
+    }
+  }
+  const unit = frequency === 'daily'
+    ? 'ngay'
+    : frequency === 'weekly'
+      ? 'tuan'
+      : 'thang';
+  const match = text.match(
+    new RegExp(`\\b(?:moi|cach|cu)\\s+(\\d{1,2})\\s+${unit}\\b`),
+  );
+  return match ? Math.max(1, Number(match[1])) : 1;
+}
+
+function parseMonthlyWeekday(text: string): MonthlyWeekdayRule | undefined {
+  const match = text.match(
+    /\b(thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)\s+(dau(?:\s+tien)?|cuoi)\s+(?:moi\s+|hang\s+)?thang\b/,
+  );
+  if (!match) return undefined;
+  const weekday = WEEKDAY_VALUES[match[1].replace(/\s+/g, ' ').trim()];
+  if (weekday === undefined) return undefined;
+  return { weekday, ordinal: match[2].startsWith('cuoi') ? -1 : 1 };
+}
+
+export function parseAiRecurrenceRule(
   text: string,
   context: AiSchedulingContext,
-): AiBatchSchedule | null {
+  fallbackEndDate?: string | null,
+): TaskRecurrenceRule | null {
   if (!isAiBatchIntent(text)) return null;
 
   const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
-  const mode = /\b(?:moi|hang)\s+thang\b/.test(normalized)
-    ? 'monthly'
-    : 'weekly';
   const startDate = resolveBoundDate(normalized, 'start', context)
     ?? context.targetDate;
-  const endDate = resolveBoundDate(normalized, 'end', context)
+  const endDate = resolveAiRecurrenceEndDate(normalized, context)
+    ?? fallbackEndDate
     ?? addCalendarMonths(startDate, 3);
   const recurrenceClause = normalized
     .split(/\b(?:cho\s+)?den\b/)[0]
@@ -121,29 +173,57 @@ export function parseAiBatchSchedule(
       new RegExp(`\\b(?:bat\\s+dau\\s+)?tu\\s+${DATE_EXPRESSION}`),
       ' ',
     );
+  const weekdays = parseWeekdays(recurrenceClause);
+  const monthDays = parseMonthDays(recurrenceClause);
+  const monthlyWeekday = parseMonthlyWeekday(recurrenceClause);
+  const hasMonthCue = /\b(?:moi|hang)\s+thang\b/.test(normalized);
+  const hasWeekCue = /\b(?:moi|hang)\s+tuan\b/.test(normalized);
+  const hasDailyCue = /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay)|hang\s+ngay|cu\s+(?:\d+\s+ngay|cach\s+nhat|nhat)|cach\s+nhat|cach\s+\d+\s+ngay|every\s+day)\b/.test(
+    normalized,
+  );
 
-  if (mode === 'monthly') {
-    const monthDays = parseMonthDays(recurrenceClause);
-    const dates = buildTaskBatchDates(startDate, endDate, {
-      mode,
-      monthDays: monthDays.length
-        ? monthDays
-        : [fromDateKey(startDate).getDate()],
-    });
-    return requireBatchSchedule(dates, mode);
-  }
+  // Prefer the semantic selector over a loose frequency word. For example,
+  // explicit weekdays describe a weekly rule even if the sentence also says
+  // "hàng tháng" conversationally. Ordinals remain a true monthly selector.
+  let frequency: TaskRecurrenceFrequency;
+  if (monthlyWeekday) frequency = 'monthly';
+  else if (weekdays.length) frequency = 'weekly';
+  else if (hasMonthCue && monthDays.length) frequency = 'monthly';
+  else if (hasDailyCue) frequency = 'daily';
+  else if (hasWeekCue) frequency = 'weekly';
+  else if (hasMonthCue) frequency = 'monthly';
+  else return null;
 
-  const isDaily = /\bmoi\s+ngay\b/.test(normalized);
-  const weekdays = isDaily
-    ? [0, 1, 2, 3, 4, 5, 6]
-    : parseWeekdays(recurrenceClause);
-  const dates = buildTaskBatchDates(startDate, endDate, {
-    mode,
-    weekdays: weekdays.length
+  const rule: TaskRecurrenceRule = {
+    frequency,
+    interval: parseInterval(normalized, frequency),
+    startDate,
+    endDate,
+  };
+  if (frequency === 'weekly') {
+    rule.weekdays = weekdays.length
       ? weekdays
-      : [fromDateKey(startDate).getDay()],
-  });
-  return requireBatchSchedule(dates, mode);
+      : [fromDateKey(startDate).getDay()];
+  } else if (frequency === 'monthly') {
+    if (monthlyWeekday) rule.monthlyWeekday = monthlyWeekday;
+    else {
+      rule.monthDays = monthDays.length
+        ? monthDays
+        : [fromDateKey(startDate).getDate()];
+    }
+  }
+  return rule;
+}
+
+export function parseAiBatchSchedule(
+  text: string,
+  context: AiSchedulingContext,
+  fallbackEndDate?: string | null,
+): AiBatchSchedule | null {
+  const rule = parseAiRecurrenceRule(text, context, fallbackEndDate);
+  if (!rule) return null;
+  const dates = buildTaskRecurrenceDates(rule);
+  return { ...requireBatchSchedule(dates, rule.frequency), rule };
 }
 
 export function stripAiBatchScheduleReferences(text: string): string {
@@ -158,15 +238,23 @@ export function stripAiBatchScheduleReferences(text: string): string {
   );
   result = replaceVietnameseMatches(
     result,
+    /\b(?:vao\s+)?(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)\s+(?:dau(?:\s+tien)?|cuoi)\s+(?:moi\s+|hang\s+)?thang\b/g,
+  );
+  result = replaceVietnameseMatches(
+    result,
+    /(?:\s*(?:,|\/|&|va)\s*)(?:thu\s*)?(?:[2-7]|hai|ba|tu|nam|sau|bay)(?=$|[\s,.!?])/g,
+  );
+  result = replaceVietnameseMatches(
+    result,
     /\b(?:vao\s+)?(?:(?:moi|cac)\s+)?(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)\b/g,
   );
   result = replaceVietnameseMatches(
     result,
-    /(?:\s*(?:,|\/|&|va)\s*)(?:thu\s*)?[2-7](?=$|[\s,.!?])/g,
+    /\b(?:vao\s+)?(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang)|hang\s+(?:ngay|tuan|thang)|moi\s+thu|cac\s+thu|lap\s+lai|dinh\s+ky)\b/g,
   );
   result = replaceVietnameseMatches(
     result,
-    /\b(?:vao\s+)?(?:moi\s+(?:ngay|tuan|thang)|hang\s+(?:tuan|thang)|moi\s+thu|cac\s+thu)\b/g,
+    /\b(?:vao\s+)?(?:cu\s+(?:\d+\s+)?(?:ngay|tuan|thang|cach\s+nhat|nhat)|cach\s+nhat|cach\s+\d+\s+ngay)\b/g,
   );
   result = replaceVietnameseMatches(
     result,
@@ -176,6 +264,7 @@ export function stripAiBatchScheduleReferences(text: string): string {
     result,
     /\bva\b(?=\s*(?:$|[,.;]))/g,
   );
+  result = replaceVietnameseMatches(result, /^\s*(?:va\s+|se\s+)+/g);
   return result
     .replace(/\s*[,.;]+\s*/g, ' ')
     .replace(/\s+/g, ' ')

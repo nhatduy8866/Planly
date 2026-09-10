@@ -2,12 +2,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import {
   useCallback,
   useDeferredValue,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
 import {
-  AppState,
   Platform,
   Pressable,
   SectionList,
@@ -27,6 +25,7 @@ import {
   type TaskFormValues,
 } from '../components/TaskFormModal';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
@@ -58,7 +57,7 @@ export function TasksScreen() {
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskListFilter>('upcoming');
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [currentTime, refreshCurrentTime] = useMinuteClock(filter !== 'all');
   const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
@@ -76,28 +75,6 @@ export function TasksScreen() {
     { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
     { key: 'created', label: t('sort.created'), icon: 'access-time' },
   ];
-
-  useEffect(() => {
-    const refreshCurrentTime = () => setCurrentTime(new Date());
-    let intervalId: ReturnType<typeof setInterval> | undefined;
-    const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000);
-    const timeoutId = setTimeout(() => {
-      refreshCurrentTime();
-      intervalId = setInterval(refreshCurrentTime, 60_000);
-    }, millisecondsUntilNextMinute);
-    const appStateSubscription = AppState.addEventListener(
-      'change',
-      (nextState) => {
-        if (nextState === 'active') refreshCurrentTime();
-      },
-    );
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (intervalId !== undefined) clearInterval(intervalId);
-      appStateSubscription.remove();
-    };
-  }, []);
 
   const groupedTasks = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
@@ -211,7 +188,10 @@ export function TasksScreen() {
                   return (
                     <Pressable
                       key={item.key}
-                      onPress={() => setFilter(item.key)}
+                      onPress={() => {
+                        setFilter(item.key);
+                        refreshCurrentTime();
+                      }}
                       style={[styles.filter, active && styles.filterActive]}
                     >
                       <Text

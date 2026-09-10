@@ -119,4 +119,14 @@ describe('TaskCard Component', () => {
       tree.root.findAllByProps({ testID: 'highlighted-task-card' }).length,
     ).toBeGreaterThan(0);
   });
+
+  it('renders the pending completion countdown inside the card', () => {
+    const { tree } = renderTaskCard({ completionPending: true });
+
+    expect(
+      tree.root.findByProps({ testID: 'completion-countdown' }).props.children,
+    ).toBe(5);
+
+    act(() => tree.unmount());
+  });
 });

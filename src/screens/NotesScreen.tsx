@@ -28,14 +28,6 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Note } from '../types';
 import { createId } from '../utils/id';
 
-function formatUpdatedAt(value: string, locale: 'vi-VN' | 'en-US'): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
 export function NotesScreen() {
   const notesState = usePlannerNotes();
   const dispatch = usePlannerDispatch();
@@ -46,6 +38,15 @@ export function NotesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>();
   const [deletingNote, setDeletingNote] = useState<Note | undefined>();
+  const updatedAtFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+    [locale],
+  );
 
   const notes = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
@@ -165,7 +166,7 @@ export function NotesScreen() {
                 ) : null}
                 <Text style={styles.noteDate}>
                   {t('notes.updated', {
-                    date: formatUpdatedAt(note.updatedAt, locale),
+                    date: updatedAtFormatter.format(new Date(note.updatedAt)),
                   })}
                 </Text>
               </Pressable>

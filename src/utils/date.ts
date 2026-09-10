@@ -1,4 +1,23 @@
 const VIETNAMESE_WEEKDAYS_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+type SupportedLocale = 'vi-VN' | 'en-US';
+
+const weekdayFormatters = new Map<SupportedLocale, Intl.DateTimeFormat>();
+const monthTitleFormatters = new Map<SupportedLocale, Intl.DateTimeFormat>();
+const longDateFormatters = new Map<SupportedLocale, Intl.DateTimeFormat>();
+const compactDateFormatters = new Map<SupportedLocale, Intl.DateTimeFormat>();
+
+function cachedFormatter(
+  cache: Map<SupportedLocale, Intl.DateTimeFormat>,
+  locale: SupportedLocale,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const cached = cache.get(locale);
+  if (cached) return cached;
+
+  const formatter = new Intl.DateTimeFormat(locale, options);
+  cache.set(locale, formatter);
+  return formatter;
+}
 
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
@@ -45,17 +64,19 @@ export function getMonthGrid(date: Date): Date[] {
 
 export function getWeekdayShort(
   date: Date,
-  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+  locale: SupportedLocale = 'vi-VN',
 ): string {
   if (locale === 'vi-VN') return VIETNAMESE_WEEKDAYS_SHORT[date.getDay()];
-  return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date).slice(0, 2);
+  return cachedFormatter(weekdayFormatters, locale, {
+    weekday: 'short',
+  }).format(date).slice(0, 2);
 }
 
 export function formatMonthTitle(
   date: Date,
-  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+  locale: SupportedLocale = 'vi-VN',
 ): string {
-  const text = new Intl.DateTimeFormat(locale, {
+  const text = cachedFormatter(monthTitleFormatters, locale, {
     month: 'long',
     year: 'numeric',
   }).format(date);
@@ -64,9 +85,9 @@ export function formatMonthTitle(
 
 export function formatLongDate(
   dateKey: string,
-  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+  locale: SupportedLocale = 'vi-VN',
 ): string {
-  const text = new Intl.DateTimeFormat(locale, {
+  const text = cachedFormatter(longDateFormatters, locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -76,9 +97,9 @@ export function formatLongDate(
 
 export function formatCompactDate(
   dateKey: string,
-  locale: 'vi-VN' | 'en-US' = 'vi-VN',
+  locale: SupportedLocale = 'vi-VN',
 ): string {
-  return new Intl.DateTimeFormat(locale, {
+  return cachedFormatter(compactDateFormatters, locale, {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',

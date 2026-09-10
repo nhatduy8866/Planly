@@ -4,6 +4,7 @@ import type { Task } from '../types';
 import {
   filterScheduleTasksForView,
   getDefaultScheduleTaskView,
+  groupScheduleTasksForView,
 } from './scheduleTasks';
 
 function createTask(id: string, overrides: Partial<Task> = {}): Task {
@@ -72,6 +73,23 @@ describe('schedule task views', () => {
       'completed-future',
       'completed-past',
     ]);
+  });
+
+  it('groups all schedule views in one pass', () => {
+    const groups = groupScheduleTasksForView(
+      tasks,
+      '2026-09-08',
+      now,
+    );
+
+    expect(groups.upcoming.map((task) => task.id)).toEqual(['later']);
+    expect(groups.past.map((task) => task.id)).toEqual([
+      'past',
+      'now',
+      'completed-future',
+      'completed-past',
+    ]);
+    expect(groups.all).toHaveLength(5);
   });
 
   it('defaults past days to all and current or future days to upcoming', () => {

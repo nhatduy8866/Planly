@@ -12,7 +12,7 @@ import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
-import { formatLongDate } from '../../utils/date';
+import { formatDateRange, formatLongDate } from '../../utils/date';
 
 interface AiDraftPreviewViewProps {
   isUpdated?: boolean; // True nếu là Screen 7 (Kế hoạch đã cập nhật)
@@ -35,8 +35,19 @@ export function AiDraftPreviewView({
 }: AiDraftPreviewViewProps) {
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const uniqueDates = Array.from(
+    new Set(drafts.map((d) => d.date || targetDate).filter(Boolean)),
+  ).sort();
   const primaryDate = drafts[0]?.date || targetDate;
   const formattedDate = formatLongDate(primaryDate, locale);
+
+  const subHeaderTitle = uniqueDates.length > 1
+    ? t('ai.previewSubtitleMultiple', {
+        count: drafts.length,
+        days: uniqueDates.length,
+        range: formatDateRange(uniqueDates[0], uniqueDates[uniqueDates.length - 1]),
+      })
+    : t('ai.previewSubtitle', { count: drafts.length, date: formattedDate });
 
   return (
     <View style={styles.container}>
@@ -56,7 +67,7 @@ export function AiDraftPreviewView({
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.subHeader}>
-          {t('ai.previewSubtitle', { count: drafts.length, date: formattedDate })}
+          {subHeaderTitle}
         </Text>
 
         {drafts.map((task, index) => {
@@ -129,7 +140,7 @@ export function AiDraftPreviewView({
                 <View style={styles.metaItem}>
                   <MaterialIcons name="event" size={14} color={colors.primary} />
                   <Text style={[styles.metaText, { color: colors.primary, fontWeight: '700' }]}>
-                    {task.batchGroupId
+                    {task.batchGroupId || uniqueDates.length > 1
                       ? formatLongDate(task.date || primaryDate, locale)
                       : formatLongDate(task.date || primaryDate, locale).split(',')[0]}
                   </Text>

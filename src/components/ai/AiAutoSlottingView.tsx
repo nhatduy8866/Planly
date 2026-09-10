@@ -12,6 +12,7 @@ import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
+import { formatLongDate } from '../../utils/date';
 
 interface AiAutoSlottingViewProps {
   drafts: AiDraftTask[];
@@ -28,8 +29,12 @@ export function AiAutoSlottingView({
   onDecline,
   onBack,
 }: AiAutoSlottingViewProps) {
-  const { colors, t } = usePreferences();
+  const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const uniqueDates = Array.from(
+    new Set(drafts.map((draft) => draft.date).filter(Boolean)),
+  );
+  const showDateInRows = uniqueDates.length > 1;
   const hasSlottingFailure = drafts.some(
     (draft) => draft.slottingStatus === 'unscheduled',
   );
@@ -77,6 +82,12 @@ export function AiAutoSlottingView({
                 />
                 <Text style={styles.itemTitle}>
                   {task.title}
+                  {showDateInRows && task.date ? (
+                    <Text style={styles.itemDateText}>
+                      {' · '}
+                      {formatLongDate(task.date, locale)}
+                    </Text>
+                  ) : null}
                   {isUnscheduled ? (
                     <Text style={styles.unscheduledText}> · {t('ai.unscheduled')}</Text>
                   ) : null}
@@ -219,6 +230,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
+  },
+  itemDateText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
   },
   unscheduledText: {
     color: colors.warning,

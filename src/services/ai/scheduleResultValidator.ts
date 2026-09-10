@@ -87,6 +87,7 @@ function hasInvalidBatch(drafts: AiDraftTask[]): boolean {
     const first = group[0];
     if (
       group.length < 2 ||
+      first.batchGroupId?.startsWith('invalid-ai-recurrence') ||
       new Set(dates).size !== dates.length ||
       dates.some((date) => !isValidDateKey(date)) ||
       getTaskBatchRangeIssue(dates[0], dates[dates.length - 1]) ||

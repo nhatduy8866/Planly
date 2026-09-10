@@ -106,6 +106,25 @@ export function formatCompactDate(
   }).format(fromDateKey(dateKey));
 }
 
+function formatDateKeyDisplay(dateKey: string): string {
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return dateKey;
+  const [year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+}
+
+export function formatDateRange(
+  startDateKey: string,
+  endDateKey: string,
+): string {
+  if (!startDateKey && !endDateKey) return '';
+  if (!startDateKey) return formatDateKeyDisplay(endDateKey);
+  if (!endDateKey || startDateKey === endDateKey) {
+    return formatDateKeyDisplay(startDateKey);
+  }
+  return `${formatDateKeyDisplay(startDateKey)} – ${formatDateKeyDisplay(endDateKey)}`;
+}
+
 export function taskDateTime(dateKey: string, time: string): Date {
   const date = fromDateKey(dateKey);
   const [hours, minutes] = time.split(':').map(Number);

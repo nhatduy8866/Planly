@@ -127,9 +127,18 @@ export function resolveScheduleDate(
     : context.targetDate;
   const anchorDate = fromDateKey(anchorKey);
   const normalized = normalizeVietnameseText(text);
+  const isRecurrenceCue =
+    /\b(?:moi|hang|cac\s+thu|lap\s+lai|dinh\s+ky|cu\s+(?:\d+\s+)?(?:ngay|tuan|thang)|cach\s+(?:\d+\s+ngay|nhat))\b/.test(
+      normalized,
+    );
+  const isOnlyEndDate =
+    /\b(?:cho\s+)?den\s+/i.test(normalized) &&
+    !/\b(?:bat\s+dau\s+)?tu\s+/i.test(normalized);
 
-  const absoluteDate = resolveAbsoluteDate(text, anchorDate);
-  if (absoluteDate) return { date: absoluteDate, hasExplicitDate: true };
+  if (!(isRecurrenceCue && isOnlyEndDate)) {
+    const absoluteDate = resolveAbsoluteDate(text, anchorDate);
+    if (absoluteDate) return { date: absoluteDate, hasExplicitDate: true };
+  }
 
   if (
     /(?:^|\s)(?:ngay kia|ngay mot)(?=$|[\s,.!?])/.test(normalized) ||

@@ -18,6 +18,7 @@ import {
   type AiScheduleValidationIssue,
 } from './scheduleResultValidator';
 import { isTaskUpdateIntent } from './taskUpdateIntent';
+import { resolveAiRecurrenceEndDate } from './batchIntent';
 
 /**
  * Giao diện nhà cung cấp dịch vụ AI (Interface Segregation Principle)
@@ -222,6 +223,7 @@ function numberArray(
 function normalizeCloudRecurrence(
   value: unknown,
   defaultStartDate: string,
+  explicitEndDate: string | null,
 ): TaskRecurrenceRule | null {
   if (value === null || value === undefined) return null;
   const item = asRecord(value);
@@ -239,11 +241,13 @@ function normalizeCloudRecurrence(
   const count = Number.isInteger(item.count) && Number(item.count) > 0
     ? Math.min(Number(item.count), 366)
     : undefined;
-  const endDate = isValidDateKey(item.endDate)
-    ? item.endDate
-    : count
-      ? toDateKey(addDays(fromDateKey(startDate), 365))
-      : addCalendarMonths(startDate, 3);
+  const endDate = explicitEndDate ?? (
+    isValidDateKey(item.endDate)
+      ? item.endDate
+      : count
+        ? toDateKey(addDays(fromDateKey(startDate), 365))
+        : addCalendarMonths(startDate, 3)
+  );
   const weekdays = numberArray(item.weekdays, (day) => day >= 0 && day <= 6);
   const monthDays = numberArray(
     item.monthDays,
@@ -461,6 +465,10 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const realTodayDayName = context.realTodayDayName || context.currentDayName;
 
     const effectiveDate = resolveScheduleDate(prompt, context).date;
+    const explicitRecurrenceEndDate = resolveAiRecurrenceEndDate(
+      prompt,
+      context,
+    );
 
     const tasksForDate = (context.allTasks || context.existingTasks).filter(
       (t) => t.date === effectiveDate && !t.completed,
@@ -476,11 +484,14 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const repairInstruction = repair
       ? `\nKết quả trước cần được sửa: ${JSON.stringify(repair.previousDrafts)}\nCác lỗi validator phát hiện:\n${repair.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join('\n')}\nHãy phân tích lại yêu cầu gốc và sửa toàn bộ lỗi trên. Không sao chép lại kết quả sai.`
       : '';
+    const boundInfo = explicitRecurrenceEndDate
+      ? `\n- Giới hạn ngày kết thúc: ${explicitRecurrenceEndDate}. BẮT BUỘC gán recurrence.endDate bằng "${explicitRecurrenceEndDate}".`
+      : '';
     const promptText = `Bạn là trợ lý lập lịch thông minh của ứng dụng Planly. Phân tích yêu cầu lập lịch của người dùng:
 Ngữ cảnh thời gian:
 - Ngày thực tế hôm nay của thiết bị: ${realToday} (${realTodayDayName})
 - Ngày người dùng đang mở xem trên màn hình: ${context.targetDate} (${context.currentDayName})
-- Danh sách công việc hiện có trong ngày (${tasksForDate.length} việc): ${JSON.stringify(existingTasksSummary)}
+- Danh sách công việc hiện có trong ngày (${tasksForDate.length} việc): ${JSON.stringify(existingTasksSummary)}${boundInfo}
 Yêu cầu gốc của người dùng: "${prompt}"${repairInstruction}
 
 Quy tắc quan trọng:
@@ -508,13 +519,13 @@ Quy tắc quan trọng:
 6. "priority": "high", "medium", "low", hoặc "none".
 7. "recurrence": hãy diễn giải Ý NGHĨA lặp lại thành một quy tắc gọn, KHÔNG tự liệt kê từng ngày:
    - Không lặp: null.
-   - frequency là daily, weekly hoặc monthly; interval mặc định 1.
+   - frequency là daily, weekly hoặc monthly; interval mặc định 1. "Cứ N ngày" hoặc "cách nhật" là daily với interval tương ứng ("cách nhật" hoặc "cứ 2 ngày" là interval 2).
    - weekday dùng quy ước Chủ nhật=0, Thứ Hai=1, ... Thứ Bảy=6.
    - "mỗi sáng đi bộ" là daily. Giờ cụ thể như "6h sáng" vẫn phải thắng giờ mặc định của buổi.
    - Danh sách thứ thường như "thứ 2 và thứ 5" là weekly, kể cả câu có thêm từ nối dài hoặc cụm "hàng tháng" không mô tả thứ tự trong tháng.
    - Danh sách ngày trong tháng như "ngày 2 và ngày 5 hàng tháng" là monthly với monthDays [2,5].
    - Chỉ dùng monthlyWeekday khi có thứ tự rõ ràng, ví dụ "Thứ Hai đầu mỗi tháng" là {weekday:1, ordinal:1}, "Thứ Sáu cuối tháng" là ordinal:-1.
-   - startDate là ngày bắt đầu hiệu lực. endDate là ngày kết thúc nếu người dùng nói; nếu không có thì null để Planly tự giới hạn mặc định. count chỉ có giá trị khi người dùng giới hạn số lần.
+   - startDate là ngày bắt đầu hiệu lực. Nếu người dùng nói "đến ngày...", endDate BẮT BUỘC là ngày đó (định dạng YYYY-MM-DD), không được để null. Chỉ để null khi người dùng hoàn toàn không có ngày kết thúc. count chỉ có giá trị khi người dùng giới hạn số lần.
    - weekdays/monthDays/excludedDates là [] và monthlyWeekday là null khi không dùng.
    - Câu có hoặc không dấu, viết hoa/thường, hay nhiều từ nối vẫn phải được hiểu theo cùng ý nghĩa.
 
@@ -598,6 +609,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           const recurrence = normalizeCloudRecurrence(
             item.recurrence,
             normalized.date,
+            explicitRecurrenceEndDate,
           );
           if (!recurrence) {
             return [{

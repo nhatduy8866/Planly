@@ -57,7 +57,7 @@ const WEEKDAY_VALUES: Record<string, number> = {
 
 export function isAiBatchIntent(text: string): boolean {
   const normalized = normalizeVietnameseText(text);
-  return /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang|thu)|hang\s+(?:ngay|tuan|thang)|cac\s+thu|lap\s+lai|dinh\s+ky|every\s+(?:day|week|month))\b/.test(
+  return /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang|thu)|hang\s+(?:ngay|tuan|thang)|cac\s+thu|lap\s+lai|dinh\s+ky|cu\s+(?:\d+\s+)?(?:ngay|tuan|thang|cach\s+nhat|nhat)|cach\s+(?:\d+\s+ngay|nhat|ngay)|every\s+(?:day|week|month))\b/.test(
     normalized,
   );
 }
@@ -74,6 +74,15 @@ function resolveBoundDate(
     new RegExp(`\\b${prefix}\\s+(${DATE_EXPRESSION})(?=$|[\\s,.!?])`),
   );
   return match ? resolveScheduleDate(match[1], context).date : null;
+}
+
+/** Explicit user bounds are deterministic constraints, not model suggestions. */
+export function resolveAiRecurrenceEndDate(
+  text: string,
+  context: AiSchedulingContext,
+): string | null {
+  const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
+  return resolveBoundDate(normalized, 'end', context);
 }
 
 function parseWeekdays(text: string): number[] {
@@ -115,13 +124,22 @@ function parseInterval(
   text: string,
   frequency: TaskRecurrenceFrequency,
 ): number {
+  if (frequency === 'daily') {
+    if (/\b(?:cu\s+)?cach\s+nhat\b/.test(text)) {
+      return 2;
+    }
+    const dayIntervalMatch = text.match(/\b(?:cu|cach)\s+(\d{1,2})\s+ngay\b/);
+    if (dayIntervalMatch) {
+      return Math.max(1, Number(dayIntervalMatch[1]));
+    }
+  }
   const unit = frequency === 'daily'
     ? 'ngay'
     : frequency === 'weekly'
       ? 'tuan'
       : 'thang';
   const match = text.match(
-    new RegExp(`\\b(?:moi|cach)\\s+(\\d{1,2})\\s+${unit}\\b`),
+    new RegExp(`\\b(?:moi|cach|cu)\\s+(\\d{1,2})\\s+${unit}\\b`),
   );
   return match ? Math.max(1, Number(match[1])) : 1;
 }
@@ -139,13 +157,15 @@ function parseMonthlyWeekday(text: string): MonthlyWeekdayRule | undefined {
 export function parseAiRecurrenceRule(
   text: string,
   context: AiSchedulingContext,
+  fallbackEndDate?: string | null,
 ): TaskRecurrenceRule | null {
   if (!isAiBatchIntent(text)) return null;
 
   const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
   const startDate = resolveBoundDate(normalized, 'start', context)
     ?? context.targetDate;
-  const endDate = resolveBoundDate(normalized, 'end', context)
+  const endDate = resolveAiRecurrenceEndDate(normalized, context)
+    ?? fallbackEndDate
     ?? addCalendarMonths(startDate, 3);
   const recurrenceClause = normalized
     .split(/\b(?:cho\s+)?den\b/)[0]
@@ -158,7 +178,7 @@ export function parseAiRecurrenceRule(
   const monthlyWeekday = parseMonthlyWeekday(recurrenceClause);
   const hasMonthCue = /\b(?:moi|hang)\s+thang\b/.test(normalized);
   const hasWeekCue = /\b(?:moi|hang)\s+tuan\b/.test(normalized);
-  const hasDailyCue = /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay)|hang\s+ngay|every\s+day)\b/.test(
+  const hasDailyCue = /\b(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay)|hang\s+ngay|cu\s+(?:\d+\s+ngay|cach\s+nhat|nhat)|cach\s+nhat|cach\s+\d+\s+ngay|every\s+day)\b/.test(
     normalized,
   );
 
@@ -198,8 +218,9 @@ export function parseAiRecurrenceRule(
 export function parseAiBatchSchedule(
   text: string,
   context: AiSchedulingContext,
+  fallbackEndDate?: string | null,
 ): AiBatchSchedule | null {
-  const rule = parseAiRecurrenceRule(text, context);
+  const rule = parseAiRecurrenceRule(text, context, fallbackEndDate);
   if (!rule) return null;
   const dates = buildTaskRecurrenceDates(rule);
   return { ...requireBatchSchedule(dates, rule.frequency), rule };
@@ -217,7 +238,11 @@ export function stripAiBatchScheduleReferences(text: string): string {
   );
   result = replaceVietnameseMatches(
     result,
-    /\b(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)\s+(?:dau(?:\s+tien)?|cuoi)\s+(?:moi\s+|hang\s+)?thang\b/g,
+    /\b(?:vao\s+)?(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)\s+(?:dau(?:\s+tien)?|cuoi)\s+(?:moi\s+|hang\s+)?thang\b/g,
+  );
+  result = replaceVietnameseMatches(
+    result,
+    /(?:\s*(?:,|\/|&|va)\s*)(?:thu\s*)?(?:[2-7]|hai|ba|tu|nam|sau|bay)(?=$|[\s,.!?])/g,
   );
   result = replaceVietnameseMatches(
     result,
@@ -225,11 +250,11 @@ export function stripAiBatchScheduleReferences(text: string): string {
   );
   result = replaceVietnameseMatches(
     result,
-    /(?:\s*(?:,|\/|&|va)\s*)(?:thu\s*)?[2-7](?=$|[\s,.!?])/g,
+    /\b(?:vao\s+)?(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang)|hang\s+(?:ngay|tuan|thang)|moi\s+thu|cac\s+thu|lap\s+lai|dinh\s+ky)\b/g,
   );
   result = replaceVietnameseMatches(
     result,
-    /\b(?:vao\s+)?(?:moi\s+(?:(?:buoi\s+)?(?:sang|trua|chieu|toi)|ngay|tuan|thang)|hang\s+(?:ngay|tuan|thang)|moi\s+thu|cac\s+thu|lap\s+lai|dinh\s+ky)\b/g,
+    /\b(?:vao\s+)?(?:cu\s+(?:\d+\s+)?(?:ngay|tuan|thang|cach\s+nhat|nhat)|cach\s+nhat|cach\s+\d+\s+ngay)\b/g,
   );
   result = replaceVietnameseMatches(
     result,

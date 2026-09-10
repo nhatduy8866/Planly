@@ -25,6 +25,7 @@ export interface AiDraftTask {
   reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
   source: 'direct_request' | 'auto_slotted' | 'conflict_resolved';
+  batchGroupId?: string;
   slottingStatus?: 'scheduled' | 'unscheduled';
   changeStatus?: 'unchanged' | 'updated' | 'added';
 }

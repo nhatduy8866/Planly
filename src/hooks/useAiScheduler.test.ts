@@ -11,6 +11,7 @@ import {
 import type { PlannerState, Task } from '../types';
 import type { AiDraftTask } from '../types/ai';
 import type { AiSchedulingProvider } from '../services/ai/aiProvider';
+import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { useAiScheduler } from './useAiScheduler';
 
@@ -208,6 +209,18 @@ describe('useAiScheduler', () => {
     expect(scheduler.draftTasks).toEqual([]);
   });
 
+  it('explains an invalid recurring range instead of creating one task', async () => {
+    mockParseScheduleRequest.mockRejectedValue(new AiBatchScheduleError());
+
+    await submitPrompt(
+      'tap gym hang tuan tu ngay 07/09/2026 den ngay 08/09/2027',
+    );
+
+    expect(scheduler.step).toBe('input_prompt');
+    expect(scheduler.infoMessage).toContain('không dài quá 1 năm');
+    expect(scheduler.draftTasks).toEqual([]);
+  });
+
   it('updates only the selected AI draft before saving', async () => {
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ id: 'first', title: 'Làm báo cáo' }),
@@ -309,6 +322,59 @@ describe('useAiScheduler', () => {
       updatedCount: 0,
     });
     expect(scheduler.highlightedTaskIds.has('task-new')).toBe(true);
+  });
+
+  it('persists AI recurrence occurrences with one shared batch ID', async () => {
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({
+        id: 'monday',
+        date: '2026-09-07',
+        batchGroupId: 'ai-batch-gym',
+      }),
+      makeDraft({
+        id: 'wednesday',
+        date: '2026-09-09',
+        batchGroupId: 'ai-batch-gym',
+      }),
+    ]);
+    await submitPrompt();
+
+    await act(async () => {
+      await scheduler.confirmSaveToCalendar();
+    });
+
+    const tasksToSave = mockReplaceTaskReminders.mock.calls[0][0];
+    expect(tasksToSave.map((task) => task.date)).toEqual([
+      '2026-09-07',
+      '2026-09-09',
+    ]);
+    expect(tasksToSave[0].batchId).toBeTruthy();
+    expect(tasksToSave[1].batchId).toBe(tasksToSave[0].batchId);
+    expect(new Set(tasksToSave.map((task) => task.id)).size).toBe(2);
+  });
+
+  it('detects a conflict on any occurrence inside an AI batch', async () => {
+    updateTasks([
+      makeTask({ date: '2026-09-14', startTime: '09:00' }),
+    ]);
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({
+        id: 'first-occurrence',
+        date: '2026-09-07',
+        batchGroupId: 'ai-batch-gym',
+      }),
+      makeDraft({
+        id: 'conflicting-occurrence',
+        date: '2026-09-14',
+        batchGroupId: 'ai-batch-gym',
+      }),
+    ]);
+
+    await submitPrompt();
+
+    expect(scheduler.step).toBe('conflict_resolution');
+    expect(scheduler.conflicts).toHaveLength(1);
+    expect(scheduler.conflicts[0].draftTaskId).toBe('conflicting-occurrence');
   });
 
   it('undoes an AI update with its previous task and reminder', async () => {

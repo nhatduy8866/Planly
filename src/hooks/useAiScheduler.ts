@@ -9,6 +9,7 @@ import {
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
 import { defaultAiProvider } from '../services/ai/aiProvider';
+import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { detectConflicts } from '../services/ai/conflictDetector';
 import { autoSlotTasks } from '../services/ai/slottingEngine';
@@ -17,6 +18,7 @@ import {
   rollbackTaskReminders,
 } from '../services/reminderTransaction';
 import { formatLongDate, todayKey } from '../utils/date';
+import { createId } from '../utils/id';
 
 const SAVE_FEEDBACK_DURATION_MS = 6_000;
 const TASK_HIGHLIGHT_DURATION_MS = 2_400;
@@ -180,7 +182,9 @@ export function useAiScheduler(
         setDraftTasks(parsedDrafts);
         setStep('draft_preview');
       } catch (err) {
-        if (err instanceof AiScheduleClarificationError) {
+        if (err instanceof AiBatchScheduleError) {
+          setInfoMessage(t('ai.batchInvalid'));
+        } else if (err instanceof AiScheduleClarificationError) {
           setInfoMessage(
             t('ai.clarifyUnaccentedTime', { hour: err.hour }),
           );
@@ -375,9 +379,33 @@ export function useAiScheduler(
 
     const nowIso = new Date().toISOString();
     const existingMap = new Map(tasks.map((t) => [t.id, t]));
+    const batchIds = new Map<string, string>();
+    const nextOrderByDate = new Map<string, number>();
+
+    for (const draft of draftTasks) {
+      if (draft.batchGroupId && !batchIds.has(draft.batchGroupId)) {
+        batchIds.set(draft.batchGroupId, createId('batch'));
+      }
+    }
+
+    function takeNextOrder(date: string): number {
+      const cachedOrder = nextOrderByDate.get(date);
+      if (cachedOrder !== undefined) {
+        nextOrderByDate.set(date, cachedOrder + 1);
+        return cachedOrder;
+      }
+      const nextOrder = tasks
+        .filter((task) => task.date === date)
+        .reduce((max, task) => Math.max(max, task.order ?? -1), -1) + 1;
+      nextOrderByDate.set(date, nextOrder + 1);
+      return nextOrder;
+    }
 
     const tasksToSave: Task[] = draftTasks.map((draft, idx) => {
       const existing = existingMap.get(draft.id);
+      const batchId = draft.batchGroupId
+        ? batchIds.get(draft.batchGroupId)
+        : undefined;
       if (existing) {
         // Cập nhật lại task hiện có, giữ nguyên trạng thái hoàn thành, ghi chú và ngày tạo
         return {
@@ -388,6 +416,7 @@ export function useAiScheduler(
           startTime: draft.startTime || existing.startTime,
           reminderMinutes: draft.reminderMinutes,
           priority: draft.priority,
+          batchId: batchId ?? existing.batchId,
           order: idx,
           updatedAt: nowIso,
         };
@@ -401,8 +430,9 @@ export function useAiScheduler(
         date: draft.date,
         startTime: draft.startTime,
         reminderMinutes: draft.reminderMinutes,
+        batchId,
         completed: false,
-        order: idx,
+        order: takeNextOrder(draft.date),
         priority: draft.priority,
         createdAt: nowIso,
         updatedAt: nowIso,

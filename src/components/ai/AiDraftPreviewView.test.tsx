@@ -67,4 +67,25 @@ describe('AiDraftPreviewView', () => {
     expect(onEditDraft).toHaveBeenCalledWith('gym');
     act(() => tree!.unmount());
   });
+
+  it('marks recurring AI occurrences as repeated tasks', () => {
+    let tree: renderer.ReactTestRenderer | undefined;
+    act(() => {
+      tree = renderer.create(
+        <AiDraftPreviewView
+          drafts={[
+            makeDraft({ batchGroupId: 'ai-batch-gym' }),
+          ]}
+          onBack={jest.fn()}
+          onConfirm={jest.fn()}
+          onEditDraft={jest.fn()}
+          onRefine={jest.fn()}
+          targetDate="2026-09-10"
+        />,
+      );
+    });
+
+    expect(JSON.stringify(tree!.toJSON())).toContain('Lặp');
+    act(() => tree!.unmount());
+  });
 });

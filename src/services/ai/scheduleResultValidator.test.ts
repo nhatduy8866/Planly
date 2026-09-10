@@ -85,6 +85,52 @@ describe('validateAiScheduleResult', () => {
     );
   });
 
+  it('requires cloud recurrence results to preserve every batch occurrence', () => {
+    const localBatch = [
+      draft({ id: 'local-1', date: '2026-09-07', batchGroupId: 'local-batch' }),
+      draft({ id: 'local-2', date: '2026-09-09', batchGroupId: 'local-batch' }),
+    ];
+    const result = validateAiScheduleResult(
+      'tap gym moi thu 2, thu 4 den ngay 09/09/2026',
+      [
+        draft({ id: 'cloud-1', date: '2026-09-07' }),
+        draft({ id: 'cloud-2', date: '2026-09-09' }),
+      ],
+      localBatch,
+    );
+
+    expect(result.issues.map((issue) => issue.code)).toContain('batch_mismatch');
+  });
+
+  it('accepts equivalent recurrence dates with a different temporary group ID', () => {
+    const localBatch = [
+      draft({ id: 'local-1', date: '2026-09-07', batchGroupId: 'local-batch' }),
+      draft({ id: 'local-2', date: '2026-09-09', batchGroupId: 'local-batch' }),
+    ];
+    const cloudBatch = [
+      draft({ id: 'cloud-1', date: '2026-09-07', batchGroupId: 'cloud-batch' }),
+      draft({ id: 'cloud-2', date: '2026-09-09', batchGroupId: 'cloud-batch' }),
+    ];
+
+    expect(
+      validateAiScheduleResult(
+        'tap gym moi thu 2, thu 4 den ngay 09/09/2026',
+        cloudBatch,
+        localBatch,
+      ).valid,
+    ).toBe(true);
+  });
+
+  it('rejects a batch group when the request is not recurring', () => {
+    const result = validateAiScheduleResult(
+      'tao lich 14h da bong',
+      [draft({ batchGroupId: 'unexpected-batch' })],
+      localDrafts,
+    );
+
+    expect(result.issues.map((issue) => issue.code)).toContain('batch_mismatch');
+  });
+
   it('requires refinement to preserve IDs unless add or remove was requested', () => {
     const current = [draft({ id: 'existing-1' })];
     const result = validateAiRefinementResult(

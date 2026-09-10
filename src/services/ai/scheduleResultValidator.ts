@@ -5,10 +5,12 @@ import {
   replaceVietnameseMatches,
 } from '../../utils/vietnameseText';
 import { parseVietnameseTime } from './timeIntent';
+import { isAiBatchIntent } from './batchIntent';
 import { separateTimedConjunctions } from './nlpParser';
 
 export type AiScheduleValidationCode =
   | 'attribute_only_task'
+  | 'batch_mismatch'
   | 'duplicate_id'
   | 'duplicate_task'
   | 'empty_result'
@@ -37,6 +39,9 @@ function expectedTaskCount(
   localDrafts: AiDraftTask[],
 ): number | undefined {
   const normalized = normalizeVietnameseText(prompt);
+  if (isAiBatchIntent(prompt) && localDrafts.length > 0) {
+    return localDrafts.length;
+  }
   const timedClauses = separateTimedConjunctions(prompt).split(';');
   if (timedClauses.length > 1 && localDrafts.length > 1) {
     return localDrafts.length;
@@ -56,6 +61,19 @@ function expectedTaskCount(
   return hasAttributeClause && localDrafts.length > 0
     ? localDrafts.length
     : undefined;
+}
+
+function batchSignatures(drafts: AiDraftTask[]): string[] {
+  const groups = new Map<string, string[]>();
+  for (const draft of drafts) {
+    if (!draft.batchGroupId) continue;
+    const dates = groups.get(draft.batchGroupId) ?? [];
+    dates.push(draft.date);
+    groups.set(draft.batchGroupId, dates);
+  }
+  return Array.from(groups.values())
+    .map((dates) => dates.sort().join(','))
+    .sort();
 }
 
 function hasExplicitReminder(prompt: string): boolean {
@@ -91,6 +109,16 @@ export function validateAiScheduleResult(
     issues.push({
       code: 'task_count_mismatch',
       message: `Expected ${expectedCount} task(s), but received ${drafts.length}. Attribute clauses must remain attached to their task.`,
+    });
+  }
+
+  const expectedBatches = batchSignatures(localDrafts);
+  if (
+    JSON.stringify(batchSignatures(drafts)) !== JSON.stringify(expectedBatches)
+  ) {
+    issues.push({
+      code: 'batch_mismatch',
+      message: 'Recurring task occurrences or their batch grouping do not match the requested schedule.',
     });
   }
 

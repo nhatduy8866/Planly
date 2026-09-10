@@ -18,6 +18,10 @@ export type PlannerAction =
   | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
   | { type: 'upsert_task'; payload: Task }
   | { type: 'upsert_tasks'; payload: Task[] }
+  | {
+      type: 'sync_notification_ids';
+      payload: { id: string; notificationId: string | undefined }[];
+    }
   | { type: 'create_batch_tasks'; payload: Task[] }
   | { type: 'delete_task'; payload: { id: string } }
   | { type: 'toggle_task'; payload: { id: string } }
@@ -62,6 +66,21 @@ export function plannerReducer(
       }
 
       return { ...state, tasks };
+    }
+    case 'sync_notification_ids': {
+      if (!action.payload.length) return state;
+      const updatesById = new Map(
+        action.payload.map((update) => [update.id, update.notificationId]),
+      );
+      let changed = false;
+      const tasks = state.tasks.map((task) => {
+        if (!updatesById.has(task.id)) return task;
+        const notificationId = updatesById.get(task.id);
+        if (task.notificationId === notificationId) return task;
+        changed = true;
+        return { ...task, notificationId };
+      });
+      return changed ? { ...state, tasks } : state;
     }
     case 'create_batch_tasks': {
       if (!action.payload.length) return state;

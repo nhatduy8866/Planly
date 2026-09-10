@@ -9,6 +9,9 @@ import { taskDateTime } from '../utils/date';
 // settings immutable after a channel is created on an installed device.
 const CHANNEL_ID = 'planly-reminders-v2';
 const CHANNEL_COLOR = '#4F46E5';
+let configuredAndroidChannelLanguage: Language | undefined;
+let androidChannelSetupPromise: Promise<void> | undefined;
+let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
 
 export type NotificationPermissionState =
   | 'denied'
@@ -54,22 +57,58 @@ function summarizePermission(
 }
 
 async function ensureAndroidChannel(language: Language): Promise<void> {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      description:
-        language === 'vi'
-          ? 'Thông báo nhắc lịch và công việc sắp đến'
-          : 'Alerts for upcoming schedules and tasks',
-      enableLights: true,
-      enableVibrate: true,
-      name: language === 'vi' ? 'Nhắc lịch Planly' : 'Planly reminders',
-      importance: Notifications.AndroidImportance.HIGH,
-      lightColor: CHANNEL_COLOR,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      showBadge: false,
-      vibrationPattern: [0, 200, 150, 200],
-    });
+  if (Platform.OS !== 'android') return;
+  if (configuredAndroidChannelLanguage === language) return;
+
+  if (androidChannelSetupPromise) {
+    await androidChannelSetupPromise;
+    if (configuredAndroidChannelLanguage === language) return;
   }
+
+  const setupPromise = Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+    description:
+      language === 'vi'
+        ? 'Thông báo nhắc lịch và công việc sắp đến'
+        : 'Alerts for upcoming schedules and tasks',
+    enableLights: true,
+    enableVibrate: true,
+    name: language === 'vi' ? 'Nhắc lịch Planly' : 'Planly reminders',
+    importance: Notifications.AndroidImportance.HIGH,
+    lightColor: CHANNEL_COLOR,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    showBadge: false,
+    vibrationPattern: [0, 200, 150, 200],
+  })
+    .then(() => {
+      configuredAndroidChannelLanguage = language;
+    })
+    .finally(() => {
+      if (androidChannelSetupPromise === setupPromise) {
+        androidChannelSetupPromise = undefined;
+      }
+    });
+  androidChannelSetupPromise = setupPromise;
+  await setupPromise;
+}
+
+async function readOrRequestPermission(): Promise<
+  NotificationPermissionSummary
+> {
+  const current = await Notifications.getPermissionsAsync();
+  const currentSummary = summarizePermission(current);
+  if (currentSummary.state === 'granted' || !currentSummary.canAskAgain) {
+    return currentSummary;
+  }
+
+  const requested = await Notifications.requestPermissionsAsync({
+    android: {},
+    ios: {
+      allowAlert: true,
+      allowBadge: false,
+      allowSound: true,
+    },
+  });
+  return summarizePermission(requested);
 }
 
 export async function initializeNotifications(
@@ -96,22 +135,15 @@ export async function requestNotificationPermission(
   if (Platform.OS === 'web') return unsupportedPermission();
 
   await ensureAndroidChannel(language);
+  if (permissionRequestPromise) return permissionRequestPromise;
 
-  const current = await Notifications.getPermissionsAsync();
-  const currentSummary = summarizePermission(current);
-  if (currentSummary.state === 'granted' || !currentSummary.canAskAgain) {
-    return currentSummary;
-  }
-
-  const requested = await Notifications.requestPermissionsAsync({
-    android: {},
-    ios: {
-      allowAlert: true,
-      allowBadge: false,
-      allowSound: true,
-    },
+  const requestPromise = readOrRequestPermission().finally(() => {
+    if (permissionRequestPromise === requestPromise) {
+      permissionRequestPromise = undefined;
+    }
   });
-  return summarizePermission(requested);
+  permissionRequestPromise = requestPromise;
+  return requestPromise;
 }
 
 export async function openNotificationSettings(): Promise<void> {

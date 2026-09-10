@@ -22,8 +22,8 @@ interface ReplaceTaskReminderOptions {
 
 /**
  * Replaces the reminder associated with every task before the tasks are saved.
- * Tasks are processed sequentially so an old reminder is always cancelled
- * before its replacement is scheduled.
+ * Each task cancels its old reminder before scheduling the replacement. Tasks
+ * are processed concurrently so large batches do not wait on each other.
  */
 export async function replaceTaskReminders(
   tasks: Task[],
@@ -35,28 +35,26 @@ export async function replaceTaskReminders(
     dependencies = defaultDependencies,
   } = options;
   const existingById = new Map(existingTasks.map((task) => [task.id, task]));
-  const preparedTasks: Task[] = [];
+  return Promise.all(
+    tasks.map(async (task) => {
+      const taskWithoutOldReminder = { ...task, notificationId: undefined };
 
-  for (const task of tasks) {
-    const taskWithoutOldReminder = { ...task, notificationId: undefined };
-
-    await dependencies.cancelReminder(
-      existingById.get(task.id)?.notificationId,
-    );
-
-    let notificationId: string | undefined;
-    try {
-      notificationId = await dependencies.scheduleReminder(
-        taskWithoutOldReminder,
-        language,
+      await dependencies.cancelReminder(
+        existingById.get(task.id)?.notificationId,
       );
-    } catch {
-      // The old reminder is already gone, so do not persist its stale ID.
-      notificationId = undefined;
-    }
 
-    preparedTasks.push({ ...taskWithoutOldReminder, notificationId });
-  }
+      let notificationId: string | undefined;
+      try {
+        notificationId = await dependencies.scheduleReminder(
+          taskWithoutOldReminder,
+          language,
+        );
+      } catch {
+        // The old reminder is already gone, so do not persist its stale ID.
+        notificationId = undefined;
+      }
 
-  return preparedTasks;
+      return { ...taskWithoutOldReminder, notificationId };
+    }),
+  );
 }

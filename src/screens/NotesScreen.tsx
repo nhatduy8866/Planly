@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import {
+  FlatList,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,32 +19,38 @@ import {
   type NoteFormValues,
 } from '../components/NoteFormModal';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import {
+  usePlannerDispatch,
+  usePlannerNotes,
+} from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Note } from '../types';
 import { createId } from '../utils/id';
 
-function formatUpdatedAt(value: string, locale: 'vi-VN' | 'en-US'): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
 export function NotesScreen() {
-  const { state, dispatch } = usePlanner();
+  const notesState = usePlannerNotes();
+  const dispatch = usePlannerDispatch();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [formVisible, setFormVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>();
   const [deletingNote, setDeletingNote] = useState<Note | undefined>();
+  const updatedAtFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+    [locale],
+  );
 
   const notes = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-    return state.notes
+    const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
+    return notesState
       .filter((note) =>
         normalizedQuery
           ? `${note.title} ${note.content}`
@@ -52,7 +59,7 @@ export function NotesScreen() {
           : true,
       )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [locale, query, state.notes]);
+  }, [deferredQuery, locale, notesState]);
 
   function openCreate() {
     setEditingNote(undefined);
@@ -73,86 +80,49 @@ export function NotesScreen() {
     });
   }
 
-  function confirmDelete(note: Note) {
+  const openEdit = useCallback((note: Note) => {
+    setEditingNote(note);
+    setFormVisible(true);
+  }, []);
+
+  const confirmDelete = useCallback((note: Note) => {
     setDeletingNote(note);
-  }
+  }, []);
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList
         contentContainerStyle={styles.content}
+        data={notes}
+        initialNumToRender={10}
+        keyExtractor={(note) => note.id}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.searchRow}>
-          <View style={styles.searchWrap}>
-            <MaterialIcons name="search" size={21} color={colors.textMuted} />
-            <TextInput
-              onChangeText={setQuery}
-              placeholder={t('notes.search')}
-              placeholderTextColor={colors.placeholder}
-              style={styles.searchInput}
-              value={query}
-            />
-            {query ? (
-              <Pressable onPress={() => setQuery('')}>
-                <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
-              </Pressable>
-            ) : null}
-          </View>
-          <Pressable onPress={openCreate} style={styles.addButton}>
-            <MaterialIcons name="add" size={21} color={colors.white} />
-            <Text style={styles.addText}>{t('common.add')}</Text>
-          </Pressable>
-        </View>
-
-        {notes.length ? (
-          <View style={styles.noteList}>
-            {notes.map((note, index) => (
-              <AnimatedEntryItem
-                key={note.id}
-                index={index}
-                triggerKey={query}
-              >
-                <View style={styles.noteCard}>
-                  <View style={styles.noteHeader}>
-                    <View style={styles.noteIcon}>
-                      <MaterialIcons name="notes" size={19} color={colors.primary} />
-                    </View>
-                    <IconButton
-                      icon="delete-outline"
-                      accessibilityLabel={t('notes.deleteLabel')}
-                      onPress={() => confirmDelete(note)}
-                      color={colors.danger}
-                      backgroundColor="transparent"
-                      size={19}
-                      style={styles.deleteButton}
-                    />
-                  </View>
-                  <Pressable
-                    onPress={() => {
-                      setEditingNote(note);
-                      setFormVisible(true);
-                    }}
-                    style={({ pressed }) => pressed && styles.pressed}
-                  >
-                    <Text numberOfLines={2} style={styles.noteTitle}>
-                      {note.title}
-                    </Text>
-                    {note.content ? (
-                      <Text numberOfLines={4} style={styles.noteContent}>
-                        {note.content}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.noteDate}>
-                      {t('notes.updated', { date: formatUpdatedAt(note.updatedAt, locale) })}
-                    </Text>
+        ListHeaderComponent={(
+          <View style={styles.listHeader}>
+            <View style={styles.searchRow}>
+              <View style={styles.searchWrap}>
+                <MaterialIcons name="search" size={21} color={colors.textMuted} />
+                <TextInput
+                  onChangeText={setQuery}
+                  placeholder={t('notes.search')}
+                  placeholderTextColor={colors.placeholder}
+                  style={styles.searchInput}
+                  value={query}
+                />
+                {query ? (
+                  <Pressable onPress={() => setQuery('')}>
+                    <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
                   </Pressable>
-                </View>
-              </AnimatedEntryItem>
-            ))}
+                ) : null}
+              </View>
+              <Pressable onPress={openCreate} style={styles.addButton}>
+                <MaterialIcons name="add" size={21} color={colors.white} />
+                <Text style={styles.addText}>{t('common.add')}</Text>
+              </Pressable>
+            </View>
           </View>
-        ) : (
+        )}
+        ListEmptyComponent={(
           <EmptyState
             icon="sticky-note-2"
             title={t(query ? 'notes.noResultsTitle' : 'notes.emptyTitle')}
@@ -163,7 +133,49 @@ export function NotesScreen() {
             onAction={query ? undefined : openCreate}
           />
         )}
-      </ScrollView>
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={Platform.OS === 'android'}
+        renderItem={({ item: note, index }) => (
+          <AnimatedEntryItem index={index}>
+            <View style={styles.noteCard}>
+              <View style={styles.noteHeader}>
+                <View style={styles.noteIcon}>
+                  <MaterialIcons name="notes" size={19} color={colors.primary} />
+                </View>
+                <IconButton
+                  icon="delete-outline"
+                  accessibilityLabel={t('notes.deleteLabel')}
+                  onPress={() => confirmDelete(note)}
+                  color={colors.danger}
+                  backgroundColor="transparent"
+                  size={19}
+                  style={styles.deleteButton}
+                />
+              </View>
+              <Pressable
+                onPress={() => openEdit(note)}
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text numberOfLines={2} style={styles.noteTitle}>
+                  {note.title}
+                </Text>
+                {note.content ? (
+                  <Text numberOfLines={4} style={styles.noteContent}>
+                    {note.content}
+                  </Text>
+                ) : null}
+                <Text style={styles.noteDate}>
+                  {t('notes.updated', {
+                    date: updatedAtFormatter.format(new Date(note.updatedAt)),
+                  })}
+                </Text>
+              </Pressable>
+            </View>
+          </AnimatedEntryItem>
+        )}
+        showsVerticalScrollIndicator={false}
+        windowSize={7}
+      />
 
       {formVisible ? (
         <NoteFormModal
@@ -216,12 +228,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   searchInput: { color: colors.text, flex: 1, fontSize: 14, paddingHorizontal: 9, paddingVertical: 12 },
   searchRow: { flexDirection: 'row', gap: 10 },
-  noteList: { gap: 11, marginTop: 18 },
+  listHeader: { marginBottom: 7 },
   noteCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 17,
     borderWidth: 1,
+    marginTop: 11,
     padding: 15,
   },
   noteHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

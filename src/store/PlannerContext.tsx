@@ -1,29 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useReducer,
+  useRef,
   type Dispatch,
   type ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 
-import type { PlannerState, Task } from '../types';
+import type { Note, PlannerState, Task } from '../types';
 import {
   initialPlannerState,
   plannerReducer,
   type PlannerAction,
 } from './plannerReducer';
 
-const STORAGE_KEY = '@planly/planner/v1';
+const LEGACY_STORAGE_KEY = '@planly/planner/v1';
+const TASKS_STORAGE_KEY = '@planly/tasks/v1';
+const NOTES_STORAGE_KEY = '@planly/notes/v1';
+const PERSISTENCE_DEBOUNCE_MS = 300;
 
-interface PlannerContextValue {
-  state: PlannerState;
-  dispatch: Dispatch<PlannerAction>;
-}
-
-const PlannerContext = createContext<PlannerContextValue | undefined>(undefined);
+const PlannerTasksContext = createContext<Task[] | undefined>(undefined);
+const PlannerNotesContext = createContext<Note[] | undefined>(undefined);
+const PlannerHydratedContext = createContext<boolean | undefined>(undefined);
+const PlannerDispatchContext = createContext<Dispatch<PlannerAction> | undefined>(
+  undefined,
+);
 
 function normalizeStoredTask(task: Task): Task {
   return {
@@ -43,6 +48,88 @@ function normalizeStoredTask(task: Task): Task {
   };
 }
 
+function parseStoredArray<T>(raw: string | null): T[] | undefined {
+  if (raw === null) return undefined;
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as T[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseLegacyState(raw: string | null): Partial<PlannerState> {
+  if (raw === null) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed !== null && typeof parsed === 'object'
+      ? (parsed as Partial<PlannerState>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function useDebouncedStorageWrite<T>(
+  key: string,
+  value: T,
+  enabled: boolean,
+): void {
+  const latestValueRef = useRef(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  const flush = useCallback(() => {
+    if (!enabled) return;
+    if (timerRef.current !== undefined) {
+      clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(latestValueRef.current);
+    } catch {
+      return;
+    }
+
+    writeQueueRef.current = writeQueueRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(key, serialized))
+      .catch(() => undefined);
+  }, [enabled, key]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    timerRef.current = setTimeout(flush, PERSISTENCE_DEBOUNCE_MS);
+
+    return () => {
+      if (timerRef.current !== undefined) {
+        clearTimeout(timerRef.current);
+        timerRef.current = undefined;
+      }
+    };
+  }, [enabled, flush, value]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') flush();
+    });
+
+    return () => {
+      subscription.remove();
+      flush();
+    };
+  }, [enabled, flush]);
+}
+
 export function PlannerProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(plannerReducer, initialPlannerState);
 
@@ -51,22 +138,32 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
 
     async function hydrate() {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const parsed = raw ? (JSON.parse(raw) as Partial<PlannerState>) : {};
-        const cleanTasks = Array.isArray(parsed.tasks)
-          ? parsed.tasks
-              .filter(
-                (t) => typeof t?.id === 'string' && !t.id.startsWith('perf-mock-task-'),
-              )
-              .map(normalizeStoredTask)
-          : [];
+        const [tasksRaw, notesRaw, legacyRaw] = await Promise.all([
+          AsyncStorage.getItem(TASKS_STORAGE_KEY),
+          AsyncStorage.getItem(NOTES_STORAGE_KEY),
+          AsyncStorage.getItem(LEGACY_STORAGE_KEY),
+        ]);
+        const legacy = parseLegacyState(legacyRaw);
+        const storedTasks =
+          parseStoredArray<Task>(tasksRaw) ??
+          (Array.isArray(legacy.tasks) ? legacy.tasks : []);
+        const storedNotes =
+          parseStoredArray<Note>(notesRaw) ??
+          (Array.isArray(legacy.notes) ? legacy.notes : []);
+        const cleanTasks = storedTasks
+          .filter(
+            (task) =>
+              typeof task?.id === 'string' &&
+              !task.id.startsWith('perf-mock-task-'),
+          )
+          .map(normalizeStoredTask);
 
         if (active) {
           dispatch({
             type: 'hydrate',
             payload: {
               tasks: cleanTasks,
-              notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+              notes: storedNotes,
             },
           });
         }
@@ -83,24 +180,50 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!state.hydrated) return;
-    void AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ tasks: state.tasks, notes: state.notes }),
-    );
-  }, [state.hydrated, state.notes, state.tasks]);
+  useDebouncedStorageWrite(TASKS_STORAGE_KEY, state.tasks, state.hydrated);
+  useDebouncedStorageWrite(NOTES_STORAGE_KEY, state.notes, state.hydrated);
 
-  const value = useMemo(() => ({ state, dispatch }), [state]);
   return (
-    <PlannerContext.Provider value={value}>{children}</PlannerContext.Provider>
+    <PlannerHydratedContext.Provider value={state.hydrated}>
+      <PlannerDispatchContext.Provider value={dispatch}>
+        <PlannerTasksContext.Provider value={state.tasks}>
+          <PlannerNotesContext.Provider value={state.notes}>
+            {children}
+          </PlannerNotesContext.Provider>
+        </PlannerTasksContext.Provider>
+      </PlannerDispatchContext.Provider>
+    </PlannerHydratedContext.Provider>
   );
 }
 
-export function usePlanner(): PlannerContextValue {
-  const context = useContext(PlannerContext);
-  if (!context) {
-    throw new Error('usePlanner phải được dùng bên trong PlannerProvider');
+export function usePlannerTasks(): Task[] {
+  const tasks = useContext(PlannerTasksContext);
+  if (!tasks) {
+    throw new Error('usePlannerTasks must be used inside PlannerProvider');
   }
-  return context;
+  return tasks;
+}
+
+export function usePlannerNotes(): Note[] {
+  const notes = useContext(PlannerNotesContext);
+  if (!notes) {
+    throw new Error('usePlannerNotes must be used inside PlannerProvider');
+  }
+  return notes;
+}
+
+export function usePlannerHydrated(): boolean {
+  const hydrated = useContext(PlannerHydratedContext);
+  if (hydrated === undefined) {
+    throw new Error('usePlannerHydrated must be used inside PlannerProvider');
+  }
+  return hydrated;
+}
+
+export function usePlannerDispatch(): Dispatch<PlannerAction> {
+  const dispatch = useContext(PlannerDispatchContext);
+  if (!dispatch) {
+    throw new Error('usePlannerDispatch must be used inside PlannerProvider');
+  }
+  return dispatch;
 }

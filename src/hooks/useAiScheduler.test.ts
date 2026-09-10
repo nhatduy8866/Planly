@@ -28,7 +28,8 @@ const mockReplaceTaskReminders = jest.fn<
 >();
 
 jest.mock('../store/PlannerContext', () => ({
-  usePlanner: () => ({ state: mockPlannerState, dispatch: mockDispatch }),
+  usePlannerDispatch: () => mockDispatch,
+  usePlannerTasks: () => mockPlannerState.tasks,
 }));
 
 jest.mock('../preferences/PreferencesContext', () => {
@@ -73,6 +74,7 @@ jest.mock('expo-haptics', () => ({
 
 interface TestRendererInstance {
   unmount(): void;
+  update(element: ReturnType<typeof createElement>): void;
 }
 
 // react-test-renderer is included by jest-expo but does not ship TypeScript declarations.
@@ -125,6 +127,11 @@ describe('useAiScheduler', () => {
     });
   }
 
+  function updateTasks(tasks: Task[]) {
+    mockPlannerState = { ...mockPlannerState, tasks };
+    act(() => renderer.update(createElement(Harness)));
+  }
+
   async function submitPrompt(prompt = 'Lên lịch giúp tôi') {
     await act(async () => {
       const pending = scheduler.submitPrompt(prompt);
@@ -152,10 +159,10 @@ describe('useAiScheduler', () => {
   });
 
   it('moves to conflict resolution with every detected collision', async () => {
-    mockPlannerState.tasks = [
+    updateTasks([
       makeTask({ id: 'first', startTime: '09:00' }),
       makeTask({ id: 'second', startTime: '09:00' }),
-    ];
+    ]);
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ startTime: '09:00' }),
     ]);
@@ -173,12 +180,14 @@ describe('useAiScheduler', () => {
   });
 
   it('stays in auto-slotting when a full day cannot fit the draft', async () => {
-    mockPlannerState.tasks = Array.from({ length: 55 }, (_, index) => {
-      const totalMinutes = 8 * 60 + index * 15;
-      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
-      const minutes = String(totalMinutes % 60).padStart(2, '0');
-      return makeTask({ id: `task-${index}`, startTime: `${hours}:${minutes}` });
-    });
+    updateTasks(
+      Array.from({ length: 55 }, (_, index) => {
+        const totalMinutes = 8 * 60 + index * 15;
+        const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+        const minutes = String(totalMinutes % 60).padStart(2, '0');
+        return makeTask({ id: `task-${index}`, startTime: `${hours}:${minutes}` });
+      }),
+    );
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ startTime: '' }),
     ]);
@@ -233,7 +242,7 @@ describe('useAiScheduler', () => {
   });
 
   it('rechecks conflicts introduced by refinement before previewing', async () => {
-    mockPlannerState.tasks = [makeTask({ startTime: '09:00' })];
+    updateTasks([makeTask({ startTime: '09:00' })]);
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ startTime: '11:00' }),
     ]);

@@ -1,9 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AppState,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  Platform,
   Pressable,
-  ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -20,8 +25,9 @@ import {
   type TaskFormValues,
 } from '../components/TaskFormModal';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
@@ -33,6 +39,11 @@ import {
 
 type TaskSort = 'time' | 'priority' | 'title' | 'created';
 
+interface TaskSection {
+  date: string;
+  data: Task[];
+}
+
 const PRIORITY_WEIGHT: Record<string, number> = {
   high: 3,
   medium: 2,
@@ -41,14 +52,15 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 };
 
 export function TasksScreen() {
-  const { state } = usePlanner();
+  const tasks = usePlannerTasks();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskListFilter>('upcoming');
-  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [currentTime, refreshCurrentTime] = useMinuteClock(filter !== 'all');
   const [sortBy, setSortBy] = useState<TaskSort>('time');
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [formVisible, setFormVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
@@ -64,31 +76,9 @@ export function TasksScreen() {
     { key: 'created', label: t('sort.created'), icon: 'access-time' },
   ];
 
-  useEffect(() => {
-    const refreshCurrentTime = () => setCurrentTime(new Date());
-    let intervalId: ReturnType<typeof setInterval> | undefined;
-    const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000);
-    const timeoutId = setTimeout(() => {
-      refreshCurrentTime();
-      intervalId = setInterval(refreshCurrentTime, 60_000);
-    }, millisecondsUntilNextMinute);
-    const appStateSubscription = AppState.addEventListener(
-      'change',
-      (nextState) => {
-        if (nextState === 'active') refreshCurrentTime();
-      },
-    );
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (intervalId !== undefined) clearInterval(intervalId);
-      appStateSubscription.remove();
-    };
-  }, []);
-
   const groupedTasks = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase(locale);
-    const filtered = state.tasks
+    const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
+    const filtered = tasks
       .filter((task) => {
         if (!matchesTaskListFilter(task, filter, currentTime)) return false;
         if (!normalizedQuery) return true;
@@ -127,13 +117,13 @@ export function TasksScreen() {
         );
       });
 
-    return filtered.reduce<{ date: string; tasks: Task[] }[]>((groups, task) => {
+    return filtered.reduce<TaskSection[]>((groups, task) => {
       const last = groups.at(-1);
-      if (last?.date === task.date) last.tasks.push(task);
-      else groups.push({ date: task.date, tasks: [task] });
+      if (last?.date === task.date) last.data.push(task);
+      else groups.push({ date: task.date, data: [task] });
       return groups;
     }, []);
-  }, [currentTime, filter, locale, query, sortBy, state.tasks]);
+  }, [currentTime, deferredQuery, filter, locale, sortBy, tasks]);
 
   function openCreate() {
     setEditingTask(undefined);
@@ -162,91 +152,70 @@ export function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <SectionList
         contentContainerStyle={styles.content}
+        initialNumToRender={12}
+        keyExtractor={(task) => task.id}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.searchRow}>
-          <View style={styles.searchWrap}>
-            <MaterialIcons name="search" size={21} color={colors.textMuted} />
-            <TextInput
-              onChangeText={setQuery}
-              placeholder={t('tasks.search')}
-              placeholderTextColor={colors.placeholder}
-              style={styles.searchInput}
-              value={query}
-            />
-            {query ? (
-              <Pressable onPress={() => setQuery('')}>
-                <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
+        ListHeaderComponent={(
+          <>
+            <View style={styles.searchRow}>
+              <View style={styles.searchWrap}>
+                <MaterialIcons name="search" size={21} color={colors.textMuted} />
+                <TextInput
+                  onChangeText={setQuery}
+                  placeholder={t('tasks.search')}
+                  placeholderTextColor={colors.placeholder}
+                  style={styles.searchInput}
+                  value={query}
+                />
+                {query ? (
+                  <Pressable onPress={() => setQuery('')}>
+                    <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable onPress={openCreate} style={styles.addButton}>
+                <MaterialIcons name="add" size={21} color={colors.white} />
+                <Text style={styles.addText}>{t('common.add')}</Text>
               </Pressable>
-            ) : null}
-          </View>
-          <Pressable onPress={openCreate} style={styles.addButton}>
-            <MaterialIcons name="add" size={21} color={colors.white} />
-            <Text style={styles.addText}>{t('common.add')}</Text>
-          </Pressable>
-        </View>
+            </View>
 
-        <View style={styles.filterRow}>
-          <View style={styles.filters}>
-            {filters.map((item) => {
-              const active = filter === item.key;
-              return (
-                <Pressable
-                  key={item.key}
-                  onPress={() => setFilter(item.key)}
-                  style={[styles.filter, active && styles.filterActive]}
-                >
-                  <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <SortDropdown<TaskSort>
-            options={sorts}
-            selectedKey={sortBy}
-            onSelect={setSortBy}
-          />
-        </View>
-
-        {groupedTasks.length ? (
-          (() => {
-            let globalIndex = 0;
-            return groupedTasks.map((group) => (
-              <View key={group.date} style={styles.group}>
-                <View style={styles.groupHeader}>
-                  <Text style={styles.groupTitle}>{formatLongDate(group.date, locale)}</Text>
-                  {group.date < todayKey() ? (
-                    <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
-                  ) : null}
-                </View>
-                {group.tasks.map((task) => {
-                  const itemIndex = globalIndex++;
+            <View style={styles.filterRow}>
+              <View style={styles.filters}>
+                {filters.map((item) => {
+                  const active = filter === item.key;
                   return (
-                    <AnimatedEntryItem
-                      key={task.id}
-                      index={itemIndex}
-                      triggerKey={`${filter}-${sortBy}-${query}`}
+                    <Pressable
+                      key={item.key}
+                      onPress={() => {
+                        setFilter(item.key);
+                        refreshCurrentTime();
+                      }}
+                      style={[styles.filter, active && styles.filterActive]}
                     >
-                      <TaskCard
-                        compact
-                        task={task}
-                        onToggle={handleToggleTask}
-                        onEdit={handleEditTask}
-                        onDelete={handleDeleteTask}
-                      />
-                    </AnimatedEntryItem>
+                      <Text
+                        style={[
+                          styles.filterText,
+                          active && styles.filterTextActive,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </Pressable>
                   );
                 })}
               </View>
-            ));
-          })()
-        ) : (
+
+              <SortDropdown<TaskSort>
+                options={sorts}
+                selectedKey={sortBy}
+                onSelect={setSortBy}
+              />
+            </View>
+          </>
+        )}
+        ListEmptyComponent={(
           <EmptyState
             icon="task-alt"
             title={t(query ? 'tasks.noResultsTitle' : 'tasks.emptyTitle')}
@@ -257,7 +226,37 @@ export function TasksScreen() {
             onAction={query ? undefined : openCreate}
           />
         )}
-      </ScrollView>
+        maxToRenderPerBatch={12}
+        removeClippedSubviews={Platform.OS === 'android'}
+        renderItem={({ item: task, index }) => (
+          <AnimatedEntryItem
+            index={index}
+            triggerKey={`${filter}-${sortBy}`}
+          >
+            <TaskCard
+              compact
+              task={task}
+              onToggle={handleToggleTask}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+            />
+          </AnimatedEntryItem>
+        )}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.groupHeader}>
+            <Text style={styles.groupTitle}>
+              {formatLongDate(section.date, locale)}
+            </Text>
+            {section.date < todayKey() ? (
+              <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
+            ) : null}
+          </View>
+        )}
+        sections={groupedTasks}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+        windowSize={7}
+      />
 
       {formVisible ? (
         <TaskFormModal
@@ -339,8 +338,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   filterActive: { backgroundColor: colors.primarySoft },
   filterText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
   filterTextActive: { color: colors.primaryDark },
-  group: { marginTop: 22 },
-  groupHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 9 },
+  groupHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 9,
+    marginTop: 22,
+  },
   groupTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: '800' },
   overdue: {
     backgroundColor: colors.dangerSoft,

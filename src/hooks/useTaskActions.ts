@@ -6,7 +6,10 @@ import {
 } from '../services/notifications';
 import { replaceTaskReminders } from '../services/reminderTransaction';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import {
+  usePlannerDispatch,
+  usePlannerTasks,
+} from '../store/PlannerContext';
 import type { Task } from '../types';
 import { createId } from '../utils/id';
 import { assertNoTaskTimeConflicts } from '../utils/taskConflicts';
@@ -14,7 +17,8 @@ import { buildTaskEdits } from '../utils/taskEdits';
 import type { TaskFormValues } from '../components/TaskFormModal';
 
 export function useTaskActions() {
-  const { state, dispatch } = usePlanner();
+  const plannerTasks = usePlannerTasks();
+  const dispatch = usePlannerDispatch();
   const { language, t } = usePreferences();
 
   const saveTask = useCallback(
@@ -23,14 +27,14 @@ export function useTaskActions() {
       const { applyToBatch = false, batchDates, ...taskValues } = values;
 
       if (existing) {
-        const editedTasks = buildTaskEdits(state.tasks, existing, taskValues, {
+        const editedTasks = buildTaskEdits(plannerTasks, existing, taskValues, {
           applyToBatch,
           updatedAt: now,
         });
-        assertNoTaskTimeConflicts(editedTasks, state.tasks);
+        assertNoTaskTimeConflicts(editedTasks, plannerTasks);
         const tasksWithReminders = await replaceTaskReminders(
           editedTasks,
-          state.tasks,
+          plannerTasks,
           { language },
         );
 
@@ -51,7 +55,7 @@ export function useTaskActions() {
       for (const targetDate of targetDates) {
         nextOrderByDate.set(
           targetDate,
-          state.tasks
+          plannerTasks
             .filter((task) => task.date === targetDate)
             .reduce(
               (max, task) => Math.max(max, task.order ?? -1),
@@ -60,7 +64,7 @@ export function useTaskActions() {
         );
       }
 
-      const tasks: Task[] = targetDates.map((targetDate) => ({
+      const newTasks: Task[] = targetDates.map((targetDate) => ({
         ...taskValues,
         date: targetDate,
         batchId,
@@ -71,23 +75,26 @@ export function useTaskActions() {
         updatedAt: now,
       }));
 
-      assertNoTaskTimeConflicts(tasks, state.tasks);
+      assertNoTaskTimeConflicts(newTasks, plannerTasks);
 
-      for (const task of tasks) {
-        try {
-          task.notificationId = await scheduleTaskReminder(task, language);
-        } catch {
-          task.notificationId = undefined;
-        }
-      }
+      const tasksWithReminders = await Promise.all(
+        newTasks.map(async (task) => {
+          try {
+            const notificationId = await scheduleTaskReminder(task, language);
+            return { ...task, notificationId };
+          } catch {
+            return { ...task, notificationId: undefined };
+          }
+        }),
+      );
 
-      if (tasks.length === 1) {
-        dispatch({ type: 'upsert_task', payload: tasks[0] });
+      if (tasksWithReminders.length === 1) {
+        dispatch({ type: 'upsert_task', payload: tasksWithReminders[0] });
       } else {
-        dispatch({ type: 'create_batch_tasks', payload: tasks });
+        dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
     },
-    [dispatch, language, state.tasks],
+    [dispatch, language, plannerTasks],
   );
 
   const duplicateTask = useCallback(
@@ -101,13 +108,13 @@ export function useTaskActions() {
         notificationId: undefined,
         completed: false,
         order:
-          state.tasks
+          plannerTasks
             .filter((item) => item.date === source.date)
             .reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1,
         createdAt: now,
         updatedAt: now,
       };
-      assertNoTaskTimeConflicts([task], state.tasks);
+      assertNoTaskTimeConflicts([task], plannerTasks);
       try {
         task.notificationId = await scheduleTaskReminder(task, language);
       } catch {
@@ -115,7 +122,7 @@ export function useTaskActions() {
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, language, state.tasks, t],
+    [dispatch, language, plannerTasks, t],
   );
 
   const deleteTask = useCallback(

@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AppState,
   LayoutAnimation,
   Platform,
   Pressable,
@@ -26,11 +25,15 @@ import {
 } from '../components/TaskFormModal';
 import { AiScheduleModal } from '../components/ai/AiScheduleModal';
 import { useAiScheduler } from '../hooks/useAiScheduler';
+import { useMinuteClock } from '../hooks/useMinuteClock';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { useTaskNavigation } from '../navigation/TaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import {
+  usePlannerDispatch,
+  usePlannerTasks,
+} from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
@@ -44,7 +47,8 @@ import {
   todayKey,
 } from '../utils/date';
 import {
-  filterScheduleTasksForView,
+  getDefaultScheduleTaskView,
+  groupScheduleTasksForView,
   type ScheduleTaskView,
 } from '../utils/scheduleTasks';
 
@@ -82,7 +86,6 @@ const COMPLETION_UNDO_WINDOW_MS = 5_000;
 
 interface PendingCompletion {
   committing: boolean;
-  countdownIntervalId: ReturnType<typeof setInterval>;
   timeoutId: ReturnType<typeof setTimeout>;
 }
 
@@ -143,7 +146,8 @@ function shiftMonth(date: Date, amount: number): Date {
 }
 
 export function ScheduleScreen() {
-  const { state, dispatch } = usePlanner();
+  const tasks = usePlannerTasks();
+  const dispatch = usePlannerDispatch();
   const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
@@ -154,14 +158,16 @@ export function ScheduleScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [sortMode, setSortMode] = useState<'time' | 'title' | 'priority'>('time');
   const [taskView, setTaskView] = useState<ScheduleTaskView>('upcoming');
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-  const [pendingCompletionSeconds, setPendingCompletionSeconds] = useState<
-    Map<string, number>
-  >(() => new Map());
+  const [currentTime, refreshCurrentTime] = useMinuteClock(
+    selectedDate === todayKey(),
+  );
+  const [pendingCompletionTaskIds, setPendingCompletionTaskIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
   const [highlightedTaskId, setHighlightedTaskId] = useState<string>();
-  const latestTasksRef = useRef(state.tasks);
+  const latestTasksRef = useRef(tasks);
   const pendingCompletionsRef = useRef<Map<string, PendingCompletion>>(new Map());
   const scrollViewRef = useRef<ScrollView>(null);
   const taskLayoutYRef = useRef(new Map<string, number>());
@@ -177,11 +183,18 @@ export function ScheduleScreen() {
     ? colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]]
     : colors.border;
 
-  const goToday = useCallback(() => {
+  const selectDate = useCallback((date: string) => {
+    const now = new Date();
     animateTaskListTransition();
-    setSelectedDate(todayKey());
-    setCursor(new Date());
-  }, []);
+    setSelectedDate(date);
+    setCursor(fromDateKey(date));
+    setTaskView(getDefaultScheduleTaskView(date, now));
+    refreshCurrentTime();
+  }, [refreshCurrentTime]);
+
+  const goToday = useCallback(() => {
+    selectDate(todayKey());
+  }, [selectDate]);
 
   useEffect(
     () => registerTodayHandler(goToday),
@@ -195,8 +208,8 @@ export function ScheduleScreen() {
   }, []);
 
   useEffect(() => {
-    latestTasksRef.current = state.tasks;
-  }, [state.tasks]);
+    latestTasksRef.current = tasks;
+  }, [tasks]);
 
   const scrollToTask = useCallback((taskId: string) => {
     const taskY = taskLayoutYRef.current.get(taskId);
@@ -216,7 +229,7 @@ export function ScheduleScreen() {
       setSelectedDate(task.date);
       setCursor(fromDateKey(task.date));
       setTaskView('all');
-      setCurrentTime(new Date());
+      refreshCurrentTime();
       setHighlightedTaskId(task.id);
 
       if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
@@ -225,7 +238,7 @@ export function ScheduleScreen() {
       }, 3_500);
       requestAnimationFrame(() => scrollToTask(task.id));
     },
-    [scrollToTask],
+    [refreshCurrentTime, scrollToTask],
   );
 
   useEffect(
@@ -239,48 +252,17 @@ export function ScheduleScreen() {
 
     return () => {
       screenActiveRef.current = false;
-      pendingCompletions.forEach(({ countdownIntervalId, timeoutId }) => {
-        clearInterval(countdownIntervalId);
-        clearTimeout(timeoutId);
-      });
+      pendingCompletions.forEach(({ timeoutId }) => clearTimeout(timeoutId));
       pendingCompletions.clear();
       if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
     };
   }, []);
 
-  useEffect(() => {
-    const refreshCurrentTime = () => {
-      animateTaskListTransition();
-      setCurrentTime(new Date());
-    };
-    let intervalId: ReturnType<typeof setInterval> | undefined;
-    const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000);
-    const timeoutId = setTimeout(() => {
-      refreshCurrentTime();
-      intervalId = setInterval(refreshCurrentTime, 60_000);
-    }, millisecondsUntilNextMinute);
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') refreshCurrentTime();
-    });
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (intervalId !== undefined) clearInterval(intervalId);
-      appStateSubscription.remove();
-    };
-  }, []);
-
-  const handleAiNavigateDate = useCallback((date: string) => {
-    animateTaskListTransition();
-    setSelectedDate(date);
-    setCursor(fromDateKey(date));
-  }, []);
-
-  const aiScheduler = useAiScheduler(selectedDate, handleAiNavigateDate);
+  const aiScheduler = useAiScheduler(selectedDate, selectDate);
 
   const dayTasks = useMemo(
     () =>
-      state.tasks
+      tasks
         .filter((task) => task.date === selectedDate)
         .sort(
           (a, b) =>
@@ -288,30 +270,11 @@ export function ScheduleScreen() {
             timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
             a.createdAt.localeCompare(b.createdAt),
         ),
-    [selectedDate, state.tasks],
+    [selectedDate, tasks],
   );
 
   const taskGroups = useMemo(
-    () => ({
-      upcoming: filterScheduleTasksForView(
-        dayTasks,
-        selectedDate,
-        'upcoming',
-        currentTime,
-      ),
-      past: filterScheduleTasksForView(
-        dayTasks,
-        selectedDate,
-        'past',
-        currentTime,
-      ),
-      all: filterScheduleTasksForView(
-        dayTasks,
-        selectedDate,
-        'all',
-        currentTime,
-      ),
-    }),
+    () => groupScheduleTasksForView(dayTasks, selectedDate, currentTime),
     [currentTime, dayTasks, selectedDate],
   );
   const visibleDayTasks = taskGroups[taskView];
@@ -348,19 +311,6 @@ export function ScheduleScreen() {
     setDeletingTask(task);
   }, []);
 
-  const handleToggleTask = useCallback(
-    (task: Task) => {
-      void toggleTask(task);
-    },
-    [toggleTask],
-  );
-
-  function selectDate(date: string) {
-    animateTaskListTransition();
-    setSelectedDate(date);
-    setCursor(fromDateKey(date));
-  }
-
   function navigate(amount: -1 | 1) {
     const current = fromDateKey(selectedDate);
     const next = mode === 'week' ? addDays(current, amount * 7) : shiftMonth(current, amount);
@@ -370,28 +320,26 @@ export function ScheduleScreen() {
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
     const firstCreatedDate = values.batchDates?.[0] ?? values.date;
-    setSelectedDate(firstCreatedDate);
-    setCursor(fromDateKey(firstCreatedDate));
+    selectDate(firstCreatedDate);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
-  function removePendingCompletion(taskId: string) {
+  const removePendingCompletion = useCallback((taskId: string) => {
     if (!screenActiveRef.current) return;
 
-    setPendingCompletionSeconds((current) => {
+    setPendingCompletionTaskIds((current) => {
       if (!current.has(taskId)) return current;
-      const next = new Map(current);
+      const next = new Set(current);
       next.delete(taskId);
       return next;
     });
-  }
+  }, []);
 
-  async function commitPendingCompletion(taskId: string) {
+  const commitPendingCompletion = useCallback(async (taskId: string) => {
     const pending = pendingCompletionsRef.current.get(taskId);
     if (!pending) return;
 
     pending.committing = true;
-    clearInterval(pending.countdownIntervalId);
     const latestTask = latestTasksRef.current.find((task) => task.id === taskId);
 
     try {
@@ -403,14 +351,13 @@ export function ScheduleScreen() {
       pendingCompletionsRef.current.delete(taskId);
       removePendingCompletion(taskId);
     }
-  }
+  }, [removePendingCompletion, toggleTask]);
 
   const handleTaskToggle = useCallback((task: Task) => {
     const pending = pendingCompletionsRef.current.get(task.id);
 
     if (pending) {
       if (!pending.committing) {
-        clearInterval(pending.countdownIntervalId);
         clearTimeout(pending.timeoutId);
         pendingCompletionsRef.current.delete(task.id);
         removePendingCompletion(task.id);
@@ -424,29 +371,18 @@ export function ScheduleScreen() {
       return;
     }
 
-    const countdownIntervalId = setInterval(() => {
-      setPendingCompletionSeconds((current) => {
-        const remainingSeconds = current.get(task.id);
-        if (remainingSeconds === undefined || remainingSeconds <= 1) {
-          return current;
-        }
-
-        return new Map(current).set(task.id, remainingSeconds - 1);
-      });
-    }, 1_000);
     const timeoutId = setTimeout(() => {
       void commitPendingCompletion(task.id);
     }, COMPLETION_UNDO_WINDOW_MS);
 
     pendingCompletionsRef.current.set(task.id, {
       committing: false,
-      countdownIntervalId,
       timeoutId,
     });
-    setPendingCompletionSeconds((current) =>
-      new Map(current).set(task.id, 5),
+    setPendingCompletionTaskIds((current) =>
+      new Set(current).add(task.id),
     );
-  }, [toggleTask]);
+  }, [commitPendingCompletion, removePendingCompletion, toggleTask]);
   return (
     <View style={styles.container}>
       <ScrollView
@@ -509,7 +445,7 @@ export function ScheduleScreen() {
             mode={mode}
             cursor={cursor}
             selectedDate={selectedDate}
-            tasks={state.tasks}
+            tasks={tasks}
             onSelectDate={selectDate}
           />
         </View>
@@ -575,7 +511,7 @@ export function ScheduleScreen() {
             onSelect={(nextView) => {
               animateTaskListTransition();
               setTaskView(nextView);
-              setCurrentTime(new Date());
+              refreshCurrentTime();
               void Haptics.selectionAsync();
             }}
           />
@@ -583,7 +519,7 @@ export function ScheduleScreen() {
 
         {visibleDayTasks.length ? (
           visibleDayTasks.map((task, index) => {
-            const completionUndoSeconds = pendingCompletionSeconds.get(task.id);
+            const completionPending = pendingCompletionTaskIds.has(task.id);
 
             return (
               <View
@@ -598,8 +534,7 @@ export function ScheduleScreen() {
                   triggerKey={`${selectedDate}-${taskView}`}
                 >
                   <TaskCard
-                    completionPending={completionUndoSeconds !== undefined}
-                    completionUndoSeconds={completionUndoSeconds}
+                    completionPending={completionPending}
                     highlighted={highlightedTaskId === task.id}
                     task={task}
                     onToggle={handleTaskToggle}

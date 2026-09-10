@@ -163,4 +163,21 @@ describe('notification foundation', () => {
     expect(openSettings).toHaveBeenCalledTimes(1);
     openSettings.mockRestore();
   });
+
+  it('deduplicates native setup while scheduling reminders concurrently', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    scheduleNotificationAsync
+      .mockResolvedValueOnce('notification-1')
+      .mockResolvedValueOnce('notification-2');
+
+    await expect(
+      Promise.all([
+        scheduleTaskReminder(makeFutureTask(), 'en'),
+        scheduleTaskReminder({ ...makeFutureTask(), id: 'task-2' }, 'en'),
+      ]),
+    ).resolves.toEqual(['notification-1', 'notification-2']);
+
+    expect(setNotificationChannelAsync).toHaveBeenCalledTimes(1);
+    expect(getPermissionsAsync).toHaveBeenCalledTimes(1);
+  });
 });

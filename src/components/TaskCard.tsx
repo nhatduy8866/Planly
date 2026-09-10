@@ -1,7 +1,14 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
@@ -16,7 +23,6 @@ interface TaskCardProps {
   onDelete: (task: Task) => void;
   compact?: boolean;
   completionPending?: boolean;
-  completionUndoSeconds?: number;
   highlighted?: boolean;
 }
 
@@ -45,6 +51,24 @@ function getStableAccentIndex(value: string): number {
   return Math.abs(hash) % CARD_ACCENT_KEYS.length;
 }
 
+function CompletionCountdown({ style }: { style: StyleProp<TextStyle> }) {
+  const [seconds, setSeconds] = useState(5);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setSeconds((current) => Math.max(1, current - 1));
+    }, 1_000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return (
+    <Text testID="completion-countdown" style={style}>
+      {seconds}
+    </Text>
+  );
+}
+
 export const TaskCard = memo(function TaskCard({
   task,
   onToggle,
@@ -52,7 +76,6 @@ export const TaskCard = memo(function TaskCard({
   onDelete,
   compact = false,
   completionPending = false,
-  completionUndoSeconds,
   highlighted = false,
 }: TaskCardProps) {
   const { colorfulAccents, colors, t } = usePreferences();
@@ -265,9 +288,9 @@ export const TaskCard = memo(function TaskCard({
             <Text style={styles.completionOverlayText}>
               {t('task.completionPending')}
             </Text>
-            <Text style={styles.completionCountdown}>
-              {completionUndoSeconds ?? 1}
-            </Text>
+            {completionPending ? (
+              <CompletionCountdown style={styles.completionCountdown} />
+            ) : null}
           </View>
         </Pressable>
       </Animated.View>

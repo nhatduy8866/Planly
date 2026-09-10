@@ -72,7 +72,7 @@ function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
   let title = stripScheduleDateReferences(segment);
   title = replaceVietnameseMatches(
     title,
-    /^(?:toi\s+muon|hay\s+giup\s+toi|len\s+lich\s+giup|tao|toi\s+can|can|phai|hay)\s+(?:giup\s+(?:toi|minh)\s+)?(?:1\s+)?(?:(?:cuoc|lich)\s+hen|lich|viec|cong\s+viec)?\s*/,
+    /^(?:toi\s+muon|hay\s+giup\s+toi|len\s+lich\s+giup|tao|them|toi\s+can|can|phai|hay)\s+(?:giup\s+(?:toi|minh)\s+)?(?:1\s+)?(?:(?:cuoc|lich)\s+hen|lich|viec|cong\s+viec)?\s*/,
     '',
   );
   if (parsedTimeText) title = title.replace(parsedTimeText, ' ');
@@ -157,7 +157,7 @@ export function parseVietnameseScheduleText(
 
   // Tách văn bản thành các câu hoặc mệnh đề công việc
   // Dấu phân cách lớn: xuống dòng, dấu chấm phẩy, từ nối hành động ("sau đó", "tiếp theo", "xong rồi", "rồi")
-  const baseSegments = cleanNormalized
+  const baseSegments = separateTimedConjunctions(cleanNormalized)
     .split(/[\n;]|(?:\s+(?:sau đó|sau do|tiếp theo|tiep theo|xong rồi|xong roi|rồi|roi)\s+)/i)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -254,6 +254,22 @@ export function parseVietnameseScheduleText(
   }
 
   return drafts;
+}
+
+/** Separate independently timed clauses, keeping conjunctions in titles/attributes. */
+export function separateTimedConjunctions(text: string): string {
+  const parts = text.split(/\s+(?:và|va)\s+/i);
+  let result = parts[0];
+  for (const part of parts.slice(1)) {
+    const hasOwnTime = parseVietnameseTime(
+      replaceVietnameseMatches(part, DURATION_CLAUSE_PATTERN),
+    ) !== null;
+    const previousHasTime = parseVietnameseTime(result) !== null;
+    result += hasOwnTime && previousHasTime && !startsWithTaskAttribute(part)
+      ? `;${part}`
+      : ` và ${part}`;
+  }
+  return result;
 }
 
 /**

@@ -355,7 +355,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            responseSchema: SCHEDULE_RESPONSE_SCHEMA,
+            responseJsonSchema: SCHEDULE_RESPONSE_SCHEMA,
           },
         };
 
@@ -365,7 +365,10 @@ Trả về duy nhất mảng JSON hợp lệ:
           body: JSON.stringify(payload),
         });
 
-        if (!res.ok) continue;
+        if (!res.ok) {
+          console.warn(`Gemini scheduling request failed (${model}, HTTP ${res.status}).`);
+          continue;
+        }
         const data = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) continue;
@@ -449,7 +452,7 @@ Luôn giữ nguyên id của công việc cũ; Planly sẽ tự tính trạng th
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            responseSchema: SCHEDULE_RESPONSE_SCHEMA,
+            responseJsonSchema: SCHEDULE_RESPONSE_SCHEMA,
           },
         };
 
@@ -459,7 +462,10 @@ Luôn giữ nguyên id của công việc cũ; Planly sẽ tự tính trạng th
           body: JSON.stringify(payload),
         });
 
-        if (!res.ok) continue;
+        if (!res.ok) {
+          console.warn(`Gemini refinement request failed (${model}, HTTP ${res.status}).`);
+          continue;
+        }
         const data = await res.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) continue;

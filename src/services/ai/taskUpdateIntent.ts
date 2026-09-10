@@ -30,6 +30,7 @@ const TOKEN_NOISE = new Set([
   'sua',
   'task',
   'thanh',
+  'them',
   'thu',
   'toi',
   'tuan',
@@ -55,6 +56,7 @@ export function isTaskUpdateIntent(text: string): boolean {
   if (!normalized) return false;
 
   return (
+    /(?:^|\s)cap\s+nhat\s+(?:viec|cong\s+viec|task|lich)\b/.test(normalized) ||
     /(?:^|\s)(?:chinh|cap\s+nhat)(?=$|\s).*?(?:lich|gio|task|cong\s+viec|lai|thanh|sang)/.test(
       normalized,
     ) ||

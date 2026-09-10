@@ -5,6 +5,7 @@ import {
   replaceVietnameseMatches,
 } from '../../utils/vietnameseText';
 import { parseVietnameseTime } from './timeIntent';
+import { separateTimedConjunctions } from './nlpParser';
 
 export type AiScheduleValidationCode =
   | 'attribute_only_task'
@@ -36,6 +37,10 @@ function expectedTaskCount(
   localDrafts: AiDraftTask[],
 ): number | undefined {
   const normalized = normalizeVietnameseText(prompt);
+  const timedClauses = separateTimedConjunctions(prompt).split(';');
+  if (timedClauses.length > 1 && localDrafts.length > 1) {
+    return localDrafts.length;
+  }
   const explicitCount = normalized.match(
     /\b(\d{1,2})\s*(?:cong\s+viec|viec|tasks?)\b/,
   );

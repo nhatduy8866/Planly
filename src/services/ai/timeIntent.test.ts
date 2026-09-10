@@ -30,6 +30,8 @@ describe('parseVietnameseTime', () => {
     ['2h chieu', '14:00'],
     ['buoi toi 8h', '20:00'],
     ['8h buoi toi', '20:00'],
+    ['cap nhat viec mua sach vao luc 8h toi', '20:00'],
+    ['mua sach 8h toi nhe', '20:00'],
   ])('recognizes an unaccented time period in "%s"', (input, expected) => {
     expect(parseVietnameseTime(input)?.startTime).toBe(expected);
   });

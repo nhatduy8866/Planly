@@ -15,6 +15,10 @@ export function findScheduleClarification(
 ): AiScheduleClarificationError | null {
   const match = prompt.match(/\b(\d{1,2})h(?:\d{1,2})?\s+toi\s+[a-zà-ỹđ]/i);
   if (!match) return null;
+  // A terminal period followed only by a courtesy word is not a pronoun.
+  if (/\b\d{1,2}h(?:\d{1,2})?\s+toi\s+(?:nhe|nhé|nha)[.!?]*\s*$/i.test(prompt)) {
+    return null;
+  }
 
   const hour = Number(match[1]);
   return hour >= 0 && hour <= 12

@@ -12,6 +12,8 @@ describe('findScheduleClarification', () => {
     'tạo lịch 2h tối đá bóng',
     'tao lich 2h buoi toi da bong',
     'tao lich 14h da bong',
+    'cap nhat viec mua sach vao luc 8h toi',
+    'cap nhat viec mua sach vao luc 8h toi nhe',
   ])('does not flag the explicit phrase "%s"', (prompt) => {
     expect(findScheduleClarification(prompt)).toBeNull();
   });

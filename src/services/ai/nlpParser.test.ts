@@ -10,6 +10,30 @@ const context: AiSchedulingContext = {
 };
 
 describe('nlpParser', () => {
+  it.each([
+    'tao lich 8h sang tap the duc va 14h hoc tieng anh',
+    'tạo lịch 8h sáng tập thể dục và 14h học tiếng anh',
+    'tao lich tap the duc 8h sang va hoc tieng anh 14h',
+  ])('separates independently timed tasks: %s', (prompt) => {
+    const drafts = parseVietnameseScheduleText(prompt, context);
+    expect(drafts).toHaveLength(2);
+    expect(drafts.map((draft) => draft.startTime)).toEqual(['08:00', '14:00']);
+    expect(drafts[0].title).not.toContain('14h');
+  });
+
+  it.each([
+    'tao lich 8h mua sach va but',
+    'tao lich 8h doc sach va thoi luong 1h30p',
+    'tao lich 8h doc sach va nhac truoc 30 phut',
+  ])('keeps title and attribute conjunctions together: %s', (prompt) => {
+    expect(parseVietnameseScheduleText(prompt, context)).toHaveLength(1);
+  });
+
+  it('removes the creation command from a new task title', () => {
+    expect(parseVietnameseScheduleText('them viec mua sach luc 17h', context)[0].title)
+      .toBe('Mua sach');
+  });
+
   it('parses multi-task prompt from concept board accurately', () => {
     const prompt =
       'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung. Nhắc trước 15 phút.';

@@ -85,7 +85,6 @@ export function useAiScheduler(
 
       try {
         const parsedDrafts = await defaultAiProvider.parseScheduleRequest(text, context);
-        await new Promise((resolve) => setTimeout(resolve, 1400));
 
         // Nếu không có công việc nào (ví dụ: ngày trống mà yêu cầu sắp xếp lại, hoặc không nhận diện được việc)
         if (!parsedDrafts || parsedDrafts.length === 0) {
@@ -228,7 +227,6 @@ export function useAiScheduler(
           instruction,
           context,
         );
-        await new Promise((resolve) => setTimeout(resolve, 1100));
 
         setDraftTasks(refined);
 

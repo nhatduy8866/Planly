@@ -64,7 +64,7 @@ export function useTaskActions() {
         );
       }
 
-      const tasks: Task[] = targetDates.map((targetDate) => ({
+      const newTasks: Task[] = targetDates.map((targetDate) => ({
         ...taskValues,
         date: targetDate,
         batchId,
@@ -75,20 +75,23 @@ export function useTaskActions() {
         updatedAt: now,
       }));
 
-      assertNoTaskTimeConflicts(tasks, plannerTasks);
+      assertNoTaskTimeConflicts(newTasks, plannerTasks);
 
-      for (const task of tasks) {
-        try {
-          task.notificationId = await scheduleTaskReminder(task, language);
-        } catch {
-          task.notificationId = undefined;
-        }
-      }
+      const tasksWithReminders = await Promise.all(
+        newTasks.map(async (task) => {
+          try {
+            const notificationId = await scheduleTaskReminder(task, language);
+            return { ...task, notificationId };
+          } catch {
+            return { ...task, notificationId: undefined };
+          }
+        }),
+      );
 
-      if (tasks.length === 1) {
-        dispatch({ type: 'upsert_task', payload: tasks[0] });
+      if (tasksWithReminders.length === 1) {
+        dispatch({ type: 'upsert_task', payload: tasksWithReminders[0] });
       } else {
-        dispatch({ type: 'create_batch_tasks', payload: tasks });
+        dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
     },
     [dispatch, language, plannerTasks],

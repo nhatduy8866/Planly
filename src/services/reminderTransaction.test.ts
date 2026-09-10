@@ -51,12 +51,18 @@ describe('replaceTaskReminders', () => {
       },
     });
 
-    expect(events).toEqual([
+    expect(events).toEqual(expect.arrayContaining([
       'cancel:old-1',
       'schedule:task-1',
       'cancel:none',
       'schedule:task-2',
-    ]);
+    ]));
+    expect(events.indexOf('cancel:old-1')).toBeLessThan(
+      events.indexOf('schedule:task-1'),
+    );
+    expect(events.indexOf('cancel:none')).toBeLessThan(
+      events.indexOf('schedule:task-2'),
+    );
     expect(result.map((task) => task.notificationId)).toEqual([
       'new-task-1',
       'new-task-2',

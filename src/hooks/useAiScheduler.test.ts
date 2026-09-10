@@ -11,6 +11,7 @@ import {
 import type { PlannerState, Task } from '../types';
 import type { AiDraftTask } from '../types/ai';
 import type { AiSchedulingProvider } from '../services/ai/aiProvider';
+import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { useAiScheduler } from './useAiScheduler';
 
 const mockDispatch = jest.fn();
@@ -177,6 +178,18 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('draft_preview');
     expect(scheduler.conflicts).toHaveLength(0);
     expect(scheduler.draftTasks[0].startTime).toBe('09:15');
+  });
+
+  it('returns to input with a clarification message for ambiguous time', async () => {
+    mockParseScheduleRequest.mockRejectedValue(
+      new AiScheduleClarificationError(2),
+    );
+
+    await submitPrompt('tao lich 2h toi da bong');
+
+    expect(scheduler.step).toBe('input_prompt');
+    expect(scheduler.infoMessage).toContain('2h toi');
+    expect(scheduler.draftTasks).toEqual([]);
   });
 
   it('stays in auto-slotting when a full day cannot fit the draft', async () => {

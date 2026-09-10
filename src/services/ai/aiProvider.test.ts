@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import type { Task } from '../../types';
 import type { AiSchedulingContext } from '../../types/ai';
 import { PlanlyAiProvider } from './aiProvider';
+import { AiScheduleClarificationError } from './scheduleClarification';
 
 const context: AiSchedulingContext = {
   realToday: '2026-09-07',
@@ -114,8 +115,8 @@ describe('PlanlyAiProvider', () => {
     expect(result[0].date).toBe('2026-09-08');
   });
 
-  it('drops a cloud item that contains only unaccented task attributes', async () => {
-    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+  it('asks Gemini to repair an attribute-only task before accepting the result', async () => {
+    const invalidResponse = {
       ok: true,
       json: async () => ({
         candidates: [
@@ -145,14 +146,49 @@ describe('PlanlyAiProvider', () => {
           },
         ],
       }),
-    } as Response);
+    } as Response;
+    const repairedResponse = {
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify([
+                    {
+                      title: 'Da bong',
+                      date: '2026-09-07',
+                      startTime: '02:00',
+                      reminderMinutes: 0,
+                      priority: 'medium',
+                    },
+                  ]),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as Response;
+    const fetchMock = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(invalidResponse)
+      .mockResolvedValueOnce(repairedResponse);
     global.fetch = fetchMock;
 
     const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
-      'tao lich 2h toi da bong, muc uu tien vua va thoi luong 1h30p nhac dung hen',
+      'tao lich 2h da bong, muc uu tien vua va thoi luong 1h30p nhac dung hen',
       context,
     );
 
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const repairRequest = JSON.parse(
+      String(fetchMock.mock.calls[1]?.[1]?.body),
+    ) as { contents: { parts: { text: string }[] }[] };
+    expect(repairRequest.contents[0].parts[0].text).toContain(
+      'attribute_only_task',
+    );
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       title: 'Da bong',
@@ -160,6 +196,102 @@ describe('PlanlyAiProvider', () => {
       reminderMinutes: 0,
       priority: 'medium',
     });
+  });
+
+  it('uses a structured response schema for Gemini scheduling', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify([
+                    {
+                      id: '',
+                      title: 'Họp nhóm',
+                      date: '2026-09-07',
+                      startTime: '09:00',
+                      reminderMinutes: 15,
+                      priority: 'none',
+                    },
+                  ]),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as Response);
+    global.fetch = fetchMock;
+
+    await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'Họp nhóm lúc 9h',
+      context,
+    );
+
+    const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      generationConfig: { responseSchema?: { type?: string } };
+    };
+    expect(request.generationConfig.responseSchema?.type).toBe('array');
+  });
+
+  it('falls back locally after one unsuccessful Gemini repair', async () => {
+    const invalidResponse = {
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify([
+                    {
+                      id: 'metadata-task',
+                      title: 'Thoi luong 1h30p',
+                      date: '2026-09-07',
+                      startTime: '01:30',
+                      reminderMinutes: 15,
+                      priority: 'none',
+                    },
+                  ]),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as Response;
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue(invalidResponse);
+    global.fetch = fetchMock;
+
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'tao lich 2h da bong, muc uu tien vua va thoi luong 1h30p nhac dung gio',
+      context,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      title: 'Da bong',
+      startTime: '02:00',
+      reminderMinutes: 0,
+      priority: 'medium',
+    });
+  });
+
+  it('requests clarification before calling Gemini for an ambiguous time', async () => {
+    const fetchMock = jest.fn<typeof fetch>();
+    global.fetch = fetchMock;
+
+    await expect(
+      new PlanlyAiProvider('test-key').parseScheduleRequest(
+        'tao lich 2h toi da bong',
+        context,
+      ),
+    ).rejects.toBeInstanceOf(AiScheduleClarificationError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('falls back to the offline parser when both cloud models fail', async () => {

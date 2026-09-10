@@ -65,6 +65,7 @@ export function TasksScreen() {
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [formVisible, setFormVisible] = useState(false);
+  const [formSession, setFormSession] = useState(0);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
   const aiTargetDate = todayKey();
@@ -112,11 +113,13 @@ export function TasksScreen() {
 
   function openCreate() {
     setEditingTask(undefined);
+    setFormSession((current) => current + 1);
     setFormVisible(true);
   }
 
   const handleEditTask = useCallback((task: Task) => {
     setEditingTask(task);
+    setFormSession((current) => current + 1);
     setFormVisible(true);
   }, []);
 
@@ -282,15 +285,14 @@ export function TasksScreen() {
         onDismiss={aiScheduler.dismissSaveFeedback}
       />
 
-      {formVisible ? (
-        <TaskFormModal
-          visible
-          task={editingTask}
-          defaultDate={todayKey()}
-          onClose={() => setFormVisible(false)}
-          onSubmit={handleSave}
-        />
-      ) : null}
+      <TaskFormModal
+        key={formSession}
+        visible={formVisible}
+        task={editingTask}
+        defaultDate={todayKey()}
+        onClose={() => setFormVisible(false)}
+        onSubmit={handleSave}
+      />
 
       <ConfirmModal
         visible={Boolean(deletingTask)}

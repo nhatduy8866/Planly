@@ -159,6 +159,7 @@ export function ScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
   const [formVisible, setFormVisible] = useState(false);
+  const [formSession, setFormSession] = useState(0);
   const [taskSort, setTaskSort] = useState<
     TaskSortState<'time' | 'title' | 'priority'>
   >({ direction: 'ascending', key: 'time' });
@@ -307,11 +308,13 @@ export function ScheduleScreen() {
 
   function openCreate() {
     setEditingTask(undefined);
+    setFormSession((current) => current + 1);
     setFormVisible(true);
   }
 
   const openEdit = useCallback((task: Task) => {
     setEditingTask(task);
+    setFormSession((current) => current + 1);
     setFormVisible(true);
   }, []);
 
@@ -620,15 +623,14 @@ export function ScheduleScreen() {
         onDismiss={aiScheduler.dismissSaveFeedback}
       />
 
-      {formVisible ? (
-        <TaskFormModal
-          visible
-          task={editingTask}
-          defaultDate={selectedDate}
-          onClose={() => setFormVisible(false)}
-          onSubmit={handleSave}
-        />
-      ) : null}
+      <TaskFormModal
+        key={formSession}
+        visible={formVisible}
+        task={editingTask}
+        defaultDate={selectedDate}
+        onClose={() => setFormVisible(false)}
+        onSubmit={handleSave}
+      />
 
       <ConfirmModal
         visible={Boolean(deletingTask)}

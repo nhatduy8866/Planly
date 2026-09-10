@@ -1,5 +1,5 @@
 import DateTimePicker, {
-  type DateTimePickerEvent,
+  type DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -186,12 +186,15 @@ export function TaskFormModal({
     }
   }
 
-  function handlePickerChange(event: DateTimePickerEvent, selected?: Date) {
+  function handlePickerValueChange(
+    _event: DateTimePickerChangeEvent,
+    selected: Date,
+  ) {
+    const target = picker;
     if (Platform.OS === 'android') setPicker(null);
-    if (event.type === 'dismissed' || !selected) return;
-    if (picker === 'date') updateDate(toDateKey(selected));
-    if (picker === 'time') setStartTime(formatTime(selected));
-    if (picker === 'batchEnd') setBatchEndDate(toDateKey(selected));
+    if (target === 'date') updateDate(toDateKey(selected));
+    if (target === 'time') setStartTime(formatTime(selected));
+    if (target === 'batchEnd') setBatchEndDate(toDateKey(selected));
   }
 
   function toggleBatch() {
@@ -227,6 +230,7 @@ export function TaskFormModal({
 
     setSaving(true);
     setError('');
+    let saved = false;
     try {
       await onSubmit({
         title: trimmedTitle,
@@ -239,7 +243,7 @@ export function TaskFormModal({
         batchDates: !task && batchEnabled ? batchDates : undefined,
         applyToBatch: task?.batchId ? applyToBatch : undefined,
       });
-      onClose();
+      saved = true;
     } catch (submitError) {
       if (submitError instanceof TaskTimeConflictError) {
         const { conflict } = submitError;
@@ -255,6 +259,11 @@ export function TaskFormModal({
       }
     } finally {
       setSaving(false);
+    }
+
+    if (saved) {
+      setPicker(null);
+      onClose();
     }
   }
 
@@ -871,7 +880,8 @@ export function TaskFormModal({
                   mode={pickerMode}
                   value={pickerValue}
                   minimumDate={pickerMinimumDate}
-                  onChange={handlePickerChange}
+                  onDismiss={() => setPicker(null)}
+                  onValueChange={handlePickerValueChange}
                 />
               ) : null}
             </ScrollView>
@@ -908,7 +918,8 @@ export function TaskFormModal({
                 textColor={colors.text}
                 accentColor={colors.primary}
                 minimumDate={pickerMinimumDate}
-                onChange={handlePickerChange}
+                onDismiss={() => setPicker(null)}
+                onValueChange={handlePickerValueChange}
               />
             </View>
           </View>

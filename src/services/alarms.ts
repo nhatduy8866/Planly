@@ -9,6 +9,7 @@ import type {
 import type { Language } from '../i18n/translations';
 import type { ScheduledTaskReminder, Task } from '../types';
 import { taskDateTime } from '../utils/date';
+import { isExpoGoRuntime } from '../utils/expoRuntime';
 
 const ALARM_REMINDER_ID_PREFIX = 'alarm:';
 const ALARM_MAX_RING_DURATION_SECONDS = 5 * 60;
@@ -25,6 +26,7 @@ export interface AlarmPermissionSummary {
 }
 
 function isNativeAlarmModuleAvailable(): boolean {
+  if (isExpoGoRuntime()) return false;
   if (process.env.NODE_ENV === 'test') return true;
   try {
     return Boolean(requireOptionalNativeModule('AlarmScheduler'));

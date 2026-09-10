@@ -3,6 +3,7 @@ import AlarmScheduler from 'react-native-alarm-scheduler';
 import { Platform } from 'react-native';
 
 import type { Task } from '../types';
+import { isExpoGoRuntime } from '../utils/expoRuntime';
 import {
   cancelTaskAlarm,
   consumePendingTaskAlarm,
@@ -28,7 +29,12 @@ jest.mock('react-native-alarm-scheduler', () => ({
   },
 }));
 
+jest.mock('../utils/expoRuntime', () => ({
+  isExpoGoRuntime: jest.fn(() => false),
+}));
+
 const scheduler = jest.mocked(AlarmScheduler);
+const mockIsExpoGoRuntime = jest.mocked(isExpoGoRuntime);
 
 function permission(canScheduleExactAlarms = true) {
   return {
@@ -61,6 +67,7 @@ describe('native task alarms', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsExpoGoRuntime.mockReturnValue(false);
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'android',
@@ -79,6 +86,16 @@ describe('native task alarms', () => {
       title: input.title ?? '',
       weekdays: input.weekdays ?? [],
     }));
+  });
+
+  it('does not access the custom native alarm module inside Expo Go', async () => {
+    mockIsExpoGoRuntime.mockReturnValue(true);
+
+    await expect(getAlarmPermission()).resolves.toMatchObject({
+      available: false,
+      state: 'unsupported',
+    });
+    expect(scheduler.getPermissionsAsync).not.toHaveBeenCalled();
   });
 
   afterEach(() => {

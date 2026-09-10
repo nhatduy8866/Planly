@@ -8,6 +8,7 @@ import type {
   Task,
 } from '../types';
 import { taskDateTime } from '../utils/date';
+import { isExpoGoRuntime } from '../utils/expoRuntime';
 import {
   cancelTaskAlarm,
   getAlarmPermission,
@@ -276,7 +277,9 @@ async function scheduleTaskNotification(
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
         },
-        ...(Platform.OS === 'ios' ? { sound: 'default' as const } : {}),
+        ...(Platform.OS === 'ios' && !isExpoGoRuntime()
+          ? { sound: 'default' as const }
+          : {}),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

@@ -183,9 +183,27 @@ describe('notification foundation', () => {
             source: 'planly-task-reminder',
             taskId: 'task-1',
           }),
-          sound: 'default',
         }),
         trigger: expect.objectContaining({ channelId: 'planly-reminders-v2' }),
+      }),
+    );
+    expect(scheduleNotificationAsync.mock.calls[0]?.[0].content).not.toHaveProperty(
+      'sound',
+    );
+  });
+
+  it('keeps the default notification sound on iOS', async () => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    scheduleNotificationAsync.mockResolvedValue('notification-1');
+
+    await expect(scheduleTaskReminder(makeFutureTask(), 'vi')).resolves.toBe(
+      'notification-1',
+    );
+
+    expect(scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({ sound: 'default' }),
       }),
     );
   });

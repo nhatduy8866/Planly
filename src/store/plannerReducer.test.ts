@@ -219,6 +219,27 @@ describe('plannerReducer', () => {
     ]);
   });
 
+  it('syncs reminder IDs without replacing unrelated task data', () => {
+    const first = task({ id: 'first', notificationId: 'old-id' });
+    const second = task({ id: 'second', title: 'Không đổi' });
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [first, second],
+    };
+
+    const result = plannerReducer(state, {
+      type: 'sync_notification_ids',
+      payload: [
+        { id: 'first', notificationId: 'new-id' },
+        { id: 'missing', notificationId: 'ignored' },
+      ],
+    });
+
+    expect(result.tasks[0]).toEqual({ ...first, notificationId: 'new-id' });
+    expect(result.tasks[1]).toBe(second);
+  });
+
   it('replaces an AI-updated task with the same ID instead of duplicating it', () => {
     const existing = task({
       id: 'football-task',

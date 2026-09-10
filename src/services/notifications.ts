@@ -9,6 +9,8 @@ import { taskDateTime } from '../utils/date';
 // settings immutable after a channel is created on an installed device.
 const CHANNEL_ID = 'planly-reminders-v2';
 const CHANNEL_COLOR = '#4F46E5';
+export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
+const TASK_REMINDER_SCHEMA_VERSION = 1;
 let configuredAndroidChannelLanguage: Language | undefined;
 let androidChannelSetupPromise: Promise<void> | undefined;
 let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
@@ -22,6 +24,29 @@ export type NotificationPermissionState =
 export interface NotificationPermissionSummary {
   canAskAgain: boolean;
   state: NotificationPermissionState;
+}
+
+export function getTaskReminderDate(task: Task): Date | undefined {
+  if (task.reminderMinutes === null) return undefined;
+
+  const triggerDate = taskDateTime(task.date, task.startTime);
+  triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
+  return Number.isFinite(triggerDate.getTime()) ? triggerDate : undefined;
+}
+
+export function getTaskReminderKey(
+  task: Task,
+  language: Language = 'vi',
+): string {
+  return JSON.stringify([
+    TASK_REMINDER_SCHEMA_VERSION,
+    language,
+    task.id,
+    task.title,
+    task.date,
+    task.startTime,
+    task.reminderMinutes,
+  ]);
 }
 
 if (Platform.OS !== 'web') {
@@ -166,9 +191,8 @@ export async function scheduleTaskReminder(
 ): Promise<string | undefined> {
   if (Platform.OS === 'web' || task.reminderMinutes === null) return undefined;
 
-  const triggerDate = taskDateTime(task.date, task.startTime);
-  triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
-  if (triggerDate.getTime() <= Date.now()) return undefined;
+  const triggerDate = getTaskReminderDate(task);
+  if (!triggerDate || triggerDate.getTime() <= Date.now()) return undefined;
   const permission = await requestNotificationPermission(language);
   if (permission.state !== 'granted') return undefined;
 
@@ -183,7 +207,11 @@ export async function scheduleTaskReminder(
             ? 'It’s time'
             : 'Coming up soon',
       body: `${task.startTime} · ${task.title}`,
-      data: { taskId: task.id },
+      data: {
+        reminderKey: getTaskReminderKey(task, language),
+        source: TASK_REMINDER_SOURCE,
+        taskId: task.id,
+      },
       sound: 'default',
     },
     trigger: {

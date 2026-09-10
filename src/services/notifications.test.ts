@@ -148,6 +148,11 @@ describe('notification foundation', () => {
       expect.objectContaining({
         content: expect.objectContaining({
           body: '14:00 · Đá bóng',
+          data: expect.objectContaining({
+            reminderKey: expect.any(String),
+            source: 'planly-task-reminder',
+            taskId: 'task-1',
+          }),
           sound: 'default',
         }),
         trigger: expect.objectContaining({ channelId: 'planly-reminders-v2' }),

@@ -329,7 +329,9 @@ export function ScheduleScreen() {
     await saveTask(values, editingTask);
     const firstCreatedDate = values.batchDates?.[0] ?? values.date;
     selectDate(firstCreatedDate);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Success,
+    ).catch(() => undefined);
   }
 
   const removePendingCompletion = useCallback((taskId: string) => {

@@ -262,26 +262,31 @@ async function scheduleTaskNotification(
 
   const triggerDate = getTaskReminderDate(task);
   if (!triggerDate || triggerDate.getTime() <= Date.now()) return undefined;
-  const permission = await requestNotificationPermission(language);
-  if (permission.state !== 'granted') return undefined;
 
-  return Notifications.scheduleNotificationAsync({
-    content: {
-      title: language === 'vi' ? 'Đến giờ rồi' : 'It’s time',
-      body: `${task.startTime} · ${task.title}`,
-      data: {
-        reminderKey: getTaskReminderKey(task, language, 'notification'),
-        source: TASK_REMINDER_SOURCE,
-        taskId: task.id,
+  try {
+    const permission = await requestNotificationPermission(language);
+    if (permission.state !== 'granted') return undefined;
+
+    return await Notifications.scheduleNotificationAsync({
+      content: {
+        title: language === 'vi' ? 'Đến giờ rồi' : 'It’s time',
+        body: `${task.startTime} · ${task.title}`,
+        data: {
+          reminderKey: getTaskReminderKey(task, language, 'notification'),
+          source: TASK_REMINDER_SOURCE,
+          taskId: task.id,
+        },
+        sound: 'default',
       },
-      sound: 'default',
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: triggerDate,
-      channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
-    },
-  });
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
+        channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
+      },
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 export async function scheduleTaskReminder(

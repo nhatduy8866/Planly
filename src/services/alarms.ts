@@ -1,4 +1,4 @@
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 import type {
@@ -24,17 +24,19 @@ export interface AlarmPermissionSummary {
   state: 'denied' | 'granted' | 'unsupported';
 }
 
-function isExpoGo(): boolean {
-  return (
-    Constants.appOwnership === 'expo' ||
-    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
-  );
+function isNativeAlarmModuleAvailable(): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
+  try {
+    return Boolean(requireOptionalNativeModule('AlarmScheduler'));
+  } catch {
+    return false;
+  }
 }
 
 let alarmSchedulerPromise: Promise<AlarmSchedulerApi | undefined> | undefined;
 
 async function loadAlarmScheduler(): Promise<AlarmSchedulerApi | undefined> {
-  if (Platform.OS === 'web' || isExpoGo()) return undefined;
+  if (Platform.OS === 'web' || !isNativeAlarmModuleAvailable()) return undefined;
 
   if (!alarmSchedulerPromise) {
     alarmSchedulerPromise = Promise.resolve().then(() => {

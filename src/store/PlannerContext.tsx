@@ -43,6 +43,7 @@ function normalizeStoredTask(task: Task): Task {
     completed: task.completed,
     order: task.order,
     priority: task.priority,
+    color: task.color,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   };

@@ -24,12 +24,14 @@ interface AiScheduleModalProps {
   scheduler: ReturnType<typeof useAiScheduler>;
   targetDate: string;
   onOpenManualTaskModal: () => void;
+  successPrimaryLabel?: string;
 }
 
 export function AiScheduleModal({
   scheduler,
   targetDate,
   onOpenManualTaskModal,
+  successPrimaryLabel,
 }: AiScheduleModalProps) {
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
@@ -162,6 +164,7 @@ export function AiScheduleModal({
             {step === 'success' && (
               <AiSuccessView
                 tasksCount={draftTasks.length}
+                primaryActionLabel={successPrimaryLabel}
                 onViewSchedule={scheduler.handleViewSchedule}
                 onAddAnother={() => setStep('input_prompt')}
               />

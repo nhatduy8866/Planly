@@ -11,7 +11,8 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 - Hiển thị ngày có công việc và danh sách công việc của ngày đang chọn.
 - Tạo, chỉnh sửa, hoàn thành, nhân bản và xóa công việc.
 - Đổi thứ tự công việc trong ngày bằng tay hoặc tự sắp theo giờ bắt đầu.
-- Đặt thông báo local đúng giờ hoặc trước 5, 15, 30, 60 phút.
+- Đặt nhắc việc đúng giờ hoặc trước 5, 15, 30, 60 phút.
+- Chọn giữa thông báo thường (mặc định) và báo thức toàn màn hình có chuông, rung trong phần Cài đặt.
 - Tạo hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên.
 - Tự chọn giờ bắt đầu chưa được sử dụng, phát hiện trùng giờ và đề xuất giờ thay thế.
 - Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
@@ -40,6 +41,7 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 - TypeScript
 - AsyncStorage
 - Expo Notifications
+- React Native Alarm Scheduler
 - Jest và ESLint
 
 ## Yêu cầu môi trường
@@ -75,7 +77,7 @@ Lệnh này khởi động Metro đúng chế độ Expo Router và tự mở Pl
 npm run android:dev -- --clear
 ```
 
-Thông báo local hoạt động trong Expo Go. Để kiểm thử cấu hình native và quyền báo thức chính xác giống bản phát hành, tạo development build bằng Expo/EAS hoặc chạy prebuild trên máy có Android SDK.
+Thông báo thường là chế độ mặc định và hoạt động trong Expo Go. Chế độ Báo thức sử dụng module native để reo, rung và hiển thị giao diện tắt báo thức trong tối đa 5 phút, vì vậy cần development build (`npm run android`) và không hoạt động trong Expo Go. Sau khi đổi dependency hoặc cấu hình Alarm, hãy build lại app trước khi kiểm thử.
 
 ## Kiểm tra chất lượng
 
@@ -95,7 +97,7 @@ Planly/
 │   ├── components/            # Calendar, task card và các form modal
 │   ├── hooks/                 # Luồng CRUD task và đồng bộ reminder
 │   ├── screens/               # Lịch, công việc, ghi chú
-│   ├── services/              # Thông báo local
+│   ├── services/              # Thông báo local và báo thức native
 │   ├── store/                 # Context, reducer và persistence
 │   ├── theme/                 # Design tokens
 │   ├── types/                 # Kiểu dữ liệu dùng chung

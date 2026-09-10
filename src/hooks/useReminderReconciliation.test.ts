@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { AppState, type AppStateStatus } from 'react-native';
 
 import type { ReminderReconciliationResult } from '../services/reminderReconciliation';
-import type { Task } from '../types';
+import type { ReminderDeliveryMode, Task } from '../types';
 import { useReminderReconciliation } from './useReminderReconciliation';
 
 const mockReconcileTaskReminders = jest.fn<
@@ -46,8 +46,24 @@ describe('useReminderReconciliation', () => {
   let tree: TestRendererInstance | undefined;
   let dispatch: jest.Mock;
 
-  function Harness({ enabled = true, tasks = [task()] }) {
-    useReminderReconciliation(tasks, 'vi', enabled, dispatch);
+  interface HarnessProps {
+    enabled?: boolean;
+    reminderDeliveryMode?: ReminderDeliveryMode;
+    tasks?: Task[];
+  }
+
+  function Harness({
+    enabled = true,
+    reminderDeliveryMode = 'notification',
+    tasks = [task()],
+  }: HarnessProps) {
+    useReminderReconciliation(
+      tasks,
+      'vi',
+      reminderDeliveryMode,
+      enabled,
+      dispatch,
+    );
     return null;
   }
 
@@ -98,6 +114,25 @@ describe('useReminderReconciliation', () => {
     expect(mockReconcileTaskReminders).toHaveBeenLastCalledWith(
       updatedTasks,
       'vi',
+      'notification',
+    );
+  });
+
+  it('reconciles again when the reminder delivery mode changes', async () => {
+    await act(async () => {
+      tree = create(createElement(Harness));
+    });
+
+    await act(async () => {
+      tree?.update(
+        createElement(Harness, { reminderDeliveryMode: 'alarm' }),
+      );
+    });
+
+    expect(mockReconcileTaskReminders).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      'vi',
+      'alarm',
     );
   });
 

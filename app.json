@@ -22,9 +22,6 @@
     },
     "android": {
       "package": "com.planly.app",
-      "permissions": [
-        "SCHEDULE_EXACT_ALARM"
-      ],
       "adaptiveIcon": {
         "backgroundColor": "#FAF7F0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -44,6 +41,12 @@
           "color": "#4F46E5",
           "defaultChannel": "planly-reminders-v2",
           "icon": "./assets/android-icon-monochrome.png"
+        }
+      ],
+      [
+        "./plugins/withAlarmScheduler",
+        {
+          "alarmKitUsageDescription": "Cho phép Planly đặt báo thức cho công việc của bạn."
         }
       ],
       "expo-font",

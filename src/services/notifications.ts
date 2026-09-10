@@ -2,15 +2,26 @@ import * as Notifications from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 
 import type { Language } from '../i18n/translations';
-import type { Task } from '../types';
+import type {
+  ReminderDeliveryMode,
+  ScheduledTaskReminder,
+  Task,
+} from '../types';
 import { taskDateTime } from '../utils/date';
+import {
+  cancelTaskAlarm,
+  getAlarmPermission,
+  getScheduledTaskAlarms,
+  isAlarmReminderId,
+  scheduleTaskAlarm,
+} from './alarms';
 
 // Version the channel when changing sound/importance because Android keeps those
 // settings immutable after a channel is created on an installed device.
 const CHANNEL_ID = 'planly-reminders-v2';
 const CHANNEL_COLOR = '#4F46E5';
 export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
-const TASK_REMINDER_SCHEMA_VERSION = 1;
+const TASK_REMINDER_SCHEMA_VERSION = 2;
 let configuredAndroidChannelLanguage: Language | undefined;
 let androidChannelSetupPromise: Promise<void> | undefined;
 let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
@@ -26,6 +37,11 @@ export interface NotificationPermissionSummary {
   state: NotificationPermissionState;
 }
 
+export interface TaskReminderReadiness {
+  canSchedule: boolean;
+  deliveryMode: ReminderDeliveryMode;
+}
+
 export function getTaskReminderDate(task: Task): Date | undefined {
   if (task.reminderMinutes === null) return undefined;
 
@@ -37,10 +53,12 @@ export function getTaskReminderDate(task: Task): Date | undefined {
 export function getTaskReminderKey(
   task: Task,
   language: Language = 'vi',
+  deliveryMode: ReminderDeliveryMode = 'notification',
 ): string {
   return JSON.stringify([
     TASK_REMINDER_SCHEMA_VERSION,
     language,
+    deliveryMode,
     task.id,
     task.title,
     task.date,
@@ -176,18 +194,72 @@ export async function openNotificationSettings(): Promise<void> {
   await Linking.openSettings();
 }
 
-export async function cancelTaskReminder(notificationId?: string): Promise<void> {
-  if (Platform.OS === 'web' || !notificationId) return;
+export async function getTaskReminderReadiness(
+  preferredMode: ReminderDeliveryMode,
+  language: Language = 'vi',
+): Promise<TaskReminderReadiness> {
+  const notificationPermission = await getNotificationPermission(language);
+  if (preferredMode === 'notification') {
+    return {
+      canSchedule: notificationPermission.state === 'granted',
+      deliveryMode: 'notification',
+    };
+  }
+
+  const alarmPermission = await getAlarmPermission();
+  const alarmReady =
+    alarmPermission.available &&
+    alarmPermission.canScheduleExactAlarms &&
+    (Platform.OS !== 'android' ||
+      (alarmPermission.canPostNotifications &&
+        notificationPermission.state === 'granted'));
+
+  return alarmReady
+    ? { canSchedule: true, deliveryMode: 'alarm' }
+    : {
+        canSchedule: notificationPermission.state === 'granted',
+        deliveryMode: 'notification',
+      };
+}
+
+export async function getAllScheduledTaskReminders(): Promise<
+  ScheduledTaskReminder[]
+> {
+  if (Platform.OS === 'web') return [];
+
+  const [notificationRequests, alarms] = await Promise.all([
+    Notifications.getAllScheduledNotificationsAsync(),
+    getScheduledTaskAlarms(),
+  ]);
+  const notifications = notificationRequests.map((request) => {
+    const data = request.content.data;
+    return {
+      identifier: request.identifier,
+      reminderKey:
+        typeof data?.reminderKey === 'string' ? data.reminderKey : undefined,
+      source: typeof data?.source === 'string' ? data.source : undefined,
+      taskId: typeof data?.taskId === 'string' ? data.taskId : undefined,
+    };
+  });
+  return [...notifications, ...alarms];
+}
+
+export async function cancelTaskReminder(reminderId?: string): Promise<void> {
+  if (Platform.OS === 'web' || !reminderId) return;
   try {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
+    if (isAlarmReminderId(reminderId)) {
+      await cancelTaskAlarm(reminderId);
+    } else {
+      await Notifications.cancelScheduledNotificationAsync(reminderId);
+    }
   } catch {
-    // Notification may already have fired or been removed by the OS.
+    // Reminder may already have fired or been removed by the OS.
   }
 }
 
-export async function scheduleTaskReminder(
+async function scheduleTaskNotification(
   task: Task,
-  language: Language = 'vi',
+  language: Language,
 ): Promise<string | undefined> {
   if (Platform.OS === 'web' || task.reminderMinutes === null) return undefined;
 
@@ -208,7 +280,7 @@ export async function scheduleTaskReminder(
             : 'Coming up soon',
       body: `${task.startTime} · ${task.title}`,
       data: {
-        reminderKey: getTaskReminderKey(task, language),
+        reminderKey: getTaskReminderKey(task, language, 'notification'),
         source: TASK_REMINDER_SOURCE,
         taskId: task.id,
       },
@@ -220,4 +292,28 @@ export async function scheduleTaskReminder(
       channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
     },
   });
+}
+
+export async function scheduleTaskReminder(
+  task: Task,
+  language: Language = 'vi',
+  preferredMode: ReminderDeliveryMode = 'notification',
+): Promise<string | undefined> {
+  if (preferredMode === 'alarm') {
+    const readiness = await getTaskReminderReadiness(preferredMode, language);
+    if (readiness.deliveryMode === 'alarm' && readiness.canSchedule) {
+      try {
+        const alarmId = await scheduleTaskAlarm(task, language, {
+          reminderKey: getTaskReminderKey(task, language, 'alarm'),
+          source: TASK_REMINDER_SOURCE,
+          taskId: task.id,
+        });
+        if (alarmId) return alarmId;
+      } catch {
+        // Preserve the reminder by falling back to a standard notification.
+      }
+    }
+  }
+
+  return scheduleTaskNotification(task, language);
 }

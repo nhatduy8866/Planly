@@ -24,7 +24,10 @@ const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => Promise<Task[]>
 >();
 
@@ -42,6 +45,7 @@ jest.mock('../preferences/PreferencesContext', () => {
     usePreferences: () => ({
       language: 'vi',
       locale: 'vi-VN',
+      reminderDeliveryMode: 'notification',
       t: (
         key: Parameters<typeof translate>[1],
         values?: Parameters<typeof translate>[2],
@@ -63,7 +67,10 @@ jest.mock('../services/reminderTransaction', () => ({
   replaceTaskReminders: (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => mockReplaceTaskReminders(tasks, existingTasks, options),
 }));
 
@@ -249,7 +256,7 @@ describe('useAiScheduler', () => {
     expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
       expect.any(Array),
       mockPlannerState.tasks,
-      { language: 'vi' },
+      { language: 'vi', reminderDeliveryMode: 'notification' },
     );
     expect(scheduler.step).toBe('success');
   });

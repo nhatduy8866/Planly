@@ -21,7 +21,7 @@ export function useAiScheduler(
 ) {
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
-  const { language, locale, t } = usePreferences();
+  const { language, locale, reminderDeliveryMode, t } = usePreferences();
 
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<AiModalStep>('menu_action_sheet');
@@ -328,13 +328,13 @@ export function useAiScheduler(
     const tasksWithReminders = await replaceTaskReminders(
       tasksToSave,
       tasks,
-      { language },
+      { language, reminderDeliveryMode },
     );
     dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
 
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setStep('success'); // Màn 10
-  }, [draftTasks, dispatch, language, tasks, t]);
+  }, [draftTasks, dispatch, language, reminderDeliveryMode, tasks, t]);
 
   const handleViewSchedule = useCallback(() => {
     const createdDate = draftTasks[0]?.date;

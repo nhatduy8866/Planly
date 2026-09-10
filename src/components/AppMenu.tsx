@@ -16,6 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
+  getAlarmPermission,
+  openAlarmSettings,
+  openFullScreenAlarmSettings,
+  requestAlarmPermission,
+  type AlarmPermissionSummary,
+} from '../services/alarms';
+import {
   getNotificationPermission,
   openNotificationSettings,
   requestNotificationPermission,
@@ -23,6 +30,7 @@ import {
 } from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import type { ReminderDeliveryMode } from '../types';
 import { IconButton } from './IconButton';
 
 interface AppMenuProps {
@@ -182,12 +190,24 @@ export function AppMenu({
 
 function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const { colors, language, setLanguage, setTheme, t, theme } = usePreferences();
+  const {
+    colors,
+    language,
+    reminderDeliveryMode,
+    setLanguage,
+    setReminderDeliveryMode,
+    setTheme,
+    t,
+    theme,
+  } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermissionSummary | null>(null);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationCheckFailed, setNotificationCheckFailed] = useState(false);
+  const [alarmPermission, setAlarmPermission] =
+    useState<AlarmPermissionSummary | null>(null);
+  const [alarmBusy, setAlarmBusy] = useState(false);
 
   const refreshNotificationPermission = useCallback(async () => {
     try {
@@ -200,13 +220,26 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
     }
   }, [language]);
 
+  const refreshAlarmPermission = useCallback(async () => {
+    setAlarmPermission(await getAlarmPermission());
+  }, []);
+
   useEffect(() => {
     if (!visible) return;
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') void refreshNotificationPermission();
+      if (nextState !== 'active') return;
+      void refreshNotificationPermission();
+      if (reminderDeliveryMode === 'alarm') {
+        void refreshAlarmPermission();
+      }
     });
     return () => subscription.remove();
-  }, [refreshNotificationPermission, visible]);
+  }, [
+    refreshAlarmPermission,
+    refreshNotificationPermission,
+    reminderDeliveryMode,
+    visible,
+  ]);
 
   async function handleNotificationPermission() {
     if (!notificationPermission || notificationBusy) return;
@@ -225,6 +258,33 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
       setNotificationCheckFailed(true);
     } finally {
       setNotificationBusy(false);
+    }
+  }
+
+  async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
+    setReminderDeliveryMode(mode);
+    void Haptics.selectionAsync();
+    if (mode !== 'alarm' || alarmBusy) return;
+
+    setAlarmBusy(true);
+    try {
+      setAlarmPermission(await requestAlarmPermission());
+    } finally {
+      setAlarmBusy(false);
+    }
+  }
+
+  async function handleAlarmAccess() {
+    if (!alarmPermission || alarmBusy) return;
+    setAlarmBusy(true);
+    try {
+      if (!alarmPermission.canScheduleExactAlarms) {
+        await openAlarmSettings();
+      } else if (!alarmPermission.canUseFullScreenIntent) {
+        await openFullScreenAlarmSettings();
+      }
+    } finally {
+      setAlarmBusy(false);
     }
   }
 
@@ -249,11 +309,34 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
     notificationPermission !== null &&
     notificationPermission.state !== 'granted' &&
     notificationPermission.state !== 'unsupported';
+  const alarmStatusKey = !alarmPermission
+    ? 'settings.alarmChecking'
+    : !alarmPermission.available
+      ? 'settings.alarmUnsupported'
+      : !alarmPermission.canScheduleExactAlarms
+        ? 'settings.alarmExactDenied'
+        : !alarmPermission.canPostNotifications
+          ? 'settings.alarmNotificationDenied'
+          : !alarmPermission.canUseFullScreenIntent
+            ? 'settings.alarmFullScreenDenied'
+            : 'settings.alarmReady';
+  const canChangeAlarmAccess =
+    alarmPermission?.available &&
+    (!alarmPermission.canScheduleExactAlarms ||
+      !alarmPermission.canUseFullScreenIntent);
+  const alarmActionLabel = alarmPermission?.canScheduleExactAlarms
+    ? t('settings.alarmOpenFullScreen')
+    : t('settings.alarmOpenExact');
 
   return (
     <Modal
       animationType="slide"
-      onShow={() => void refreshNotificationPermission()}
+      onShow={() => {
+        void refreshNotificationPermission();
+        if (reminderDeliveryMode === 'alarm') {
+          void refreshAlarmPermission();
+        }
+      }}
       onRequestClose={onClose}
       transparent={Platform.OS === 'web'}
       visible={visible}
@@ -315,6 +398,73 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                     </Text>
                     {selected ? (
                       <MaterialIcons name="check-circle" size={20} color={colors.primary} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.cardLabel, styles.secondCardLabel]}>
+              {t('settings.reminderTypeTitle')}
+            </Text>
+            <Text style={styles.cardDescription}>
+              {t('settings.reminderTypeDescription')}
+            </Text>
+            <View style={styles.choiceGroup}>
+              {(['notification', 'alarm'] as const).map((item) => {
+                const selected = reminderDeliveryMode === item;
+                const disabled = Platform.OS === 'web' && item === 'alarm';
+                return (
+                  <Pressable
+                    key={item}
+                    accessibilityRole="radio"
+                    accessibilityState={{ disabled, selected }}
+                    disabled={disabled}
+                    onPress={() => void handleReminderDeliveryMode(item)}
+                    style={({ pressed }) => [
+                      styles.choice,
+                      selected && styles.choiceSelected,
+                      disabled && styles.choiceDisabled,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <MaterialIcons
+                      name={item === 'notification' ? 'notifications' : 'alarm'}
+                      size={21}
+                      color={selected ? colors.primaryDark : colors.textMuted}
+                    />
+                    <View style={styles.reminderChoiceCopy}>
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          selected && styles.choiceTextSelected,
+                        ]}
+                      >
+                        {t(
+                          item === 'notification'
+                            ? 'settings.reminderTypeNotification'
+                            : 'settings.reminderTypeAlarm',
+                        )}
+                      </Text>
+                      <Text style={styles.choiceDescription}>
+                        {t(
+                          item === 'notification'
+                            ? 'settings.reminderTypeNotificationDescription'
+                            : 'settings.reminderTypeAlarmDescription',
+                        )}
+                      </Text>
+                      {disabled ? (
+                        <Text style={styles.choiceDescription}>
+                          {t('settings.reminderTypeAlarmWeb')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {selected ? (
+                      <MaterialIcons
+                        name="check-circle"
+                        size={20}
+                        color={colors.primary}
+                      />
                     ) : null}
                   </Pressable>
                 );
@@ -416,6 +566,64 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                 ) : null}
               </View>
             </View>
+
+            {reminderDeliveryMode === 'alarm' ? (
+              <>
+                <Text style={[styles.cardLabel, styles.secondCardLabel]}>
+                  {t('settings.alarmAccessTitle')}
+                </Text>
+                <Text style={styles.cardDescription}>
+                  {t('settings.alarmAccessDescription')}
+                </Text>
+                <View style={styles.notificationCard}>
+                  <View
+                    style={[
+                      styles.notificationIcon,
+                      alarmPermission?.state === 'granted' &&
+                        alarmPermission.canUseFullScreenIntent &&
+                        alarmPermission.canPostNotifications &&
+                        styles.notificationIconGranted,
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="alarm"
+                      size={22}
+                      color={
+                        alarmPermission?.state === 'granted'
+                          ? colors.primary
+                          : colors.textMuted
+                      }
+                    />
+                  </View>
+                  <View style={styles.notificationCopy}>
+                    <Text style={styles.notificationStatus}>
+                      {t(alarmStatusKey)}
+                    </Text>
+                    {canChangeAlarmAccess ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: alarmBusy }}
+                        disabled={alarmBusy}
+                        onPress={() => void handleAlarmAccess()}
+                        style={({ pressed }) => [
+                          styles.notificationAction,
+                          (pressed || alarmBusy) && styles.pressed,
+                        ]}
+                      >
+                        <Text style={styles.notificationActionText}>
+                          {alarmActionLabel}
+                        </Text>
+                        <MaterialIcons
+                          name="open-in-new"
+                          size={18}
+                          color={colors.primaryDark}
+                        />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
+              </>
+            ) : null}
 
             <View style={styles.savedNote}>
               <MaterialIcons name="cloud-done" size={18} color={colors.primary} />
@@ -577,6 +785,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
+  choiceDisabled: {
+    opacity: 0.5,
+  },
   choiceText: {
     color: colors.textMuted,
     flex: 1,
@@ -586,6 +797,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   choiceTextSelected: {
     color: colors.primaryDark,
     fontWeight: '800',
+  },
+  reminderChoiceCopy: {
+    flex: 1,
+    paddingVertical: 9,
+  },
+  choiceDescription: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
   },
   notificationCard: {
     alignItems: 'flex-start',

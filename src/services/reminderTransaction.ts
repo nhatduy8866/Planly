@@ -1,4 +1,4 @@
-import type { Task } from '../types';
+import type { ReminderDeliveryMode, Task } from '../types';
 import type { Language } from '../i18n/translations';
 import {
   cancelTaskReminder,
@@ -17,6 +17,7 @@ const defaultDependencies: ReminderTransactionDependencies = {
 
 interface ReplaceTaskReminderOptions {
   language?: Language;
+  reminderDeliveryMode?: ReminderDeliveryMode;
   dependencies?: ReminderTransactionDependencies;
 }
 
@@ -32,6 +33,7 @@ export async function replaceTaskReminders(
 ): Promise<Task[]> {
   const {
     language = 'vi',
+    reminderDeliveryMode = 'notification',
     dependencies = defaultDependencies,
   } = options;
   const existingById = new Map(existingTasks.map((task) => [task.id, task]));
@@ -48,6 +50,7 @@ export async function replaceTaskReminders(
         notificationId = await dependencies.scheduleReminder(
           taskWithoutOldReminder,
           language,
+          reminderDeliveryMode,
         );
       } catch {
         // The old reminder is already gone, so do not persist its stale ID.

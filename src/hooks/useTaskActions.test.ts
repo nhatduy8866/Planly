@@ -12,11 +12,18 @@ const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => Promise<Task[]>
 >();
 const mockScheduleTaskReminder = jest.fn<
-  (task: Task, language?: 'vi' | 'en') => Promise<string | undefined>
+  (
+    task: Task,
+    language?: 'vi' | 'en',
+    reminderDeliveryMode?: 'notification' | 'alarm',
+  ) => Promise<string | undefined>
 >();
 
 jest.mock('../store/PlannerContext', () => ({
@@ -27,6 +34,7 @@ jest.mock('../store/PlannerContext', () => ({
 jest.mock('../preferences/PreferencesContext', () => ({
   usePreferences: () => ({
     language: 'vi',
+    reminderDeliveryMode: 'notification',
     t: (key: string) => key,
   }),
 }));
@@ -35,14 +43,20 @@ jest.mock('../services/reminderTransaction', () => ({
   replaceTaskReminders: (
     tasks: Task[],
     existingTasks: Task[],
-    options?: { language?: 'vi' | 'en' },
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
   ) => mockReplaceTaskReminders(tasks, existingTasks, options),
 }));
 
 jest.mock('../services/notifications', () => ({
   cancelTaskReminder: jest.fn(async () => undefined),
-  scheduleTaskReminder: (task: Task, language?: 'vi' | 'en') =>
-    mockScheduleTaskReminder(task, language),
+  scheduleTaskReminder: (
+    task: Task,
+    language?: 'vi' | 'en',
+    reminderDeliveryMode?: 'notification' | 'alarm',
+  ) => mockScheduleTaskReminder(task, language, reminderDeliveryMode),
 }));
 
 interface TestRendererInstance {
@@ -132,7 +146,7 @@ describe('useTaskActions batch editing', () => {
     expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
       [expect.objectContaining({ id: 'task-1', batchId: undefined })],
       mockPlannerState.tasks,
-      { language: 'vi' },
+      { language: 'vi', reminderDeliveryMode: 'notification' },
     );
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'upsert_task',

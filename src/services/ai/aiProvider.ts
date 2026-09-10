@@ -1,4 +1,10 @@
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
+import type { TaskRecurrenceRule } from '../../types/recurrence';
+import {
+  addCalendarMonths,
+  buildTaskRecurrenceDates,
+} from '../../utils/taskBatch';
+import { addDays, fromDateKey, toDateKey } from '../../utils/date';
 import { isValidDateKey, resolveScheduleDate } from './dateIntent';
 import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
 import {
@@ -58,6 +64,84 @@ const SCHEDULE_RESPONSE_SCHEMA = {
   items: {
     type: 'object',
     additionalProperties: false,
+    properties: {
+      id: { type: 'string' },
+      title: { type: 'string' },
+      date: { type: 'string', format: 'date' },
+      startTime: { type: 'string' },
+      priority: { type: 'string', enum: ['high', 'medium', 'low', 'none'] },
+      reminderMinutes: {
+        type: ['integer', 'null'],
+        enum: [null, 0, 5, 10, 15, 30, 60],
+      },
+      recurrence: {
+        type: ['object', 'null'],
+        description:
+          'A compact recurrence rule, or null for a one-time task. Never enumerate occurrences.',
+        additionalProperties: false,
+        properties: {
+          frequency: {
+            type: 'string',
+            enum: ['daily', 'weekly', 'monthly'],
+          },
+          interval: { type: 'integer', minimum: 1, maximum: 365 },
+          startDate: { type: 'string', format: 'date' },
+          endDate: { type: ['string', 'null'], format: 'date' },
+          count: { type: ['integer', 'null'], minimum: 1, maximum: 366 },
+          weekdays: {
+            type: 'array',
+            items: { type: 'integer', minimum: 0, maximum: 6 },
+          },
+          monthDays: {
+            type: 'array',
+            items: { type: 'integer', minimum: -31, maximum: 31 },
+          },
+          monthlyWeekday: {
+            type: ['object', 'null'],
+            additionalProperties: false,
+            properties: {
+              weekday: { type: 'integer', minimum: 0, maximum: 6 },
+              ordinal: {
+                type: 'integer',
+                enum: [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5],
+              },
+            },
+            required: ['weekday', 'ordinal'],
+          },
+          excludedDates: {
+            type: 'array',
+            items: { type: 'string', format: 'date' },
+          },
+        },
+        required: [
+          'frequency',
+          'interval',
+          'startDate',
+          'endDate',
+          'count',
+          'weekdays',
+          'monthDays',
+          'monthlyWeekday',
+          'excludedDates',
+        ],
+      },
+    },
+    required: [
+      'id',
+      'title',
+      'date',
+      'startTime',
+      'priority',
+      'reminderMinutes',
+      'recurrence',
+    ],
+  },
+} as const;
+
+const REFINEMENT_RESPONSE_SCHEMA = {
+  ...SCHEDULE_RESPONSE_SCHEMA,
+  items: {
+    ...SCHEDULE_RESPONSE_SCHEMA.items,
     properties: {
       id: { type: 'string' },
       batchGroupId: { type: 'string' },
@@ -123,6 +207,88 @@ function normalizeReminder(value: unknown): AiDraftTask['reminderMinutes'] {
   return VALID_REMINDERS.has(reminder as AiDraftTask['reminderMinutes'])
     ? (reminder as AiDraftTask['reminderMinutes'])
     : 15;
+}
+
+function numberArray(
+  value: unknown,
+  isAllowed: (item: number) => boolean,
+): number[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.filter(
+    (item): item is number => Number.isInteger(item) && isAllowed(item),
+  ))).sort((first, second) => first - second);
+}
+
+function normalizeCloudRecurrence(
+  value: unknown,
+  defaultStartDate: string,
+): TaskRecurrenceRule | null {
+  if (value === null || value === undefined) return null;
+  const item = asRecord(value);
+  const frequency = nonEmptyString(item.frequency);
+  if (!frequency || !['daily', 'weekly', 'monthly'].includes(frequency)) {
+    return null;
+  }
+
+  const startDate = isValidDateKey(item.startDate)
+    ? item.startDate
+    : defaultStartDate;
+  const interval = Number.isInteger(item.interval) && Number(item.interval) > 0
+    ? Math.min(Number(item.interval), 365)
+    : 1;
+  const count = Number.isInteger(item.count) && Number(item.count) > 0
+    ? Math.min(Number(item.count), 366)
+    : undefined;
+  const endDate = isValidDateKey(item.endDate)
+    ? item.endDate
+    : count
+      ? toDateKey(addDays(fromDateKey(startDate), 365))
+      : addCalendarMonths(startDate, 3);
+  const weekdays = numberArray(item.weekdays, (day) => day >= 0 && day <= 6);
+  const monthDays = numberArray(
+    item.monthDays,
+    (day) => day !== 0 && day >= -31 && day <= 31,
+  );
+  const monthlyWeekdayValue = asRecord(item.monthlyWeekday);
+  const monthlyWeekday =
+    Number.isInteger(monthlyWeekdayValue.weekday) &&
+    Number(monthlyWeekdayValue.weekday) >= 0 &&
+    Number(monthlyWeekdayValue.weekday) <= 6 &&
+    Number.isInteger(monthlyWeekdayValue.ordinal) &&
+    Number(monthlyWeekdayValue.ordinal) !== 0 &&
+    Math.abs(Number(monthlyWeekdayValue.ordinal)) <= 5
+      ? {
+          weekday: Number(monthlyWeekdayValue.weekday),
+          ordinal: Number(monthlyWeekdayValue.ordinal),
+        }
+      : undefined;
+  const excludedDates = Array.isArray(item.excludedDates)
+    ? Array.from(new Set(item.excludedDates.filter(isValidDateKey)))
+    : [];
+
+  if (frequency === 'weekly' && weekdays.length === 0) return null;
+  if (
+    frequency === 'monthly' &&
+    monthDays.length === 0 &&
+    monthlyWeekday === undefined
+  ) {
+    return null;
+  }
+  if (frequency === 'monthly' && monthDays.length > 0 && monthlyWeekday) {
+    return null;
+  }
+
+  return {
+    frequency: frequency as TaskRecurrenceRule['frequency'],
+    interval,
+    startDate,
+    endDate,
+    count,
+    ...(frequency === 'weekly' ? { weekdays } : {}),
+    ...(frequency === 'monthly' && monthDays.length ? { monthDays } : {}),
+    ...(frequency === 'monthly' && monthlyWeekday ? { monthlyWeekday } : {}),
+    ...(excludedDates.length ? { excludedDates } : {}),
+  };
 }
 
 function normalizeCloudDraft(
@@ -340,22 +506,28 @@ Quy tắc quan trọng:
    - Chỉ để "" nếu hoàn toàn không có thông tin buổi hay giờ nào.
 5. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
 6. "priority": "high", "medium", "low", hoặc "none".
-7. NẾU YÊU CẦU TẠO LẶP LẠI/HÀNG LOẠT (ví dụ "mỗi thứ 2 và thứ 4 đến ngày 30/11", "ngày 15 hàng tháng"):
-   - Mở rộng thành một phần tử JSON cho TỪNG ngày diễn ra, trong khoảng tối đa 1 năm.
-   - Mỗi occurrence có "id" riêng nhưng dùng chung một "batchGroupId" không rỗng.
-   - Công việc không lặp phải có "batchGroupId": "".
-   - Giữ cùng title, startTime, priority và reminderMinutes cho mọi occurrence trong batch.
+7. "recurrence": hãy diễn giải Ý NGHĨA lặp lại thành một quy tắc gọn, KHÔNG tự liệt kê từng ngày:
+   - Không lặp: null.
+   - frequency là daily, weekly hoặc monthly; interval mặc định 1.
+   - weekday dùng quy ước Chủ nhật=0, Thứ Hai=1, ... Thứ Bảy=6.
+   - "mỗi sáng đi bộ" là daily. Giờ cụ thể như "6h sáng" vẫn phải thắng giờ mặc định của buổi.
+   - Danh sách thứ thường như "thứ 2 và thứ 5" là weekly, kể cả câu có thêm từ nối dài hoặc cụm "hàng tháng" không mô tả thứ tự trong tháng.
+   - Danh sách ngày trong tháng như "ngày 2 và ngày 5 hàng tháng" là monthly với monthDays [2,5].
+   - Chỉ dùng monthlyWeekday khi có thứ tự rõ ràng, ví dụ "Thứ Hai đầu mỗi tháng" là {weekday:1, ordinal:1}, "Thứ Sáu cuối tháng" là ordinal:-1.
+   - startDate là ngày bắt đầu hiệu lực. endDate là ngày kết thúc nếu người dùng nói; nếu không có thì null để Planly tự giới hạn mặc định. count chỉ có giá trị khi người dùng giới hạn số lần.
+   - weekdays/monthDays/excludedDates là [] và monthlyWeekday là null khi không dùng.
+   - Câu có hoặc không dấu, viết hoa/thường, hay nhiều từ nối vẫn phải được hiểu theo cùng ý nghĩa.
 
 Trả về duy nhất mảng JSON hợp lệ:
 [
   {
     "id": "giữ nguyên id từ danh sách việc cũ nếu sắp xếp lại, hoặc để trống nếu là việc mới",
-    "batchGroupId": "cùng giá trị cho các occurrence lặp, hoặc chuỗi rỗng nếu không lặp",
     "title": "Tên việc ngắn gọn",
     "date": "YYYY-MM-DD",
     "startTime": "HH:mm",
     "priority": "none",
-    "reminderMinutes": 15
+    "reminderMinutes": 15,
+    "recurrence": null
   }
 ]`;
 
@@ -388,7 +560,7 @@ Trả về duy nhất mảng JSON hợp lệ:
         if (!Array.isArray(parsed)) continue;
 
         const seenIds = new Set<string>();
-        return parsed.map<AiDraftTask>((value, index) => {
+        return parsed.flatMap<AiDraftTask>((value, index) => {
           const item = asRecord(value);
           const rawItemId = nonEmptyString(item.id);
           const itemTitle = nonEmptyString(item.title);
@@ -416,18 +588,43 @@ Trả về duy nhất mảng JSON hợp lệ:
           }
           seenIds.add(normalizedId);
 
-          return {
-            ...normalizeCloudDraft(item, {
-              id: normalizedId,
-              title: `Công việc ${index + 1}`,
-              date: effectiveDate,
-              source,
-              changeStatus,
-            }),
+          const normalized = normalizeCloudDraft(item, {
             id: normalizedId,
+            title: `Công việc ${index + 1}`,
+            date: effectiveDate,
             source,
             changeStatus,
-          };
+          });
+          const recurrence = normalizeCloudRecurrence(
+            item.recurrence,
+            normalized.date,
+          );
+          if (!recurrence) {
+            return [{
+              ...normalized,
+              id: normalizedId,
+              ...(item.recurrence !== null && item.recurrence !== undefined
+                ? { batchGroupId: `invalid-ai-recurrence-${index}` }
+                : {}),
+            }];
+          }
+
+          const occurrenceDates = buildTaskRecurrenceDates(recurrence);
+          if (!occurrenceDates.length) {
+            return [{
+              ...normalized,
+              id: normalizedId,
+              batchGroupId: `invalid-ai-recurrence-${index}`,
+            }];
+          }
+
+          const batchGroupId = `ai-batch-cloud-${Date.now()}-${index}`;
+          return occurrenceDates.map((date, occurrenceIndex) => ({
+            ...normalized,
+            id: `${normalizedId}-${occurrenceIndex}`,
+            date,
+            batchGroupId,
+          }));
         });
       } catch {
         continue;
@@ -463,7 +660,7 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            responseJsonSchema: SCHEDULE_RESPONSE_SCHEMA,
+            responseJsonSchema: REFINEMENT_RESPONSE_SCHEMA,
           },
         };
 

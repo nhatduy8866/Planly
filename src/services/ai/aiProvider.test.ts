@@ -270,10 +270,169 @@ describe('PlanlyAiProvider', () => {
     );
 
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-      generationConfig: { responseJsonSchema?: { type?: string }; responseSchema?: unknown };
+      generationConfig: {
+        responseJsonSchema?: {
+          type?: string;
+          items?: { properties?: Record<string, unknown> };
+        };
+        responseSchema?: unknown;
+      };
     };
     expect(request.generationConfig.responseJsonSchema?.type).toBe('array');
+    expect(
+      request.generationConfig.responseJsonSchema?.items?.properties,
+    ).toHaveProperty('recurrence');
+    expect(
+      request.generationConfig.responseJsonSchema?.items?.properties,
+    ).not.toHaveProperty('batchGroupId');
     expect(request.generationConfig.responseSchema).toBeUndefined();
+  });
+
+  it('expands one semantic AI recurrence with the shared date engine', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify([{
+                id: '',
+                title: 'Học yoga',
+                date: '2026-09-07',
+                startTime: '05:00',
+                reminderMinutes: 15,
+                priority: 'none',
+                recurrence: {
+                  frequency: 'weekly',
+                  interval: 1,
+                  startDate: '2026-09-07',
+                  endDate: '2026-09-17',
+                  count: null,
+                  weekdays: [1, 4],
+                  monthDays: [],
+                  monthlyWeekday: null,
+                  excludedDates: [],
+                },
+              }]),
+            }],
+          },
+        }],
+      }),
+    } as Response);
+    global.fetch = fetchMock;
+
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'MOI SANG THU 2 VA THU 5 HANG THANG VAO LUC 5H SE HOC YOGA den ngay 17/09/2026',
+      context,
+    );
+
+    expect(result.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-10',
+      '2026-09-14',
+      '2026-09-17',
+    ]);
+    expect(new Set(result.map((draft) => draft.id)).size).toBe(4);
+    expect(new Set(result.map((draft) => draft.batchGroupId)).size).toBe(1);
+  });
+
+  it('accepts a valid AI rule for wording the offline fallback does not know', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify([{
+                id: '',
+                title: 'Tưới cây',
+                date: '2026-09-07',
+                startTime: '07:00',
+                reminderMinutes: 15,
+                priority: 'none',
+                recurrence: {
+                  frequency: 'daily',
+                  interval: 2,
+                  startDate: '2026-09-07',
+                  endDate: '2026-09-13',
+                  count: null,
+                  weekdays: [],
+                  monthDays: [],
+                  monthlyWeekday: null,
+                  excludedDates: [],
+                },
+              }]),
+            }],
+          },
+        }],
+      }),
+    } as Response);
+    global.fetch = fetchMock;
+
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'cứ cách nhật lúc 7h tưới cây',
+      context,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-09',
+      '2026-09-11',
+      '2026-09-13',
+    ]);
+  });
+
+  it('asks Gemini to repair a malformed semantic recurrence rule', async () => {
+    const response = (recurrence: object) => ({
+      ok: true,
+      json: async () => ({
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify([{
+                id: '',
+                title: 'Đi bộ',
+                date: '2026-09-07',
+                startTime: '06:00',
+                reminderMinutes: 15,
+                priority: 'none',
+                recurrence,
+              }]),
+            }],
+          },
+        }],
+      }),
+    } as Response);
+    const fetchMock = jest.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({
+        frequency: 'weekly',
+        interval: 1,
+        startDate: '2026-09-07',
+        endDate: '2026-09-14',
+        weekdays: [],
+      }))
+      .mockResolvedValueOnce(response({
+        frequency: 'daily',
+        interval: 1,
+        startDate: '2026-09-07',
+        endDate: '2026-09-09',
+        weekdays: [],
+      }));
+    global.fetch = fetchMock;
+
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'mỗi sáng đi bộ lúc 6h đến ngày 09/09/2026',
+      context,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][1]?.body)).toContain('batch_mismatch');
+    expect(result.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-08',
+      '2026-09-09',
+    ]);
   });
 
   it('falls back locally after one unsuccessful Gemini repair', async () => {

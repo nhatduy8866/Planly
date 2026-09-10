@@ -97,7 +97,7 @@ function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
   title = replaceVietnameseMatches(title, /^toi\s+/, '');
   title = replaceVietnameseMatches(
     title,
-    /^(?:lam|can|phai|hay)\s+/,
+    /^(?:lam|can|phai|hay|se)\s+/,
     '',
   );
   title = title.replace(/\s+(?:nhé|nhe)\s*(?=$|[, .!?])/gi, ' ');

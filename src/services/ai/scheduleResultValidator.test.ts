@@ -85,7 +85,7 @@ describe('validateAiScheduleResult', () => {
     );
   });
 
-  it('requires cloud recurrence results to preserve every batch occurrence', () => {
+  it('requires a clear recurrence request to return a grouped result', () => {
     const localBatch = [
       draft({ id: 'local-1', date: '2026-09-07', batchGroupId: 'local-batch' }),
       draft({ id: 'local-2', date: '2026-09-09', batchGroupId: 'local-batch' }),
@@ -102,14 +102,14 @@ describe('validateAiScheduleResult', () => {
     expect(result.issues.map((issue) => issue.code)).toContain('batch_mismatch');
   });
 
-  it('accepts equivalent recurrence dates with a different temporary group ID', () => {
+  it('accepts valid recurrence dates without treating local parsing as ground truth', () => {
     const localBatch = [
       draft({ id: 'local-1', date: '2026-09-07', batchGroupId: 'local-batch' }),
       draft({ id: 'local-2', date: '2026-09-09', batchGroupId: 'local-batch' }),
     ];
     const cloudBatch = [
       draft({ id: 'cloud-1', date: '2026-09-07', batchGroupId: 'cloud-batch' }),
-      draft({ id: 'cloud-2', date: '2026-09-09', batchGroupId: 'cloud-batch' }),
+      draft({ id: 'cloud-2', date: '2026-09-11', batchGroupId: 'cloud-batch' }),
     ];
 
     expect(
@@ -121,10 +121,30 @@ describe('validateAiScheduleResult', () => {
     ).toBe(true);
   });
 
-  it('rejects a batch group when the request is not recurring', () => {
+  it('accepts a structurally valid AI recurrence even if local cue detection misses it', () => {
     const result = validateAiScheduleResult(
-      'tao lich 14h da bong',
-      [draft({ batchGroupId: 'unexpected-batch' })],
+      'tao lich theo nhip rieng da duoc cau hinh',
+      [
+        draft({ id: 'cloud-1', date: '2026-09-10', batchGroupId: 'cloud-batch' }),
+        draft({ id: 'cloud-2', date: '2026-09-12', batchGroupId: 'cloud-batch' }),
+      ],
+      localDrafts,
+    );
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects inconsistent or duplicate occurrences inside a batch', () => {
+    const result = validateAiScheduleResult(
+      'tao lich tap gym lap lai',
+      [
+        draft({ id: 'cloud-1', batchGroupId: 'cloud-batch' }),
+        draft({
+          id: 'cloud-2',
+          title: 'Việc khác',
+          batchGroupId: 'cloud-batch',
+        }),
+      ],
       localDrafts,
     );
 

@@ -1,7 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 
 import type { Task } from '../types';
-import { filterScheduleTasksForView } from './scheduleTasks';
+import {
+  filterScheduleTasksForView,
+  getDefaultScheduleTaskView,
+} from './scheduleTasks';
 
 function createTask(id: string, overrides: Partial<Task> = {}): Task {
   return {
@@ -69,5 +72,11 @@ describe('schedule task views', () => {
       'completed-future',
       'completed-past',
     ]);
+  });
+
+  it('defaults past days to all and current or future days to upcoming', () => {
+    expect(getDefaultScheduleTaskView('2026-09-07', now)).toBe('all');
+    expect(getDefaultScheduleTaskView('2026-09-08', now)).toBe('upcoming');
+    expect(getDefaultScheduleTaskView('2026-09-09', now)).toBe('upcoming');
   });
 });

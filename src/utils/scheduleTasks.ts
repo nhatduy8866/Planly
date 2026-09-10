@@ -1,7 +1,14 @@
 import type { Task } from '../types';
-import { taskDateTime } from './date';
+import { taskDateTime, toDateKey } from './date';
 
 export type ScheduleTaskView = 'upcoming' | 'past' | 'all';
+
+export function getDefaultScheduleTaskView(
+  selectedDate: string,
+  now = new Date(),
+): ScheduleTaskView {
+  return selectedDate < toDateKey(now) ? 'all' : 'upcoming';
+}
 
 export function filterScheduleTasksForView(
   tasks: Task[],

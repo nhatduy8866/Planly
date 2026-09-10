@@ -45,6 +45,7 @@ import {
 } from '../utils/date';
 import {
   filterScheduleTasksForView,
+  getDefaultScheduleTaskView,
   type ScheduleTaskView,
 } from '../utils/scheduleTasks';
 
@@ -177,11 +178,18 @@ export function ScheduleScreen() {
     ? colors[CALENDAR_HEADER_BORDER_KEYS[calendarPeriodColorIndex]]
     : colors.border;
 
-  const goToday = useCallback(() => {
+  const selectDate = useCallback((date: string) => {
+    const now = new Date();
     animateTaskListTransition();
-    setSelectedDate(todayKey());
-    setCursor(new Date());
+    setSelectedDate(date);
+    setCursor(fromDateKey(date));
+    setTaskView(getDefaultScheduleTaskView(date, now));
+    setCurrentTime(now);
   }, []);
+
+  const goToday = useCallback(() => {
+    selectDate(todayKey());
+  }, [selectDate]);
 
   useEffect(
     () => registerTodayHandler(goToday),
@@ -270,13 +278,7 @@ export function ScheduleScreen() {
     };
   }, []);
 
-  const handleAiNavigateDate = useCallback((date: string) => {
-    animateTaskListTransition();
-    setSelectedDate(date);
-    setCursor(fromDateKey(date));
-  }, []);
-
-  const aiScheduler = useAiScheduler(selectedDate, handleAiNavigateDate);
+  const aiScheduler = useAiScheduler(selectedDate, selectDate);
 
   const dayTasks = useMemo(
     () =>
@@ -355,12 +357,6 @@ export function ScheduleScreen() {
     [toggleTask],
   );
 
-  function selectDate(date: string) {
-    animateTaskListTransition();
-    setSelectedDate(date);
-    setCursor(fromDateKey(date));
-  }
-
   function navigate(amount: -1 | 1) {
     const current = fromDateKey(selectedDate);
     const next = mode === 'week' ? addDays(current, amount * 7) : shiftMonth(current, amount);
@@ -370,8 +366,7 @@ export function ScheduleScreen() {
   async function handleSave(values: TaskFormValues) {
     await saveTask(values, editingTask);
     const firstCreatedDate = values.batchDates?.[0] ?? values.date;
-    setSelectedDate(firstCreatedDate);
-    setCursor(fromDateKey(firstCreatedDate));
+    selectDate(firstCreatedDate);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 

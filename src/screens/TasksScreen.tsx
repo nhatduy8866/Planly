@@ -25,6 +25,7 @@ import {
   type TaskFormValues,
 } from '../components/TaskFormModal';
 import { AiScheduleModal } from '../components/ai/AiScheduleModal';
+import { AiSaveSnackbar } from '../components/ai/AiSaveSnackbar';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useMinuteClock } from '../hooks/useMinuteClock';
@@ -243,6 +244,7 @@ export function TasksScreen() {
           >
             <TaskCard
               compact
+              highlighted={aiScheduler.highlightedTaskIds.has(task.id)}
               task={task}
               onToggle={handleToggleTask}
               onEdit={handleEditTask}
@@ -268,9 +270,16 @@ export function TasksScreen() {
 
       <AiScheduleModal
         scheduler={aiScheduler}
-        successPrimaryLabel={t('tasks.viewList')}
         targetDate={aiTargetDate}
         onOpenManualTaskModal={openCreate}
+      />
+
+      <AiSaveSnackbar
+        action="undo"
+        busy={aiScheduler.undoingSave}
+        feedback={aiScheduler.saveFeedback}
+        onAction={() => void aiScheduler.undoLastSave()}
+        onDismiss={aiScheduler.dismissSaveFeedback}
       />
 
       {formVisible ? (

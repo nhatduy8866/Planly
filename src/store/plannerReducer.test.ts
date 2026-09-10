@@ -260,4 +260,32 @@ describe('plannerReducer', () => {
       startTime: '14:00',
     });
   });
+
+  it('atomically removes created tasks and restores updated tasks on rollback', () => {
+    const updated = task({ id: 'updated', title: 'Tên mới' });
+    const created = task({ id: 'created', title: 'Việc mới' });
+    const unrelated = task({ id: 'unrelated', title: 'Giữ nguyên' });
+    const previous = task({ id: 'updated', title: 'Tên cũ' });
+
+    const result = plannerReducer(
+      {
+        ...initialPlannerState,
+        hydrated: true,
+        tasks: [updated, unrelated, created],
+      },
+      {
+        type: 'rollback_task_batch',
+        payload: {
+          savedIds: ['updated', 'created'],
+          previousTasks: [previous],
+        },
+      },
+    );
+
+    expect(result.tasks.map((item) => item.id)).toEqual([
+      'updated',
+      'unrelated',
+    ]);
+    expect(result.tasks[0].title).toBe('Tên cũ');
+  });
 });

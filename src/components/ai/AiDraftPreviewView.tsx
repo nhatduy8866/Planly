@@ -19,6 +19,7 @@ interface AiDraftPreviewViewProps {
   drafts: AiDraftTask[];
   targetDate: string;
   onConfirm: () => void;
+  onEditDraft: (draftId: string) => void;
   onRefine: () => void;
   onBack: () => void;
 }
@@ -28,6 +29,7 @@ export function AiDraftPreviewView({
   drafts,
   targetDate,
   onConfirm,
+  onEditDraft,
   onRefine,
   onBack,
 }: AiDraftPreviewViewProps) {
@@ -106,7 +108,18 @@ export function AiDraftPreviewView({
                       {tagLabel}
                     </Text>
                   </View>
-                  <MaterialIcons name="more-vert" size={20} color={colors.textMuted} />
+                  <Pressable
+                    accessibilityLabel={t('ai.editDraftTask', { title: task.title })}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => onEditDraft(task.id)}
+                    style={({ pressed }) => [
+                      styles.editButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <MaterialIcons name="more-vert" size={20} color={colors.textMuted} />
+                  </Pressable>
                 </View>
               </View>
 
@@ -260,6 +273,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   badgeTextUpdated: {
     color: colors.aiUpdatedTagText,
+  },
+  editButton: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
   taskTitle: {
     color: colors.text,

@@ -19,6 +19,7 @@ export type AiModalStep =
 export interface AiDraftTask {
   id: string; // UUID tạm thời để định danh trong danh sách preview
   title: string;
+  description?: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:mm hoặc rỗng nếu chưa có giờ
   reminderMinutes: ReminderMinutes;

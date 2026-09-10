@@ -42,6 +42,7 @@ export interface TaskFormValues {
   date: string;
   startTime: string;
   reminderMinutes: ReminderMinutes;
+  color?: string;
   priority: TaskPriority;
   batchDates?: string[];
   applyToBatch?: boolean;
@@ -57,6 +58,21 @@ interface TaskFormModalProps {
 
 type PickerTarget = 'date' | 'time' | 'batchEnd' | null;
 type BatchMode = 'weekly' | 'monthly';
+
+export const CARD_COLOR_PRESETS = [
+  '#A78BFA',
+  '#60A5FA',
+  '#34D399',
+  '#FBBF24',
+  '#F472B6',
+  '#C084FC',
+  '#FB923C',
+  '#A3E635',
+  '#2DD4BF',
+  '#F87171',
+  '#FACC15',
+  '#94A3B8',
+] as const;
 
 const MAX_CUSTOM_REMINDER_MINUTES = 10_080;
 const REMINDER_PRESET_VALUES = [0, 5, 15, 30, 60] as const;
@@ -99,6 +115,7 @@ export function TaskFormModal({
   const [description, setDescription] = useState(task?.description ?? '');
   const [date, setDate] = useState(initialDate);
   const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
+  const [color, setColor] = useState<string | undefined>(task?.color);
   const [reminder, setReminder] = useState(initialReminder);
   const [customReminder, setCustomReminder] = useState(
     isReminderPreset(initialReminder) ? '' : String(initialReminder),
@@ -246,6 +263,7 @@ export function TaskFormModal({
         date,
         startTime,
         reminderMinutes,
+        color,
         priority,
         batchDates: !task && batchEnabled ? batchDates : undefined,
         applyToBatch: task?.batchId ? applyToBatch : undefined,
@@ -612,6 +630,68 @@ export function TaskFormModal({
                       );
                     })}
                   </View>
+
+                  <Text style={styles.label}>{t('taskForm.cardColor')}</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.colorPalette}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        setColor(undefined);
+                        void Haptics.selectionAsync();
+                      }}
+                      style={({ pressed }) => [
+                        styles.colorChip,
+                        !color && styles.colorChipSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={styles.randomColorCircle}>
+                        <MaterialIcons
+                          name="shuffle"
+                          size={15}
+                          color={!color ? colors.primaryDark : colors.textMuted}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.colorChipText,
+                          !color && styles.colorChipTextSelected,
+                        ]}
+                      >
+                        {t('taskForm.colorRandom')}
+                      </Text>
+                    </Pressable>
+                    {CARD_COLOR_PRESETS.map((presetColor) => {
+                      const isSelected = color === presetColor;
+                      return (
+                        <Pressable
+                          key={presetColor}
+                          accessibilityLabel={presetColor}
+                          onPress={() => {
+                            setColor(presetColor);
+                            void Haptics.selectionAsync();
+                          }}
+                          style={({ pressed }) => [
+                            styles.colorCircle,
+                            { backgroundColor: presetColor },
+                            isSelected && styles.colorCircleSelected,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          {isSelected ? (
+                            <MaterialIcons
+                              name="check"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
 
                   {task?.batchId ? (
                     <View style={styles.batchSection}>
@@ -1134,6 +1214,60 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
       fontSize: 12,
       fontWeight: '700',
+    },
+    colorPalette: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 6,
+      paddingVertical: 4,
+    },
+    colorChip: {
+      alignItems: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderColor: colors.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    colorChipSelected: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    colorChipText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    colorChipTextSelected: {
+      color: colors.primaryDark,
+      fontWeight: '800',
+    },
+    randomColorCircle: {
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      height: 24,
+      justifyContent: 'center',
+      width: 24,
+    },
+    colorCircle: {
+      alignItems: 'center',
+      borderColor: 'transparent',
+      borderRadius: 16,
+      borderWidth: 2,
+      height: 32,
+      justifyContent: 'center',
+      width: 32,
+    },
+    colorCircleSelected: {
+      borderColor: colors.text,
+      transform: [{ scale: 1.1 }],
     },
     batchSection: {
       borderTopColor: colors.border,

@@ -15,6 +15,7 @@ export interface Task {
   date: string;
   startTime: string;
   reminderMinutes: ReminderMinutes;
+  color?: string;
   notificationId?: string;
   batchId?: string;
   completed: boolean;

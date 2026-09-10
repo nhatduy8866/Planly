@@ -129,4 +129,22 @@ describe('TaskCard Component', () => {
 
     act(() => tree.unmount());
   });
+
+  it('uses task.color for card accent when specified', () => {
+    const { tree } = renderTaskCard({
+      task: { ...mockTask, color: '#F472B6' },
+    });
+
+    const card = tree.root.findByProps({
+      accessibilityElementsHidden: false,
+    });
+    expect(card.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          borderColor: '#F472B6',
+          borderLeftColor: '#F472B6',
+        }),
+      ]),
+    );
+  });
 });

@@ -4,7 +4,7 @@ import { addDays, fromDateKey, toDateKey } from './date';
 export type TaskEditValues = Pick<
   Task,
   'title' | 'description' | 'date' | 'startTime' | 'reminderMinutes'
-> & { priority: TaskPriority };
+> & { priority: TaskPriority; color?: string };
 
 interface BuildTaskEditsOptions {
   applyToBatch: boolean;
@@ -35,6 +35,7 @@ export function hasTaskEditChanges(
     task.date !== values.date ||
     task.startTime !== values.startTime ||
     task.reminderMinutes !== values.reminderMinutes ||
+    task.color !== values.color ||
     (task.priority ?? 'none') !== values.priority
   );
 }
@@ -87,6 +88,7 @@ export function buildTaskEdits(
       date: targetDate,
       startTime: values.startTime,
       reminderMinutes: values.reminderMinutes,
+      color: values.color,
       priority: values.priority,
       notificationId: undefined,
       batchId: detachesFromBatch ? undefined : source.batchId,

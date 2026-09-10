@@ -80,9 +80,11 @@ export const TaskCard = memo(function TaskCard({
 }: TaskCardProps) {
   const { colorfulAccents, colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
-  const cardAccent = colorfulAccents
-    ? colors[CARD_ACCENT_KEYS[getStableAccentIndex(task.id)]]
-    : colors.border;
+  const cardAccent = task.color
+    ? task.color
+    : colorfulAccents
+      ? colors[CARD_ACCENT_KEYS[getStableAccentIndex(task.id)]]
+      : colors.border;
   const isCompleted = task.completed || completionPending;
   const [completionProgress] = useState(
     () => new Animated.Value(isCompleted ? 1 : 0),

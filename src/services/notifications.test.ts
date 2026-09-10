@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 
 import type { Task } from '../types';
+import { isExpoGoRuntime } from '../utils/expoRuntime';
 import * as Alarms from './alarms';
 import {
   cancelTaskReminder,
@@ -21,6 +22,10 @@ jest.mock('./alarms', () => ({
   getScheduledTaskAlarms: jest.fn(async () => []),
   isAlarmReminderId: jest.fn((id?: string) => id?.startsWith('alarm:')),
   scheduleTaskAlarm: jest.fn(),
+}));
+
+jest.mock('../utils/expoRuntime', () => ({
+  isExpoGoRuntime: jest.fn(() => false),
 }));
 
 jest.mock('expo-notifications', () => ({
@@ -50,6 +55,7 @@ const mockCancelTaskAlarm = jest.mocked(Alarms.cancelTaskAlarm);
 const mockGetAlarmPermission = jest.mocked(Alarms.getAlarmPermission);
 const mockGetScheduledTaskAlarms = jest.mocked(Alarms.getScheduledTaskAlarms);
 const mockScheduleTaskAlarm = jest.mocked(Alarms.scheduleTaskAlarm);
+const mockIsExpoGoRuntime = jest.mocked(isExpoGoRuntime);
 
 function permission(
   status: 'denied' | 'granted' | 'undetermined',
@@ -85,6 +91,7 @@ describe('notification foundation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsExpoGoRuntime.mockReturnValue(false);
     mockGetAlarmPermission.mockResolvedValue({
       available: true,
       canOpenSettings: true,
@@ -205,6 +212,21 @@ describe('notification foundation', () => {
       expect.objectContaining({
         content: expect.objectContaining({ sound: 'default' }),
       }),
+    );
+  });
+
+  it('omits the sound file from iOS notifications inside Expo Go', async () => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
+    mockIsExpoGoRuntime.mockReturnValue(true);
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    scheduleNotificationAsync.mockResolvedValue('notification-1');
+
+    await expect(scheduleTaskReminder(makeFutureTask(), 'vi')).resolves.toBe(
+      'notification-1',
+    );
+
+    expect(scheduleNotificationAsync.mock.calls[0]?.[0].content).not.toHaveProperty(
+      'sound',
     );
   });
 

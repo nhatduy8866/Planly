@@ -61,3 +61,24 @@ export async function replaceTaskReminders(
     }),
   );
 }
+
+/**
+ * Rolls back a saved task batch. New reminders are cancelled, while reminders
+ * belonging to updated tasks are replaced with freshly scheduled originals.
+ */
+export async function rollbackTaskReminders(
+  savedTasks: Task[],
+  previousTasks: Task[],
+  options: ReplaceTaskReminderOptions = {},
+): Promise<Task[]> {
+  const { dependencies = defaultDependencies } = options;
+  const previousIds = new Set(previousTasks.map((task) => task.id));
+
+  await Promise.all(
+    savedTasks
+      .filter((task) => !previousIds.has(task.id))
+      .map((task) => dependencies.cancelReminder(task.notificationId)),
+  );
+
+  return replaceTaskReminders(previousTasks, savedTasks, options);
+}

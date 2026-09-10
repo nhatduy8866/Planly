@@ -60,6 +60,7 @@ const SCHEDULE_RESPONSE_SCHEMA = {
     additionalProperties: false,
     properties: {
       id: { type: 'string' },
+      batchGroupId: { type: 'string' },
       title: { type: 'string' },
       date: { type: 'string', format: 'date' },
       startTime: { type: 'string' },
@@ -71,6 +72,7 @@ const SCHEDULE_RESPONSE_SCHEMA = {
     },
     required: [
       'id',
+      'batchGroupId',
       'title',
       'date',
       'startTime',
@@ -87,6 +89,7 @@ interface RepairRequest {
 
 interface CloudDraftDefaults {
   id: string;
+  batchGroupId?: string;
   title: string;
   date: string;
   source: AiDraftTask['source'];
@@ -133,6 +136,8 @@ function normalizeCloudDraft(
 
   return {
     id: nonEmptyString(item.id) || defaults.id,
+    batchGroupId:
+      nonEmptyString(item.batchGroupId) || defaults.batchGroupId,
     title: nonEmptyString(item.title) || defaults.title,
     date: isValidDateKey(item.date) ? item.date : defaults.date,
     startTime: normalizeStartTime(item.startTime),
@@ -335,11 +340,17 @@ Quy tắc quan trọng:
    - Chỉ để "" nếu hoàn toàn không có thông tin buổi hay giờ nào.
 5. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
 6. "priority": "high", "medium", "low", hoặc "none".
+7. NẾU YÊU CẦU TẠO LẶP LẠI/HÀNG LOẠT (ví dụ "mỗi thứ 2 và thứ 4 đến ngày 30/11", "ngày 15 hàng tháng"):
+   - Mở rộng thành một phần tử JSON cho TỪNG ngày diễn ra, trong khoảng tối đa 1 năm.
+   - Mỗi occurrence có "id" riêng nhưng dùng chung một "batchGroupId" không rỗng.
+   - Công việc không lặp phải có "batchGroupId": "".
+   - Giữ cùng title, startTime, priority và reminderMinutes cho mọi occurrence trong batch.
 
 Trả về duy nhất mảng JSON hợp lệ:
 [
   {
     "id": "giữ nguyên id từ danh sách việc cũ nếu sắp xếp lại, hoặc để trống nếu là việc mới",
+    "batchGroupId": "cùng giá trị cho các occurrence lặp, hoặc chuỗi rỗng nếu không lặp",
     "title": "Tên việc ngắn gọn",
     "date": "YYYY-MM-DD",
     "startTime": "HH:mm",
@@ -440,10 +451,10 @@ Trả về duy nhất mảng JSON hợp lệ:
 Danh sách hiện tại: ${JSON.stringify(currentDrafts)}
 Câu lệnh tinh chỉnh: "${instruction}"${repairInstruction}
 Ngữ cảnh ngày: ${context.targetDate}
-Người dùng có thể nhập tiếng Việt không dấu; hãy hiểu tương đương bản có dấu và giữ đúng id của công việc được nhắc đến.
+Người dùng có thể nhập tiếng Việt không dấu; hãy hiểu tương đương bản có dấu và giữ đúng id, batchGroupId của công việc được nhắc đến.
 
 Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc hoặc dời giờ bắt đầu).
-Luôn giữ nguyên id của công việc cũ; Planly sẽ tự tính trạng thái thay đổi sau khi nhận kết quả.`;
+Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự tính trạng thái thay đổi sau khi nhận kết quả.`;
 
     for (const model of models) {
       try {
@@ -502,6 +513,7 @@ Luôn giữ nguyên id của công việc cũ; Planly sẽ tự tính trạng th
 
           const normalized = normalizeCloudDraft(item, {
             id: normalizedId,
+            batchGroupId: matchedDraft?.batchGroupId,
             title: `Công việc ${index + 1}`,
             date: matchedDraft?.date || context.targetDate,
             source: matchedDraft?.source || 'direct_request',

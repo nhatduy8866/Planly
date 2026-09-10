@@ -26,6 +26,26 @@ mandatory source of truth for all Git operations.
   guideline, accurately stating branch, tests, commit, push, Pull Request, and
   merge status.
 
+## Minimal Testing Policy
+
+Apply this policy to every task in this repository unless the user explicitly
+requests deeper testing:
+
+- Use the minimum verification needed for the requested change.
+- For documentation, instructions, or other non-executable changes, do not run
+  automated tests unless the change can affect executable behavior.
+- For code changes, run only the narrowest directly relevant test, type check,
+  or lint command. Prefer a specific test file or affected file over a full
+  project command.
+- Do not run the full Jest suite, repository-wide lint, Expo Doctor, native
+  builds, end-to-end tests, or broad regression checks by default.
+- Run deeper or broader testing only when the user explicitly asks for it.
+- If minimal verification cannot provide reasonable confidence, report the
+  unverified risk instead of silently expanding the test scope.
+- The workflow guideline's requirement to run appropriate tests means the
+  minimal, targeted verification defined here; it does not require every
+  quality command after every request.
+
 If these instructions conflict with an ad hoc shortcut, follow the repository
 workflow unless the user explicitly supplies a valid exception that does not
 risk other developers' work or repository stability.

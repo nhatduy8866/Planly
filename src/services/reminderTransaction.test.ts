@@ -1,7 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
 import type { Task } from '../types';
-import { replaceTaskReminders } from './reminderTransaction';
+import {
+  replaceTaskReminders,
+  rollbackTaskReminders,
+} from './reminderTransaction';
 
 jest.mock('./notifications', () => ({
   cancelTaskReminder: jest.fn(),
@@ -112,5 +115,37 @@ describe('replaceTaskReminders', () => {
     expect(cancelReminder).toHaveBeenNthCalledWith(2, 'old-2');
     expect(result[0].notificationId).toBeUndefined();
     expect(result[1].notificationId).toBe('new-2');
+  });
+});
+
+describe('rollbackTaskReminders', () => {
+  it('cancels new task reminders and restores reminders for updated tasks', async () => {
+    const savedTasks = [
+      makeTask({ id: 'updated', notificationId: 'new-updated' }),
+      makeTask({ id: 'created', notificationId: 'new-created' }),
+    ];
+    const previousTasks = [
+      makeTask({ id: 'updated', notificationId: 'old-updated' }),
+    ];
+    const cancelReminder = jest.fn(async () => undefined);
+    const scheduleReminder = jest.fn(async () => 'restored-updated');
+
+    const restored = await rollbackTaskReminders(savedTasks, previousTasks, {
+      dependencies: { cancelReminder, scheduleReminder },
+    });
+
+    expect(cancelReminder).toHaveBeenCalledWith('new-created');
+    expect(cancelReminder).toHaveBeenCalledWith('new-updated');
+    expect(scheduleReminder).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'updated', notificationId: undefined }),
+      'vi',
+      'notification',
+    );
+    expect(restored).toEqual([
+      expect.objectContaining({
+        id: 'updated',
+        notificationId: 'restored-updated',
+      }),
+    ]);
   });
 });

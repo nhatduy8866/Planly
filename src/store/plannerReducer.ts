@@ -23,6 +23,10 @@ export type PlannerAction =
       payload: { id: string; notificationId: string | undefined }[];
     }
   | { type: 'create_batch_tasks'; payload: Task[] }
+  | {
+      type: 'rollback_task_batch';
+      payload: { savedIds: string[]; previousTasks: Task[] };
+    }
   | { type: 'delete_task'; payload: { id: string } }
   | { type: 'toggle_task'; payload: { id: string } }
   | { type: 'move_task'; payload: { id: string; direction: -1 | 1 } }
@@ -87,6 +91,32 @@ export function plannerReducer(
       const newIds = new Set(action.payload.map((t) => t.id));
       const remainingTasks = state.tasks.filter((t) => !newIds.has(t.id));
       return { ...state, tasks: [...remainingTasks, ...action.payload] };
+    }
+    case 'rollback_task_batch': {
+      const savedIds = new Set(action.payload.savedIds);
+      const previousById = new Map(
+        action.payload.previousTasks.map((task) => [task.id, task]),
+      );
+      const restoredIds = new Set<string>();
+      const tasks: Task[] = [];
+
+      for (const task of state.tasks) {
+        if (!savedIds.has(task.id)) {
+          tasks.push(task);
+          continue;
+        }
+        const previous = previousById.get(task.id);
+        if (previous) {
+          tasks.push(previous);
+          restoredIds.add(previous.id);
+        }
+      }
+
+      for (const previous of action.payload.previousTasks) {
+        if (!restoredIds.has(previous.id)) tasks.push(previous);
+      }
+
+      return { ...state, tasks };
     }
     case 'delete_task':
       return {

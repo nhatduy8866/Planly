@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../preferences/PreferencesContext';
@@ -9,11 +9,30 @@ import {
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
 import { defaultAiProvider } from '../services/ai/aiProvider';
+import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { detectConflicts } from '../services/ai/conflictDetector';
 import { autoSlotTasks } from '../services/ai/slottingEngine';
-import { replaceTaskReminders } from '../services/reminderTransaction';
+import {
+  replaceTaskReminders,
+  rollbackTaskReminders,
+} from '../services/reminderTransaction';
 import { formatLongDate, todayKey } from '../utils/date';
+import { createId } from '../utils/id';
+
+const SAVE_FEEDBACK_DURATION_MS = 6_000;
+const TASK_HIGHLIGHT_DURATION_MS = 2_400;
+
+export interface AiSaveFeedback {
+  createdCount: number;
+  tasks: Pick<Task, 'date' | 'id' | 'startTime' | 'title'>[];
+  updatedCount: number;
+}
+
+interface AiUndoSnapshot {
+  previousTasks: Task[];
+  savedTasks: Task[];
+}
 
 export function useAiScheduler(
   targetDate: string,
@@ -31,6 +50,19 @@ export function useAiScheduler(
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
   const [refinementInput, setRefinementInput] = useState('');
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<AiSaveFeedback | null>(null);
+  const [highlightedTaskIds, setHighlightedTaskIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [undoingSave, setUndoingSave] = useState(false);
+  const undoSnapshotRef = useRef<AiUndoSnapshot | null>(null);
+  const undoingSaveRef = useRef(false);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const context: AiSchedulingContext = useMemo(() => {
     const realToday = todayKey();
@@ -44,17 +76,50 @@ export function useAiScheduler(
     };
   }, [locale, targetDate, tasks]);
 
+  const clearFeedbackTimer = useCallback(() => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = undefined;
+    }
+  }, []);
+
+  const dismissSaveFeedback = useCallback(() => {
+    clearFeedbackTimer();
+    undoSnapshotRef.current = null;
+    undoingSaveRef.current = false;
+    setSaveFeedback(null);
+    setUndoingSave(false);
+  }, [clearFeedbackTimer]);
+
+  const highlightTasks = useCallback((taskIds: string[]) => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedTaskIds(new Set(taskIds));
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedTaskIds(new Set());
+      highlightTimeoutRef.current = undefined;
+    }, TASK_HIGHLIGHT_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => {
+    clearFeedbackTimer();
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+  }, [clearFeedbackTimer]);
+
   const openActionSheet = useCallback(() => {
+    dismissSaveFeedback();
     setInfoMessage(null);
     setStep('menu_action_sheet');
     setVisible(true);
-  }, []);
+  }, [dismissSaveFeedback]);
 
   const openDirectPrompt = useCallback(() => {
+    dismissSaveFeedback();
     setInfoMessage(null);
     setStep('input_prompt');
     setVisible(true);
-  }, []);
+  }, [dismissSaveFeedback]);
 
   const close = useCallback(() => {
     setVisible(false);
@@ -117,7 +182,9 @@ export function useAiScheduler(
         setDraftTasks(parsedDrafts);
         setStep('draft_preview');
       } catch (err) {
-        if (err instanceof AiScheduleClarificationError) {
+        if (err instanceof AiBatchScheduleError) {
+          setInfoMessage(t('ai.batchInvalid'));
+        } else if (err instanceof AiScheduleClarificationError) {
           setInfoMessage(
             t('ai.clarifyUnaccentedTime', { hour: err.hour }),
           );
@@ -216,6 +283,27 @@ export function useAiScheduler(
     setStep('refinement_chat');
   }, []);
 
+  const updateDraftTask = useCallback((
+    draftId: string,
+    values: Pick<
+      AiDraftTask,
+      'title' | 'description' | 'date' | 'startTime' | 'reminderMinutes' | 'priority'
+    >,
+  ) => {
+    setDraftTasks((currentDrafts) =>
+      currentDrafts.map((draft) =>
+        draft.id === draftId
+          ? {
+              ...draft,
+              ...values,
+              changeStatus: draft.changeStatus === 'added' ? 'added' : 'updated',
+            }
+          : draft,
+      ),
+    );
+    setConflicts([]);
+  }, []);
+
   // Gửi lệnh chỉnh sửa bằng AI (Màn 6 -> 4 -> 7)
   const submitRefinement = useCallback(
     async (instruction: string) => {
@@ -270,7 +358,7 @@ export function useAiScheduler(
     [draftTasks, context, tasks, t],
   );
 
-  // Xác nhận lưu vào lịch (Màn 5 hoặc 7 -> Màn 10 Thành công)
+  // Xác nhận lưu vào lịch rồi đóng modal và phản hồi trên màn hình hiện tại.
   const confirmSaveToCalendar = useCallback(async () => {
     if (!draftTasks.length) return;
 
@@ -291,18 +379,44 @@ export function useAiScheduler(
 
     const nowIso = new Date().toISOString();
     const existingMap = new Map(tasks.map((t) => [t.id, t]));
+    const batchIds = new Map<string, string>();
+    const nextOrderByDate = new Map<string, number>();
+
+    for (const draft of draftTasks) {
+      if (draft.batchGroupId && !batchIds.has(draft.batchGroupId)) {
+        batchIds.set(draft.batchGroupId, createId('batch'));
+      }
+    }
+
+    function takeNextOrder(date: string): number {
+      const cachedOrder = nextOrderByDate.get(date);
+      if (cachedOrder !== undefined) {
+        nextOrderByDate.set(date, cachedOrder + 1);
+        return cachedOrder;
+      }
+      const nextOrder = tasks
+        .filter((task) => task.date === date)
+        .reduce((max, task) => Math.max(max, task.order ?? -1), -1) + 1;
+      nextOrderByDate.set(date, nextOrder + 1);
+      return nextOrder;
+    }
 
     const tasksToSave: Task[] = draftTasks.map((draft, idx) => {
       const existing = existingMap.get(draft.id);
+      const batchId = draft.batchGroupId
+        ? batchIds.get(draft.batchGroupId)
+        : undefined;
       if (existing) {
         // Cập nhật lại task hiện có, giữ nguyên trạng thái hoàn thành, ghi chú và ngày tạo
         return {
           ...existing,
           title: draft.title,
+          description: draft.description ?? existing.description,
           date: draft.date,
           startTime: draft.startTime || existing.startTime,
           reminderMinutes: draft.reminderMinutes,
           priority: draft.priority,
+          batchId: batchId ?? existing.batchId,
           order: idx,
           updatedAt: nowIso,
         };
@@ -312,12 +426,13 @@ export function useAiScheduler(
           ? draft.id
           : `task-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
         title: draft.title,
-        description: '',
+        description: draft.description ?? '',
         date: draft.date,
         startTime: draft.startTime,
         reminderMinutes: draft.reminderMinutes,
+        batchId,
         completed: false,
-        order: idx,
+        order: takeNextOrder(draft.date),
         priority: draft.priority,
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -332,17 +447,78 @@ export function useAiScheduler(
     );
     dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
 
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setStep('success'); // Màn 10
-  }, [draftTasks, dispatch, language, reminderDeliveryMode, tasks, t]);
+    const previousTasks = tasksToSave
+      .map((task) => existingMap.get(task.id))
+      .filter((task): task is Task => Boolean(task));
+    undoSnapshotRef.current = { previousTasks, savedTasks: tasksWithReminders };
+    const feedback: AiSaveFeedback = {
+      createdCount: tasksWithReminders.length - previousTasks.length,
+      tasks: tasksWithReminders.map(({ date, id, startTime, title }) => ({
+        date,
+        id,
+        startTime,
+        title,
+      })),
+      updatedCount: previousTasks.length,
+    };
+    clearFeedbackTimer();
+    setSaveFeedback(feedback);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      undoSnapshotRef.current = null;
+      setSaveFeedback(null);
+      feedbackTimeoutRef.current = undefined;
+    }, SAVE_FEEDBACK_DURATION_MS);
+    highlightTasks(tasksWithReminders.map((task) => task.id));
 
-  const handleViewSchedule = useCallback(() => {
-    const createdDate = draftTasks[0]?.date;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     close();
+  }, [
+    clearFeedbackTimer,
+    close,
+    draftTasks,
+    dispatch,
+    highlightTasks,
+    language,
+    reminderDeliveryMode,
+    tasks,
+    t,
+  ]);
+
+  const undoLastSave = useCallback(async () => {
+    const snapshot = undoSnapshotRef.current;
+    if (!snapshot || undoingSaveRef.current) return;
+
+    undoingSaveRef.current = true;
+    clearFeedbackTimer();
+    setUndoingSave(true);
+    const previousTasks = await rollbackTaskReminders(
+      snapshot.savedTasks,
+      snapshot.previousTasks,
+      { language, reminderDeliveryMode },
+    );
+    dispatch({
+      type: 'rollback_task_batch',
+      payload: {
+        savedIds: snapshot.savedTasks.map((task) => task.id),
+        previousTasks,
+      },
+    });
+    undoSnapshotRef.current = null;
+    undoingSaveRef.current = false;
+    setSaveFeedback(null);
+    setUndoingSave(false);
+    setHighlightedTaskIds(new Set());
+  }, [clearFeedbackTimer, dispatch, language, reminderDeliveryMode]);
+
+  const viewSavedTasks = useCallback((date?: string) => {
+    const feedback = saveFeedback;
+    const createdDate = date ?? feedback?.tasks[0]?.date;
     if (createdDate && onNavigateDate) {
       onNavigateDate(createdDate);
+      if (feedback) highlightTasks(feedback.tasks.map((task) => task.id));
     }
-  }, [draftTasks, close, onNavigateDate]);
+    dismissSaveFeedback();
+  }, [dismissSaveFeedback, highlightTasks, onNavigateDate, saveFeedback]);
 
   return {
     visible,
@@ -366,8 +542,14 @@ export function useAiScheduler(
     handleSelectConflictSlot,
     handleApplyConflictResolution,
     openRefinement,
+    updateDraftTask,
     submitRefinement,
     confirmSaveToCalendar,
-    handleViewSchedule,
+    saveFeedback,
+    highlightedTaskIds,
+    undoingSave,
+    dismissSaveFeedback,
+    undoLastSave,
+    viewSavedTasks,
   };
 }

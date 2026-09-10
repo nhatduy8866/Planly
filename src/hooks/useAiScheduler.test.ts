@@ -11,6 +11,7 @@ import {
 import type { PlannerState, Task } from '../types';
 import type { AiDraftTask } from '../types/ai';
 import type { AiSchedulingProvider } from '../services/ai/aiProvider';
+import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { useAiScheduler } from './useAiScheduler';
 
@@ -24,6 +25,16 @@ const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
     existingTasks: Task[],
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
+  ) => Promise<Task[]>
+>();
+const mockRollbackTaskReminders = jest.fn<
+  (
+    savedTasks: Task[],
+    previousTasks: Task[],
     options?: {
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
@@ -72,6 +83,14 @@ jest.mock('../services/reminderTransaction', () => ({
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
   ) => mockReplaceTaskReminders(tasks, existingTasks, options),
+  rollbackTaskReminders: (
+    savedTasks: Task[],
+    previousTasks: Task[],
+    options?: {
+      language?: 'vi' | 'en';
+      reminderDeliveryMode?: 'notification' | 'alarm';
+    },
+  ) => mockRollbackTaskReminders(savedTasks, previousTasks, options),
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -156,7 +175,11 @@ describe('useAiScheduler', () => {
     mockParseScheduleRequest.mockReset();
     mockRefineSchedule.mockReset();
     mockReplaceTaskReminders.mockReset();
+    mockRollbackTaskReminders.mockReset();
     mockReplaceTaskReminders.mockImplementation(async (tasks) => tasks);
+    mockRollbackTaskReminders.mockImplementation(
+      async (_savedTasks, previousTasks) => previousTasks,
+    );
     await renderScheduler();
   });
 
@@ -197,6 +220,54 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('input_prompt');
     expect(scheduler.infoMessage).toContain('2h toi');
     expect(scheduler.draftTasks).toEqual([]);
+  });
+
+  it('explains an invalid recurring range instead of creating one task', async () => {
+    mockParseScheduleRequest.mockRejectedValue(new AiBatchScheduleError());
+
+    await submitPrompt(
+      'tap gym hang tuan tu ngay 07/09/2026 den ngay 08/09/2027',
+    );
+
+    expect(scheduler.step).toBe('input_prompt');
+    expect(scheduler.infoMessage).toContain('không dài quá 1 năm');
+    expect(scheduler.draftTasks).toEqual([]);
+  });
+
+  it('updates only the selected AI draft before saving', async () => {
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ id: 'first', title: 'Làm báo cáo' }),
+      makeDraft({ id: 'second', title: 'Tập thể dục', startTime: '15:00' }),
+    ]);
+    await submitPrompt();
+
+    act(() => {
+      scheduler.updateDraftTask('second', {
+        title: 'Tập gym',
+        description: 'Tập thân trên',
+        date: '2026-09-09',
+        startTime: '16:30',
+        reminderMinutes: 30,
+        priority: 'high',
+      });
+    });
+
+    expect(scheduler.draftTasks[0]).toMatchObject({
+      id: 'first',
+      title: 'Làm báo cáo',
+      startTime: '09:00',
+    });
+    expect(scheduler.draftTasks[1]).toMatchObject({
+      id: 'second',
+      title: 'Tập gym',
+      description: 'Tập thân trên',
+      date: '2026-09-09',
+      startTime: '16:30',
+      reminderMinutes: 30,
+      priority: 'high',
+      changeStatus: 'updated',
+    });
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it('stays in auto-slotting when a full day cannot fit the draft', async () => {
@@ -258,7 +329,94 @@ describe('useAiScheduler', () => {
       mockPlannerState.tasks,
       { language: 'vi', reminderDeliveryMode: 'notification' },
     );
-    expect(scheduler.step).toBe('success');
+    expect(scheduler.visible).toBe(false);
+    expect(scheduler.saveFeedback).toMatchObject({
+      createdCount: 1,
+      updatedCount: 0,
+    });
+    expect(scheduler.highlightedTaskIds.has('task-new')).toBe(true);
+  });
+
+  it('persists AI recurrence occurrences with one shared batch ID', async () => {
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({
+        id: 'monday',
+        date: '2026-09-07',
+        batchGroupId: 'ai-batch-gym',
+      }),
+      makeDraft({
+        id: 'wednesday',
+        date: '2026-09-09',
+        batchGroupId: 'ai-batch-gym',
+      }),
+    ]);
+    await submitPrompt();
+
+    await act(async () => {
+      await scheduler.confirmSaveToCalendar();
+    });
+
+    const tasksToSave = mockReplaceTaskReminders.mock.calls[0][0];
+    expect(tasksToSave.map((task) => task.date)).toEqual([
+      '2026-09-07',
+      '2026-09-09',
+    ]);
+    expect(tasksToSave[0].batchId).toBeTruthy();
+    expect(tasksToSave[1].batchId).toBe(tasksToSave[0].batchId);
+    expect(new Set(tasksToSave.map((task) => task.id)).size).toBe(2);
+  });
+
+  it('detects a conflict on any occurrence inside an AI batch', async () => {
+    updateTasks([
+      makeTask({ date: '2026-09-14', startTime: '09:00' }),
+    ]);
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({
+        id: 'first-occurrence',
+        date: '2026-09-07',
+        batchGroupId: 'ai-batch-gym',
+      }),
+      makeDraft({
+        id: 'conflicting-occurrence',
+        date: '2026-09-14',
+        batchGroupId: 'ai-batch-gym',
+      }),
+    ]);
+
+    await submitPrompt();
+
+    expect(scheduler.step).toBe('conflict_resolution');
+    expect(scheduler.conflicts).toHaveLength(1);
+    expect(scheduler.conflicts[0].draftTaskId).toBe('conflicting-occurrence');
+  });
+
+  it('undoes an AI update with its previous task and reminder', async () => {
+    const previous = makeTask({ notificationId: 'notification-old' });
+    updateTasks([previous]);
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ id: previous.id, startTime: '14:00' }),
+    ]);
+    await submitPrompt();
+    await act(async () => {
+      await scheduler.confirmSaveToCalendar();
+    });
+
+    const restored = { ...previous, notificationId: 'notification-restored' };
+    mockRollbackTaskReminders.mockResolvedValue([restored]);
+    await act(async () => {
+      await scheduler.undoLastSave();
+    });
+
+    expect(mockRollbackTaskReminders).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: previous.id })]),
+      [previous],
+      { language: 'vi', reminderDeliveryMode: 'notification' },
+    );
+    expect(mockDispatch).toHaveBeenLastCalledWith({
+      type: 'rollback_task_batch',
+      payload: { savedIds: [previous.id], previousTasks: [restored] },
+    });
+    expect(scheduler.saveFeedback).toBeNull();
   });
 
   it('rechecks conflicts introduced by refinement before previewing', async () => {

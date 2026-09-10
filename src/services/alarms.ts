@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 import type {
@@ -23,10 +24,19 @@ export interface AlarmPermissionSummary {
   state: 'denied' | 'granted' | 'unsupported';
 }
 
+function isNativeAlarmModuleAvailable(): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
+  try {
+    return Boolean(requireOptionalNativeModule('AlarmScheduler'));
+  } catch {
+    return false;
+  }
+}
+
 let alarmSchedulerPromise: Promise<AlarmSchedulerApi | undefined> | undefined;
 
 async function loadAlarmScheduler(): Promise<AlarmSchedulerApi | undefined> {
-  if (Platform.OS === 'web') return undefined;
+  if (Platform.OS === 'web' || !isNativeAlarmModuleAvailable()) return undefined;
 
   if (!alarmSchedulerPromise) {
     alarmSchedulerPromise = Promise.resolve().then(() => {
@@ -124,7 +134,6 @@ export async function scheduleTaskAlarm(
   if (task.reminderMinutes === null) return undefined;
 
   const triggerDate = taskDateTime(task.date, task.startTime);
-  triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
   if (triggerDate.getTime() <= Date.now()) return undefined;
 
   const scheduler = await loadAlarmScheduler();
@@ -138,14 +147,7 @@ export async function scheduleTaskAlarm(
     return undefined;
   }
 
-  const alertTitle =
-    language === 'vi'
-      ? task.reminderMinutes === 0
-        ? 'Đến giờ rồi'
-        : 'Sắp đến lịch'
-      : task.reminderMinutes === 0
-        ? 'It’s time'
-        : 'Coming up soon';
+  const alertTitle = language === 'vi' ? 'Đến giờ rồi' : 'It’s time';
   const alertBody = `${task.startTime} · ${task.title}`;
   const stopButtonTitle = language === 'vi' ? 'Tắt' : 'Stop';
   const openButtonTitle = language === 'vi' ? 'Mở Planly' : 'Open Planly';

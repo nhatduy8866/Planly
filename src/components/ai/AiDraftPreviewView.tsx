@@ -123,7 +123,9 @@ export function AiDraftPreviewView({
                   <View style={styles.metaItem}>
                     <MaterialIcons name="notifications" size={14} color={colors.warning} />
                     <Text style={styles.metaText}>
-                      {t('ai.reminderBefore', { count: task.reminderMinutes })}
+                      {task.reminderMinutes === 0
+                        ? t('task.reminderOnTime')
+                        : t('ai.reminderBefore', { count: task.reminderMinutes })}
                     </Text>
                   </View>
                 ) : null}

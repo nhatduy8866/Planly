@@ -1,7 +1,16 @@
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
 import { isValidDateKey, resolveScheduleDate } from './dateIntent';
 import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
+import {
+  AiScheduleClarificationError,
+  findScheduleClarification,
+} from './scheduleClarification';
 import { isReorderIntent } from './scheduleIntent';
+import {
+  validateAiRefinementResult,
+  validateAiScheduleResult,
+  type AiScheduleValidationIssue,
+} from './scheduleResultValidator';
 import { isTaskUpdateIntent } from './taskUpdateIntent';
 
 /**
@@ -43,6 +52,38 @@ const VALID_SOURCES: ReadonlySet<AiDraftTask['source']> = new Set([
 const VALID_CHANGE_STATUSES: ReadonlySet<
   NonNullable<AiDraftTask['changeStatus']>
 > = new Set(['unchanged', 'updated', 'added']);
+
+const SCHEDULE_RESPONSE_SCHEMA = {
+  type: 'array',
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      id: { type: 'string' },
+      title: { type: 'string' },
+      date: { type: 'string', format: 'date' },
+      startTime: { type: 'string' },
+      priority: { type: 'string', enum: ['high', 'medium', 'low', 'none'] },
+      reminderMinutes: {
+        type: ['integer', 'null'],
+        enum: [null, 0, 5, 10, 15, 30, 60],
+      },
+    },
+    required: [
+      'id',
+      'title',
+      'date',
+      'startTime',
+      'priority',
+      'reminderMinutes',
+    ],
+  },
+} as const;
+
+interface RepairRequest {
+  issues: AiScheduleValidationIssue[];
+  previousDrafts: AiDraftTask[];
+}
 
 interface CloudDraftDefaults {
   id: string;
@@ -132,27 +173,53 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     prompt: string,
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]> {
+    const clarification = findScheduleClarification(prompt);
+    if (clarification) throw clarification;
+
     // Reorder phải giữ đúng ID task hiện có, nên dùng luồng deterministic thay vì
     // phụ thuộc vào việc model có tuân thủ prompt hay không.
     if (isReorderIntent(prompt) || isTaskUpdateIntent(prompt)) {
       return parseVietnameseScheduleText(prompt, context);
     }
 
+    const localResult = parseVietnameseScheduleText(prompt, context);
     const key = this.getApiKey();
     // Nếu có API key, gọi trực tiếp Gemini API
     if (key) {
       try {
         const cloudResult = await this.callGeminiApi(prompt, context, key);
-        if (cloudResult && cloudResult.length > 0) {
-          return cloudResult;
+        if (cloudResult) {
+          const validation = validateAiScheduleResult(
+            prompt,
+            cloudResult,
+            localResult,
+          );
+          if (validation.valid) return cloudResult;
+
+          const repairedResult = await this.callGeminiApi(
+            prompt,
+            context,
+            key,
+            {
+              issues: validation.issues,
+              previousDrafts: cloudResult,
+            },
+          );
+          if (
+            repairedResult &&
+            validateAiScheduleResult(prompt, repairedResult, localResult).valid
+          ) {
+            return repairedResult;
+          }
         }
       } catch (err) {
+        if (err instanceof AiScheduleClarificationError) throw err;
         console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
       }
     }
 
     // Luôn có bộ phân tích Offline NLP chất lượng cao sẵn sàng
-    return parseVietnameseScheduleText(prompt, context);
+    return localResult;
   }
 
   async refineSchedule(
@@ -160,6 +227,11 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     instruction: string,
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]> {
+    const localResult = refineVietnameseSchedule(
+      currentDrafts,
+      instruction,
+      context,
+    );
     const key = this.getApiKey();
     if (key) {
       try {
@@ -169,20 +241,49 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           context,
           key,
         );
-        if (cloudResult && cloudResult.length > 0) {
-          return cloudResult;
+        if (cloudResult) {
+          const validation = validateAiRefinementResult(
+            instruction,
+            currentDrafts,
+            cloudResult,
+            localResult,
+          );
+          if (validation.valid) return cloudResult;
+
+          const repairedResult = await this.callGeminiRefineApi(
+            currentDrafts,
+            instruction,
+            context,
+            key,
+            {
+              issues: validation.issues,
+              previousDrafts: cloudResult,
+            },
+          );
+          if (
+            repairedResult &&
+            validateAiRefinementResult(
+              instruction,
+              currentDrafts,
+              repairedResult,
+              localResult,
+            ).valid
+          ) {
+            return repairedResult;
+          }
         }
       } catch (err) {
         console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
       }
     }
-    return refineVietnameseSchedule(currentDrafts, instruction, context);
+    return localResult;
   }
 
   private async callGeminiApi(
     prompt: string,
     context: AiSchedulingContext,
     apiKey: string,
+    repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
     const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
     const realToday = context.realToday || context.targetDate;
@@ -201,14 +302,18 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
       priority: t.priority,
     }));
 
+    const repairInstruction = repair
+      ? `\nKết quả trước cần được sửa: ${JSON.stringify(repair.previousDrafts)}\nCác lỗi validator phát hiện:\n${repair.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join('\n')}\nHãy phân tích lại yêu cầu gốc và sửa toàn bộ lỗi trên. Không sao chép lại kết quả sai.`
+      : '';
     const promptText = `Bạn là trợ lý lập lịch thông minh của ứng dụng Planly. Phân tích yêu cầu lập lịch của người dùng:
 Ngữ cảnh thời gian:
 - Ngày thực tế hôm nay của thiết bị: ${realToday} (${realTodayDayName})
 - Ngày người dùng đang mở xem trên màn hình: ${context.targetDate} (${context.currentDayName})
 - Danh sách công việc hiện có trong ngày (${tasksForDate.length} việc): ${JSON.stringify(existingTasksSummary)}
-Yêu cầu của người dùng: "${prompt}"
+Yêu cầu gốc của người dùng: "${prompt}"${repairInstruction}
 
 Quy tắc quan trọng:
+0. Người dùng có thể nhập tiếng Việt không dấu. Hãy hiểu các cụm như "tao lich", "muc uu tien vua", "thoi luong 1h30p", "nhac dung gio" tương đương với bản có dấu. Mệnh đề mô tả ưu tiên, thời lượng hoặc nhắc hẹn là thuộc tính của công việc đứng trước, không được tách chúng thành công việc mới. Hiện JSON chưa có trường thời lượng, vì vậy không đưa cụm thời lượng vào title và không diễn giải nó thành startTime.
 1. NẾU YÊU CẦU LÀ SẮP XẾP LẠI CÁC VIỆC TRONG NGÀY (Reorder / Reschedule cả ngày):
    - Tuyệt đối KHÔNG tạo một công việc mới mang tên "Sắp xếp các công việc" hay "Sắp xếp lại các công việc".
    - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại giờ bắt đầu (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
@@ -248,7 +353,10 @@ Trả về duy nhất mảng JSON hợp lệ:
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const payload = {
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: { responseMimeType: 'application/json' },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: SCHEDULE_RESPONSE_SCHEMA,
+          },
         };
 
         const res = await fetch(url, {
@@ -266,7 +374,7 @@ Trả về duy nhất mảng JSON hợp lệ:
         if (!Array.isArray(parsed)) continue;
 
         const seenIds = new Set<string>();
-        return parsed.map((value, index) => {
+        return parsed.map<AiDraftTask>((value, index) => {
           const item = asRecord(value);
           const rawItemId = nonEmptyString(item.id);
           const itemTitle = nonEmptyString(item.title);
@@ -319,22 +427,30 @@ Trả về duy nhất mảng JSON hợp lệ:
     instruction: string,
     context: AiSchedulingContext,
     apiKey: string,
+    repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
     const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const repairInstruction = repair
+      ? `\nKết quả trước cần được sửa: ${JSON.stringify(repair.previousDrafts)}\nCác lỗi validator phát hiện:\n${repair.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join('\n')}\nHãy sửa toàn bộ lỗi và vẫn giữ đúng id của công việc cũ.`
+      : '';
     const promptText = `Bạn là trợ lý lập lịch AI của Planly. Cập nhật danh sách công việc dự thảo hiện tại dựa trên câu lệnh tinh chỉnh của người dùng:
 Danh sách hiện tại: ${JSON.stringify(currentDrafts)}
-Câu lệnh tinh chỉnh: "${instruction}"
+Câu lệnh tinh chỉnh: "${instruction}"${repairInstruction}
 Ngữ cảnh ngày: ${context.targetDate}
+Người dùng có thể nhập tiếng Việt không dấu; hãy hiểu tương đương bản có dấu và giữ đúng id của công việc được nhắc đến.
 
 Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc hoặc dời giờ bắt đầu).
-Nếu công việc bị thay đổi, gán changeStatus: "updated".`;
+Luôn giữ nguyên id của công việc cũ; Planly sẽ tự tính trạng thái thay đổi sau khi nhận kết quả.`;
 
     for (const model of models) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const payload = {
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
-          generationConfig: { responseMimeType: 'application/json' },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: SCHEDULE_RESPONSE_SCHEMA,
+          },
         };
 
         const res = await fetch(url, {

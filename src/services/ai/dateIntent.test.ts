@@ -31,6 +31,13 @@ describe('resolveScheduleDate', () => {
     });
   });
 
+  it('resolves an unaccented weekday name', () => {
+    expect(resolveScheduleDate('thu tu toi da bong', context)).toEqual({
+      date: '2026-09-09',
+      hasExplicitDate: true,
+    });
+  });
+
   it('does not mistake "thứ tự" for Wednesday', () => {
     expect(
       resolveScheduleDate('Sắp xếp lịch theo thứ tự ưu tiên', context),

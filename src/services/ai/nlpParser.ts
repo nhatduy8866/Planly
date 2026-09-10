@@ -1,6 +1,11 @@
 import type { ReminderMinutes, TaskPriority } from '../../types';
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
 import {
+  isVietnameseTaskAttributeClause,
+  normalizeVietnameseText,
+  replaceVietnameseMatches,
+} from '../../utils/vietnameseText';
+import {
   resolveScheduleDate,
   stripScheduleDateReferences,
 } from './dateIntent';
@@ -10,6 +15,91 @@ import { resolveExistingTaskUpdate } from './taskUpdateIntent';
 import { parseVietnameseTime } from './timeIntent';
 
 export { isReorderIntent } from './scheduleIntent';
+
+const NUMERIC_REMINDER_PATTERN =
+  /(?:nhac|bao)\s+(?:(?:cho\s+)?(?:toi|minh|em)\s+)?(?:truoc\s+)?(\d+)\s*(?:phut|p|gio|g)?(?:\s*(?:nhe|nha|giup|voi))?/g;
+const ON_TIME_REMINDER_PATTERN =
+  /(?:nhac|bao)\s+(?:(?:cho\s+)?(?:toi|minh|em)\s+)?(?:dung\s+(?:gio|hen)|khi\s+den\s+gio)(?:\s*(?:nhe|nha|giup|voi))?/g;
+const DURATION_CLAUSE_PATTERN =
+  /(?:^|\s)(?:va\s+)?(?:thoi\s+luong|keo\s+dai)\s*(?:la\s+)?\d+\s*(?:(?:h|gio)(?:\s*\d+\s*(?:p|phut))?|p|phut)(?:\s*(?:nhe|nha))?/g;
+const PRIORITY_CLAUSE_PATTERN =
+  /(?:^|\s)(?:va\s+)?(?:muc\s+)?uu\s+tien\s*(?:la\s+)?(?:rat\s+)?(?:cao|vua|thap|gap|hang\s+dau)/g;
+
+function parseReminder(text: string): ReminderMinutes {
+  const normalized = normalizeVietnameseText(text);
+  const candidates: { index: number; value: ReminderMinutes }[] = [];
+
+  for (const match of normalized.matchAll(NUMERIC_REMINDER_PATTERN)) {
+    const value = Number(match[1]);
+    if ([0, 5, 10, 15, 30, 60].includes(value)) {
+      candidates.push({ index: match.index ?? 0, value: value as ReminderMinutes });
+    }
+  }
+  for (const match of normalized.matchAll(ON_TIME_REMINDER_PATTERN)) {
+    candidates.push({ index: match.index ?? 0, value: 0 });
+  }
+
+  return candidates.sort((first, second) => first.index - second.index).at(-1)
+    ?.value ?? 15;
+}
+
+function stripReminderClauses(text: string): string {
+  return replaceVietnameseMatches(
+    replaceVietnameseMatches(text, NUMERIC_REMINDER_PATTERN),
+    ON_TIME_REMINDER_PATTERN,
+  );
+}
+
+function parsePriority(text: string): TaskPriority {
+  const normalized = normalizeVietnameseText(text);
+  if (/gap|khan cap|rat quan trong|uu\s+tien\s+(?:rat\s+)?cao|hang dau/.test(normalized)) {
+    return 'high';
+  }
+  if (/quan trong|(?:muc\s+)?uu\s+tien\s+(?:la\s+)?vua/.test(normalized)) {
+    return 'medium';
+  }
+  if (/uu\s+tien\s+(?:la\s+)?thap|ranh thi lam|khong gap/.test(normalized)) {
+    return 'low';
+  }
+  return 'none';
+}
+
+function startsWithTaskAttribute(text: string): boolean {
+  return isVietnameseTaskAttributeClause(text);
+}
+
+function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
+  let title = stripScheduleDateReferences(segment);
+  title = replaceVietnameseMatches(
+    title,
+    /^(?:toi\s+muon|hay\s+giup\s+toi|len\s+lich\s+giup|tao|toi\s+can|can|phai|hay)\s+(?:giup\s+(?:toi|minh)\s+)?(?:1\s+)?(?:(?:cuoc|lich)\s+hen|lich|viec|cong\s+viec)?\s*/,
+    '',
+  );
+  if (parsedTimeText) title = title.replace(parsedTimeText, ' ');
+  title = stripReminderClauses(title);
+  title = replaceVietnameseMatches(title, PRIORITY_CLAUSE_PATTERN);
+  title = replaceVietnameseMatches(title, DURATION_CLAUSE_PATTERN);
+  title = title.replace(
+    /(?:vào\s+)?(?:buổi\s+)?(?:sáng|trưa|chiều|tối)(?:\s+nay)?/gi,
+    ' ',
+  );
+  title = replaceVietnameseMatches(
+    title,
+    /(?:vao\s+)?(?:(?:buoi\s+)?(?:sang|trua|chieu)|buoi\s+toi)(?:\s+nay)?/g,
+  );
+  title = title.trim();
+  title = replaceVietnameseMatches(title, /^toi\s+/, '');
+  title = replaceVietnameseMatches(
+    title,
+    /^(?:lam|can|phai|hay)\s+/,
+    '',
+  );
+  title = title.replace(/\s+(?:nhé|nhe)\s*(?=$|[, .!?])/gi, ' ');
+  return title
+    .replace(/\s*[,.;]+\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /**
  * Phân tích yêu cầu lập lịch tự nhiên bằng tiếng Việt (Offline Heuristic NLP)
@@ -52,34 +142,23 @@ export function parseVietnameseScheduleText(
   const existingTaskUpdate = resolveExistingTaskUpdate(normalized, context);
   if (existingTaskUpdate !== null) return existingTaskUpdate;
 
-  // 1. Tìm reminder chung nếu có (ví dụ: "nhắc tôi trước 30p nhé", "báo trước 15 phút")
-  let globalReminder: ReminderMinutes = 15;
-  const reminderPattern =
-    /(?:nhắc|báo)\s+(?:(?:cho\s+)?(?:tôi|mình|em)\s+)?(?:trước\s+)?(\d+)\s*(?:phút|p|giờ|g)?(?:\s*(?:nhé|nha|giúp|với))?/gi;
-  const reminderMatches = Array.from(normalized.matchAll(reminderPattern));
-  if (reminderMatches.length > 0) {
-    const lastMatch = reminderMatches[reminderMatches.length - 1];
-    const num = Number(lastMatch[1]);
-    if ([0, 5, 10, 15, 30, 60].includes(num)) {
-      globalReminder = num as ReminderMinutes;
-    }
-  }
+  // 1. Tìm reminder chung trên bản chuẩn hóa để nhận cả câu có/không dấu.
+  const globalReminder = parseReminder(normalized);
 
   // Loại bỏ câu mở đầu chung nếu có (ví dụ: "tạo giúp tôi 1 lịch trình 3 việc, ...", "lên lịch giúp tôi: ...")
-  const strippedIntro = normalized
-    .replace(
-      /^(?:tạo|lên|hãy lên|lập)\s+(?:giúp\s+(?:tôi|mình)\s+)?(?:1\s+)?(?:lịch\s+trình|kế\s+hoạch)\s*(?:\d+\s*việc)?\s*[,:]?\s*/i,
-      '',
-    )
-    .trim();
+  const strippedIntro = replaceVietnameseMatches(
+    normalized,
+    /^(?:tao|len|hay\s+len|lap)\s+(?:giup\s+(?:toi|minh)\s+)?(?:1\s+)?(?:lich(?:\s+trinh)?|ke\s+hoach)\s*(?:\d+\s*(?:viec|cong\s+viec))?\s*[,:]?\s*/,
+    '',
+  ).trim();
 
   // Loại bỏ toàn bộ các mệnh đề nhắc nhở trước khi tách việc để không bị cắt nhầm thành task riêng
-  const cleanNormalized = strippedIntro.replace(reminderPattern, '').trim();
+  const cleanNormalized = stripReminderClauses(strippedIntro).trim();
 
   // Tách văn bản thành các câu hoặc mệnh đề công việc
   // Dấu phân cách lớn: xuống dòng, dấu chấm phẩy, từ nối hành động ("sau đó", "tiếp theo", "xong rồi", "rồi")
   const baseSegments = cleanNormalized
-    .split(/[\n;]|(?:\s+(?:sau đó|tiếp theo|xong rồi|rồi)\s+)/i)
+    .split(/[\n;]|(?:\s+(?:sau đó|sau do|tiếp theo|tiep theo|xong rồi|xong roi|rồi|roi)\s+)/i)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -91,11 +170,16 @@ export function parseVietnameseScheduleText(
       let currentPart = parts[0];
       for (let i = 1; i < parts.length; i++) {
         const p = parts[i];
+        const withoutDuration = replaceVietnameseMatches(
+          p,
+          DURATION_CLAUSE_PATTERN,
+        );
         const hasTime =
-          /(?:\d{1,2}[h:]|\b(?:sáng|chiều|tối)\s*\d{1,2}|\b(?:buổi\s*)?(?:sáng|trưa|chiều|tối)\b|\btôi\s+học\b)/i.test(
-            p,
+          parseVietnameseTime(withoutDuration) !== null ||
+          /\b(?:buoi\s*)?(?:sang|trua|chieu|toi)\b/.test(
+            normalizeVietnameseText(withoutDuration),
           );
-        if (hasTime) {
+        if (hasTime && !startsWithTaskAttribute(p)) {
           rawSegments.push(currentPart);
           currentPart = p;
         } else {
@@ -130,45 +214,23 @@ export function parseVietnameseScheduleText(
       startTime = parsedTime.startTime;
     } else {
       // Phân tích theo buổi trong ngày nếu không có số giờ cụ thể
-      if (/buổi\s*sáng|\bsáng\b/i.test(seg)) {
+      const normalizedSegment = normalizeVietnameseText(seg);
+      if (/buoi\s*sang|\bsang\b/i.test(normalizedSegment)) {
         startTime = '08:30';
-      } else if (/buổi\s*trưa|\btrưa\b/i.test(seg)) {
+      } else if (/buoi\s*trua|\btrua\b/i.test(normalizedSegment)) {
         startTime = '12:00';
-      } else if (/buổi\s*chiều|\bchiều\b/i.test(seg)) {
+      } else if (/buoi\s*chieu|\bchieu\b/i.test(normalizedSegment)) {
         startTime = '14:30';
-      } else if (/buổi\s*tối|\btối\b|\btôi\s+học\b/i.test(seg)) {
+      } else if (/buoi\s*toi|\btoi\s+hoc\b/i.test(normalizedSegment)) {
         startTime = '19:30';
       }
     }
 
     // 3. Phân tích Mức độ ưu tiên (Priority)
-    let priority: TaskPriority = 'none';
-    if (/gấp|khẩn cấp|rất quan trọng|ưu tiên cao|hàng đầu/i.test(seg)) {
-      priority = 'high';
-    } else if (/quan trọng|vừa|ưu tiên vừa/i.test(seg)) {
-      priority = 'medium';
-    } else if (/thấp|rảnh thì làm|không gấp/i.test(seg)) {
-      priority = 'low';
-    }
+    const priority = parsePriority(seg);
 
     // 4. Trích xuất Tiêu đề sạch sẽ (Clean title)
-    let title = stripScheduleDateReferences(seg)
-      .replace(
-        /^(?:tôi muốn|hãy giúp tôi|lên lịch giúp|tạo|tôi cần|cần|phải|hãy)\s+(?:1\s+)?(?:cuộc\s+hẹn\s+|lịch\s+hẹn\s+|việc\s+|công việc\s+)?/i,
-        '',
-      )
-      .replace(/^(?:mai|hôm nay|ngày mai|chiều|tối|sáng)\s+/i, '')
-      .replace(/(?:lúc|vào lúc)?\s*\d{1,2}[h:]\d{0,2}\s*(?:sáng|chiều|tối)?/i, '')
-      .replace(/(?:chiều|tối|sáng)\s*\d{1,2}\s*h\d{0,2}/i, '')
-      .replace(/\b(?:hôm nay|ngày mai|chiều nay|tối nay|sáng nay|nay)\b/gi, '')
-      .replace(/(?:vào\s+)?(?:buổi\s*sáng|buổi\s*trưa|buổi\s*chiều|buổi\s*tối)/gi, '')
-      .replace(/\b(?:buổi\s+)?(?:sáng|chiều|tối|trưa)\b/gi, '')
-      .replace(/^tôi\s+(?:học|làm|đi)\b/i, (m) => m.replace(/^tôi\s+/i, ''))
-      .replace(/(?:ưu tiên|mức)\s*(?:cao|vừa|thấp|gấp)/gi, '')
-      .replace(/(?:nhắc|báo)\s*(?:trước\s*)?\d+\s*(?:phút|p)?/gi, '')
-      .replace(/^(?:làm|cần|phải|hãy)\s+/i, '')
-      .replace(/^(?:1\s+)?(?:cuộc\s+hẹn\s+|lịch\s+hẹn\s+)/i, '')
-      .trim();
+    let title = cleanTaskTitle(seg, parsedTime?.matchedText);
 
     // Viết hoa chữ cái đầu
     if (title) {
@@ -202,7 +264,8 @@ export function refineVietnameseSchedule(
   instruction: string,
   _context: AiSchedulingContext,
 ): AiDraftTask[] {
-  const norm = instruction.trim().toLowerCase();
+  const originalInstruction = instruction.trim();
+  const norm = normalizeVietnameseText(originalInstruction);
   let updated = [...currentDrafts];
 
   // 0. Trường hợp: Sắp xếp lại / Tối ưu toàn bộ các việc đang xem
@@ -223,17 +286,21 @@ export function refineVietnameseSchedule(
   }
 
   // 1. Trường hợp: Xóa một công việc (ví dụ: "bỏ việc học tiếng Trung", "xóa họp team")
-  if (/bỏ|xóa|hủy/i.test(norm)) {
-    const keywordMatch = norm.replace(/^(?:bỏ|xóa|hủy)\s+(?:việc\s+|công việc\s+)?/i, '').trim();
+  if (/\b(?:bo|xoa|huy)\b/.test(norm)) {
+    const keywordMatch = norm
+      .replace(/^(?:bo|xoa|huy)\s+(?:viec\s+|cong\s+viec\s+)?/, '')
+      .trim();
     if (keywordMatch) {
       updated = updated.filter(
-        (t) => !t.title.toLowerCase().includes(keywordMatch),
+        (t) => !normalizeVietnameseText(t.title).includes(keywordMatch),
       );
     }
   }
 
   // 2. Trường hợp: Đổi nhắc trước cho tất cả (ví dụ: "cho tất cả nhắc 15 phút")
-  const reminderAllMatch = norm.match(/(?:tất cả|hết)\s+(?:nhắc|báo)\s*(?:trước\s*)?(\d+)/i);
+  const reminderAllMatch = norm.match(
+    /(?:tat ca|het)\s+(?:nhac|bao)\s*(?:truoc\s*)?(\d+)/,
+  );
   if (reminderAllMatch) {
     const val = Number(reminderAllMatch[1]) as ReminderMinutes;
     updated = updated.map((t) => ({
@@ -247,7 +314,7 @@ export function refineVietnameseSchedule(
   // (ví dụ: "dời báo cáo sang 10h nhé")
   for (let i = 0; i < updated.length; i++) {
     const task = updated[i];
-    const taskKeyword = task.title.toLowerCase();
+    const taskKeyword = normalizeVietnameseText(task.title);
 
     // Kiểm tra xem câu lệnh có nhắc đến task này không
     const words = taskKeyword.split(/\s+/);
@@ -255,7 +322,7 @@ export function refineVietnameseSchedule(
 
     if (mentionsTask) {
       let newStart = task.startTime;
-      const parsedTime = parseVietnameseTime(norm, true);
+      const parsedTime = parseVietnameseTime(originalInstruction, true);
       if (parsedTime) newStart = parsedTime.startTime;
 
       updated[i] = {
@@ -267,8 +334,12 @@ export function refineVietnameseSchedule(
   }
 
   // 4. Trường hợp: Thêm một công việc mới (ví dụ: "thêm gym buổi sáng")
-  if (/thêm/i.test(norm)) {
-    const addMatch = norm.replace(/^.*thêm\s+/i, '').trim();
+  if (/\bthem\b/.test(norm)) {
+    const addMatch = replaceVietnameseMatches(
+      originalInstruction,
+      /^.*\bthem\s+/,
+      '',
+    ).trim();
     if (addMatch) {
       const parsedNew = parseVietnameseScheduleText(addMatch, _context);
       if (parsedNew.length > 0) {

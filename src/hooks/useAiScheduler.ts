@@ -9,6 +9,7 @@ import {
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
 import { defaultAiProvider } from '../services/ai/aiProvider';
+import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { detectConflicts } from '../services/ai/conflictDetector';
 import { autoSlotTasks } from '../services/ai/slottingEngine';
 import { replaceTaskReminders } from '../services/reminderTransaction';
@@ -116,7 +117,14 @@ export function useAiScheduler(
         setDraftTasks(parsedDrafts);
         setStep('draft_preview');
       } catch (err) {
-        console.error('Lỗi phân tích AI:', err);
+        if (err instanceof AiScheduleClarificationError) {
+          setInfoMessage(
+            t('ai.clarifyUnaccentedTime', { hour: err.hour }),
+          );
+        } else {
+          console.error('Lỗi phân tích AI:', err);
+          setInfoMessage(t('ai.parseFailed'));
+        }
         setStep('input_prompt');
       } finally {
         clearTimeout(timer1);

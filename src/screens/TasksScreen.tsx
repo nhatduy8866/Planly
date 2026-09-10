@@ -33,25 +33,22 @@ import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
-import { formatLongDate, timeToMinutes, todayKey } from '../utils/date';
+import { formatLongDate, todayKey } from '../utils/date';
 import {
   matchesTaskListFilter,
   type TaskListFilter,
 } from '../utils/taskFilters';
-
-type TaskSort = 'time' | 'priority' | 'title' | 'created';
+import {
+  compareTasks,
+  nextTaskSortState,
+  type TaskSortKey,
+  type TaskSortState,
+} from '../utils/taskSorting';
 
 interface TaskSection {
   date: string;
   data: Task[];
 }
-
-const PRIORITY_WEIGHT: Record<string, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
-  none: 0,
-};
 
 export function TasksScreen() {
   const tasks = usePlannerTasks();
@@ -60,7 +57,10 @@ export function TasksScreen() {
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const [filter, setFilter] = useState<TaskListFilter>('upcoming');
   const [currentTime, refreshCurrentTime] = useMinuteClock(filter !== 'all');
-  const [sortBy, setSortBy] = useState<TaskSort>('time');
+  const [taskSort, setTaskSort] = useState<TaskSortState>({
+    direction: 'ascending',
+    key: 'time',
+  });
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [formVisible, setFormVisible] = useState(false);
@@ -73,7 +73,7 @@ export function TasksScreen() {
     { key: 'past', label: t('tasks.filterPast') },
     { key: 'all', label: t('tasks.filterAll') },
   ];
-  const sorts: SortOption<TaskSort>[] = [
+  const sorts: SortOption<TaskSortKey>[] = [
     { key: 'time', label: t('sort.time'), icon: 'schedule' },
     { key: 'priority', label: t('sort.priority'), icon: 'flag' },
     { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
@@ -90,36 +90,16 @@ export function TasksScreen() {
           .toLocaleLowerCase(locale)
           .includes(normalizedQuery);
       })
-      .sort((a, b) => {
-        if (sortBy === 'priority') {
-          const weightA = PRIORITY_WEIGHT[a.priority ?? 'none'] ?? 0;
-          const weightB = PRIORITY_WEIGHT[b.priority ?? 'none'] ?? 0;
-          return (
-            a.date.localeCompare(b.date) ||
-            weightB - weightA ||
-            timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
-          );
-        }
-        if (sortBy === 'title') {
-          return (
-            a.date.localeCompare(b.date) ||
-            a.title.localeCompare(b.title, locale) ||
-            timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
-          );
-        }
-        if (sortBy === 'created') {
-          return (
-            a.date.localeCompare(b.date) ||
-            b.createdAt.localeCompare(a.createdAt)
-          );
-        }
-        // Default: Theo ngày & giờ & thứ tự
-        return (
-          a.date.localeCompare(b.date) ||
-          timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
-          (a.order ?? 0) - (b.order ?? 0)
-        );
-      });
+      .sort((first, second) =>
+        compareTasks(
+          first,
+          second,
+          taskSort.key,
+          taskSort.direction,
+          locale,
+          { includeDate: true },
+        ),
+      );
 
     return filtered.reduce<TaskSection[]>((groups, task) => {
       const last = groups.at(-1);
@@ -127,7 +107,7 @@ export function TasksScreen() {
       else groups.push({ date: task.date, data: [task] });
       return groups;
     }, []);
-  }, [currentTime, deferredQuery, filter, locale, sortBy, tasks]);
+  }, [currentTime, deferredQuery, filter, locale, taskSort, tasks]);
 
   function openCreate() {
     setEditingTask(undefined);
@@ -227,10 +207,13 @@ export function TasksScreen() {
                 })}
               </View>
 
-              <SortDropdown<TaskSort>
+              <SortDropdown<TaskSortKey>
+                direction={taskSort.direction}
                 options={sorts}
-                selectedKey={sortBy}
-                onSelect={setSortBy}
+                selectedKey={taskSort.key}
+                onSelect={(key) => {
+                  setTaskSort((current) => nextTaskSortState(current, key));
+                }}
               />
             </View>
           </>
@@ -256,7 +239,7 @@ export function TasksScreen() {
         renderItem={({ item: task, index }) => (
           <AnimatedEntryItem
             index={index}
-            triggerKey={`${filter}-${sortBy}`}
+            triggerKey={`${filter}-${taskSort.key}-${taskSort.direction}`}
           >
             <TaskCard
               compact

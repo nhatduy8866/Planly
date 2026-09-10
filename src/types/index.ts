@@ -2,6 +2,8 @@ export type CalendarMode = 'week' | 'month';
 
 export type ReminderMinutes = number | null;
 
+export type SortDirection = 'ascending' | 'descending';
+
 export type TaskPriority = 'low' | 'medium' | 'high' | 'none';
 
 export interface Task {

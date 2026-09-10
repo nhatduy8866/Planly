@@ -19,7 +19,10 @@ import {
   type NoteFormValues,
 } from '../components/NoteFormModal';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import {
+  usePlannerDispatch,
+  usePlannerNotes,
+} from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Note } from '../types';
@@ -34,7 +37,8 @@ function formatUpdatedAt(value: string, locale: 'vi-VN' | 'en-US'): string {
 }
 
 export function NotesScreen() {
-  const { state, dispatch } = usePlanner();
+  const notesState = usePlannerNotes();
+  const dispatch = usePlannerDispatch();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [query, setQuery] = useState('');
@@ -45,7 +49,7 @@ export function NotesScreen() {
 
   const notes = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
-    return state.notes
+    return notesState
       .filter((note) =>
         normalizedQuery
           ? `${note.title} ${note.content}`
@@ -54,7 +58,7 @@ export function NotesScreen() {
           : true,
       )
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [deferredQuery, locale, state.notes]);
+  }, [deferredQuery, locale, notesState]);
 
   function openCreate() {
     setEditingNote(undefined);

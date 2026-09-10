@@ -20,7 +20,8 @@ const mockScheduleTaskReminder = jest.fn<
 >();
 
 jest.mock('../store/PlannerContext', () => ({
-  usePlanner: () => ({ state: mockPlannerState, dispatch: mockDispatch }),
+  usePlannerDispatch: () => mockDispatch,
+  usePlannerTasks: () => mockPlannerState.tasks,
 }));
 
 jest.mock('../preferences/PreferencesContext', () => ({

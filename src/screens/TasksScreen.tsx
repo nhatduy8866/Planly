@@ -28,7 +28,7 @@ import {
 } from '../components/TaskFormModal';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
@@ -53,7 +53,7 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 };
 
 export function TasksScreen() {
-  const { state } = usePlanner();
+  const tasks = usePlannerTasks();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
@@ -101,7 +101,7 @@ export function TasksScreen() {
 
   const groupedTasks = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
-    const filtered = state.tasks
+    const filtered = tasks
       .filter((task) => {
         if (!matchesTaskListFilter(task, filter, currentTime)) return false;
         if (!normalizedQuery) return true;
@@ -146,7 +146,7 @@ export function TasksScreen() {
       else groups.push({ date: task.date, data: [task] });
       return groups;
     }, []);
-  }, [currentTime, deferredQuery, filter, locale, sortBy, state.tasks]);
+  }, [currentTime, deferredQuery, filter, locale, sortBy, tasks]);
 
   function openCreate() {
     setEditingTask(undefined);

@@ -30,7 +30,10 @@ import { useTaskActions } from '../hooks/useTaskActions';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { useTaskNavigation } from '../navigation/TaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { usePlanner } from '../store/PlannerContext';
+import {
+  usePlannerDispatch,
+  usePlannerTasks,
+} from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
@@ -144,7 +147,8 @@ function shiftMonth(date: Date, amount: number): Date {
 }
 
 export function ScheduleScreen() {
-  const { state, dispatch } = usePlanner();
+  const tasks = usePlannerTasks();
+  const dispatch = usePlannerDispatch();
   const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
@@ -162,7 +166,7 @@ export function ScheduleScreen() {
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
   const [highlightedTaskId, setHighlightedTaskId] = useState<string>();
-  const latestTasksRef = useRef(state.tasks);
+  const latestTasksRef = useRef(tasks);
   const pendingCompletionsRef = useRef<Map<string, PendingCompletion>>(new Map());
   const scrollViewRef = useRef<ScrollView>(null);
   const taskLayoutYRef = useRef(new Map<string, number>());
@@ -203,8 +207,8 @@ export function ScheduleScreen() {
   }, []);
 
   useEffect(() => {
-    latestTasksRef.current = state.tasks;
-  }, [state.tasks]);
+    latestTasksRef.current = tasks;
+  }, [tasks]);
 
   const scrollToTask = useCallback((taskId: string) => {
     const taskY = taskLayoutYRef.current.get(taskId);
@@ -282,7 +286,7 @@ export function ScheduleScreen() {
 
   const dayTasks = useMemo(
     () =>
-      state.tasks
+      tasks
         .filter((task) => task.date === selectedDate)
         .sort(
           (a, b) =>
@@ -290,7 +294,7 @@ export function ScheduleScreen() {
             timeToMinutes(a.startTime) - timeToMinutes(b.startTime) ||
             a.createdAt.localeCompare(b.createdAt),
         ),
-    [selectedDate, state.tasks],
+    [selectedDate, tasks],
   );
 
   const taskGroups = useMemo(
@@ -504,7 +508,7 @@ export function ScheduleScreen() {
             mode={mode}
             cursor={cursor}
             selectedDate={selectedDate}
-            tasks={state.tasks}
+            tasks={tasks}
             onSelectDate={selectDate}
           />
         </View>

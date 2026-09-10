@@ -11,16 +11,19 @@ import {
   useTaskNavigation,
 } from '../navigation/TaskNavigationContext';
 import { initializeNotifications } from '../services/notifications';
-import { PlannerProvider, usePlanner } from '../store/PlannerContext';
+import {
+  PlannerProvider,
+  usePlannerHydrated,
+} from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 function AppShell() {
-  const { state } = usePlanner();
+  const plannerHydrated = usePlannerHydrated();
   const { colors, hydrated: preferencesHydrated, language } = usePreferences();
   const { requestTask } = useTaskNavigation();
   const styles = useThemedStyles(createStyles);
-  const appReady = state.hydrated && preferencesHydrated;
+  const appReady = plannerHydrated && preferencesHydrated;
 
   useNotificationTaskNavigation(requestTask, appReady);
 

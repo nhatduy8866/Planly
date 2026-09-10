@@ -279,6 +279,27 @@ export function useAiScheduler(
     setStep('refinement_chat');
   }, []);
 
+  const updateDraftTask = useCallback((
+    draftId: string,
+    values: Pick<
+      AiDraftTask,
+      'title' | 'description' | 'date' | 'startTime' | 'reminderMinutes' | 'priority'
+    >,
+  ) => {
+    setDraftTasks((currentDrafts) =>
+      currentDrafts.map((draft) =>
+        draft.id === draftId
+          ? {
+              ...draft,
+              ...values,
+              changeStatus: draft.changeStatus === 'added' ? 'added' : 'updated',
+            }
+          : draft,
+      ),
+    );
+    setConflicts([]);
+  }, []);
+
   // Gửi lệnh chỉnh sửa bằng AI (Màn 6 -> 4 -> 7)
   const submitRefinement = useCallback(
     async (instruction: string) => {
@@ -362,6 +383,7 @@ export function useAiScheduler(
         return {
           ...existing,
           title: draft.title,
+          description: draft.description ?? existing.description,
           date: draft.date,
           startTime: draft.startTime || existing.startTime,
           reminderMinutes: draft.reminderMinutes,
@@ -375,7 +397,7 @@ export function useAiScheduler(
           ? draft.id
           : `task-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
         title: draft.title,
-        description: '',
+        description: draft.description ?? '',
         date: draft.date,
         startTime: draft.startTime,
         reminderMinutes: draft.reminderMinutes,
@@ -489,6 +511,7 @@ export function useAiScheduler(
     handleSelectConflictSlot,
     handleApplyConflictResolution,
     openRefinement,
+    updateDraftTask,
     submitRefinement,
     confirmSaveToCalendar,
     saveFeedback,

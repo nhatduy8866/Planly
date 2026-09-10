@@ -208,6 +208,42 @@ describe('useAiScheduler', () => {
     expect(scheduler.draftTasks).toEqual([]);
   });
 
+  it('updates only the selected AI draft before saving', async () => {
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ id: 'first', title: 'Làm báo cáo' }),
+      makeDraft({ id: 'second', title: 'Tập thể dục', startTime: '15:00' }),
+    ]);
+    await submitPrompt();
+
+    act(() => {
+      scheduler.updateDraftTask('second', {
+        title: 'Tập gym',
+        description: 'Tập thân trên',
+        date: '2026-09-09',
+        startTime: '16:30',
+        reminderMinutes: 30,
+        priority: 'high',
+      });
+    });
+
+    expect(scheduler.draftTasks[0]).toMatchObject({
+      id: 'first',
+      title: 'Làm báo cáo',
+      startTime: '09:00',
+    });
+    expect(scheduler.draftTasks[1]).toMatchObject({
+      id: 'second',
+      title: 'Tập gym',
+      description: 'Tập thân trên',
+      date: '2026-09-09',
+      startTime: '16:30',
+      reminderMinutes: 30,
+      priority: 'high',
+      changeStatus: 'updated',
+    });
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
   it('stays in auto-slotting when a full day cannot fit the draft', async () => {
     updateTasks(
       Array.from({ length: 55 }, (_, index) => {

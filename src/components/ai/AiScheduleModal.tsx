@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,6 +12,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { useAiScheduler } from '../../hooks/useAiScheduler';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
+import type { Task } from '../../types';
+import type { AiDraftTask } from '../../types/ai';
+import {
+  TaskFormModal,
+  type TaskFormValues,
+} from '../TaskFormModal';
 import { AiActionSheet } from './AiActionSheet';
 import { AiAnalyzingView } from './AiAnalyzingView';
 import { AiAutoSlottingView } from './AiAutoSlottingView';
@@ -25,6 +32,22 @@ interface AiScheduleModalProps {
   onOpenManualTaskModal: () => void;
 }
 
+function toEditableTask(draft: AiDraftTask, order: number): Task {
+  return {
+    id: draft.id,
+    title: draft.title,
+    description: draft.description ?? '',
+    date: draft.date,
+    startTime: draft.startTime || '09:00',
+    reminderMinutes: draft.reminderMinutes,
+    completed: false,
+    order,
+    priority: draft.priority,
+    createdAt: '',
+    updatedAt: '',
+  };
+}
+
 export function AiScheduleModal({
   scheduler,
   targetDate,
@@ -32,6 +55,7 @@ export function AiScheduleModal({
 }: AiScheduleModalProps) {
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles(createStyles);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   const {
     visible,
@@ -47,6 +71,7 @@ export function AiScheduleModal({
     handleSelectConflictSlot,
     handleApplyConflictResolution,
     openRefinement,
+    updateDraftTask,
     submitRefinement,
     confirmSaveToCalendar,
   } = scheduler;
@@ -54,18 +79,41 @@ export function AiScheduleModal({
   if (!visible) return null;
 
   const isActionSheet = step === 'menu_action_sheet';
+  const editingDraftIndex = draftTasks.findIndex(
+    (draft) => draft.id === editingDraftId,
+  );
+  const editingDraft = editingDraftIndex >= 0
+    ? draftTasks[editingDraftIndex]
+    : null;
+
+  function handleUpdateDraft(values: TaskFormValues) {
+    if (!editingDraft) return;
+    updateDraftTask(editingDraft.id, {
+      title: values.title,
+      description: values.description,
+      date: values.date,
+      startTime: values.startTime,
+      reminderMinutes: values.reminderMinutes,
+      priority: values.priority,
+    });
+  }
+
+  function handleClose() {
+    setEditingDraftId(null);
+    close();
+  }
 
   return (
     <Modal
       animationType="fade"
       transparent
       visible={visible}
-      onRequestClose={close}
+      onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
         {/* Click outside to dismiss action sheet */}
         {isActionSheet ? (
-          <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
         ) : null}
 
         <KeyboardAvoidingView
@@ -89,10 +137,10 @@ export function AiScheduleModal({
               <AiActionSheet
                 onSelectAi={() => setStep('input_prompt')}
                 onSelectManual={() => {
-                  close();
+                  handleClose();
                   onOpenManualTaskModal();
                 }}
-                onCancel={close}
+                onCancel={handleClose}
               />
             )}
 
@@ -100,14 +148,14 @@ export function AiScheduleModal({
               <AiInputView
                 infoMessage={scheduler.infoMessage}
                 onSubmit={submitPrompt}
-                onClose={close}
+                onClose={handleClose}
               />
             )}
 
             {step === 'analyzing' && (
               <AiAnalyzingView
                 currentStep={analyzingStep}
-                onCancel={close}
+                onCancel={handleClose}
               />
             )}
 
@@ -116,6 +164,7 @@ export function AiScheduleModal({
                 drafts={draftTasks}
                 targetDate={targetDate}
                 onConfirm={() => void confirmSaveToCalendar()}
+                onEditDraft={setEditingDraftId}
                 onRefine={openRefinement}
                 onBack={() => setStep('input_prompt')}
               />
@@ -134,6 +183,7 @@ export function AiScheduleModal({
                 drafts={draftTasks}
                 targetDate={targetDate}
                 onConfirm={() => void confirmSaveToCalendar()}
+                onEditDraft={setEditingDraftId}
                 onRefine={openRefinement}
                 onBack={openRefinement}
               />
@@ -160,6 +210,17 @@ export function AiScheduleModal({
 
           </View>
         </KeyboardAvoidingView>
+
+        {editingDraft ? (
+          <TaskFormModal
+            key={editingDraft.id}
+            defaultDate={editingDraft.date || targetDate}
+            onClose={() => setEditingDraftId(null)}
+            onSubmit={handleUpdateDraft}
+            task={toEditableTask(editingDraft, editingDraftIndex)}
+            visible
+          />
+        ) : null}
       </View>
     </Modal>
   );

@@ -34,6 +34,24 @@ describe('nlpParser', () => {
       .toBe('Mua sach');
   });
 
+  it('expands an unaccented recurring request into one linked draft per date', () => {
+    const drafts = parseVietnameseScheduleText(
+      'tao lich 18h tap gym moi thu 2, thu 4 den ngay 20/09/2026',
+      context,
+    );
+
+    expect(drafts.map((draft) => draft.date)).toEqual([
+      '2026-09-07',
+      '2026-09-09',
+      '2026-09-14',
+      '2026-09-16',
+    ]);
+    expect(new Set(drafts.map((draft) => draft.id)).size).toBe(4);
+    expect(new Set(drafts.map((draft) => draft.batchGroupId)).size).toBe(1);
+    expect(drafts.every((draft) => draft.title === 'Tap gym')).toBe(true);
+    expect(drafts.every((draft) => draft.startTime === '18:00')).toBe(true);
+  });
+
   it('parses multi-task prompt from concept board accurately', () => {
     const prompt =
       'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung. Nhắc trước 15 phút.';

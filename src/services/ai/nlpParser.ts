@@ -9,6 +9,10 @@ import {
   resolveScheduleDate,
   stripScheduleDateReferences,
 } from './dateIntent';
+import {
+  parseAiBatchSchedule,
+  stripAiBatchScheduleReferences,
+} from './batchIntent';
 import { isReorderIntent } from './scheduleIntent';
 import { autoSlotTasks } from './slottingEngine';
 import { resolveExistingTaskUpdate } from './taskUpdateIntent';
@@ -69,7 +73,9 @@ function startsWithTaskAttribute(text: string): boolean {
 }
 
 function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
-  let title = stripScheduleDateReferences(segment);
+  let title = stripScheduleDateReferences(
+    stripAiBatchScheduleReferences(segment),
+  );
   title = replaceVietnameseMatches(
     title,
     /^(?:toi\s+muon|hay\s+giup\s+toi|len\s+lich\s+giup|tao|them|toi\s+can|can|phai|hay)\s+(?:giup\s+(?:toi|minh)\s+)?(?:1\s+)?(?:(?:cuoc|lich)\s+hen|lich|viec|cong\s+viec)?\s*/,
@@ -200,8 +206,11 @@ export function parseVietnameseScheduleText(
     if (seg.length < 3) continue;
 
     // 1. Phân tích Ngày (Date) từ cùng một resolver dùng bởi provider.
+    const batchSchedule = parseAiBatchSchedule(seg, context);
     const dateResolution = resolveScheduleDate(seg, context);
-    if (dateResolution.hasExplicitDate) {
+    if (batchSchedule?.dates[0]) {
+      inheritedTaskDate = batchSchedule.dates[0];
+    } else if (dateResolution.hasExplicitDate) {
       inheritedTaskDate = dateResolution.date;
     }
     const taskDate = inheritedTaskDate;
@@ -239,15 +248,25 @@ export function parseVietnameseScheduleText(
       title = `Công việc ${index}`;
     }
 
-    drafts.push({
-      id: `ai-draft-${Date.now()}-${index}`,
-      title,
-      date: taskDate,
-      startTime,
-      reminderMinutes: globalReminder,
-      priority,
-      source: 'direct_request',
-      changeStatus: 'unchanged',
+    const batchGroupId = batchSchedule && batchSchedule.dates.length > 1
+      ? `ai-batch-${Date.now()}-${index}`
+      : undefined;
+    const taskDates = batchSchedule?.dates.length
+      ? batchSchedule.dates
+      : [taskDate];
+
+    taskDates.forEach((date, occurrenceIndex) => {
+      drafts.push({
+        id: `ai-draft-${Date.now()}-${index}-${occurrenceIndex}`,
+        title,
+        date,
+        startTime,
+        reminderMinutes: globalReminder,
+        priority,
+        source: 'direct_request',
+        batchGroupId,
+        changeStatus: 'unchanged',
+      });
     });
 
     index++;

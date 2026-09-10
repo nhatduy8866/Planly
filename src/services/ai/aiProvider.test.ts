@@ -114,6 +114,54 @@ describe('PlanlyAiProvider', () => {
     expect(result[0].date).toBe('2026-09-08');
   });
 
+  it('drops a cloud item that contains only unaccented task attributes', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify([
+                    {
+                      title: 'Da bong',
+                      date: '2026-09-07',
+                      startTime: '02:00',
+                      reminderMinutes: 0,
+                      priority: 'medium',
+                    },
+                    {
+                      title: 'Muc uu tien vua va thoi luong 1h30p',
+                      date: '2026-09-07',
+                      startTime: '01:30',
+                      reminderMinutes: 15,
+                      priority: 'none',
+                    },
+                  ]),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    } as Response);
+    global.fetch = fetchMock;
+
+    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      'tao lich 2h toi da bong, muc uu tien vua va thoi luong 1h30p nhac dung hen',
+      context,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      title: 'Da bong',
+      startTime: '02:00',
+      reminderMinutes: 0,
+      priority: 'medium',
+    });
+  });
+
   it('falls back to the offline parser when both cloud models fail', async () => {
     const fetchMock = jest
       .fn<typeof fetch>()

@@ -71,6 +71,30 @@ describe('nlpParser', () => {
     expect(refined.some((t) => t.title.includes('Trung'))).toBe(false);
   });
 
+  it('matches accented draft titles from an unaccented refinement', () => {
+    const initial = parseVietnameseScheduleText(
+      '9h làm báo cáo, 14h học tiếng Trung',
+      context,
+    );
+
+    const moved = refineVietnameseSchedule(
+      initial,
+      'doi bao cao sang 11h',
+      context,
+    );
+    const removed = refineVietnameseSchedule(
+      moved,
+      'bo viec hoc tieng trung',
+      context,
+    );
+
+    expect(removed).toHaveLength(1);
+    expect(removed[0]).toMatchObject({
+      startTime: '11:00',
+      changeStatus: 'updated',
+    });
+  });
+
   it('correctly parses conversational appointment with reminder without splitting into two tasks', () => {
     const prompt = 'Tôi muốn tạo 1 cuộc hẹn đi chơi vào lúc 4h chiều nay, nhắc tôi trước 30p nhé';
     const drafts = parseVietnameseScheduleText(prompt, context);
@@ -80,6 +104,48 @@ describe('nlpParser', () => {
     expect(drafts[0].startTime).toBe('16:00');
     expect(drafts[0].reminderMinutes).toBe(30);
     expect(drafts[0].date).toBe('2026-09-07');
+  });
+
+  it('keeps unaccented task attributes attached to one task', () => {
+    const prompt =
+      'tao lich 2h toi da bong nhe, muc uu tien vua va thoi luong la 1h30p nhac dung hen nha';
+
+    const drafts = parseVietnameseScheduleText(prompt, context);
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]).toMatchObject({
+      title: 'Da bong',
+      startTime: '02:00',
+      priority: 'medium',
+      reminderMinutes: 0,
+    });
+  });
+
+  it.each([
+    ['nhac toi truoc 30p nhe', 30],
+    ['bao dung gio nha', 0],
+  ])('understands an unaccented reminder clause: "%s"', (reminder, expected) => {
+    const drafts = parseVietnameseScheduleText(
+      `tao lich 9h hop nhom, ${reminder}`,
+      context,
+    );
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].reminderMinutes).toBe(expected);
+    expect(drafts[0].title).toBe('Hop nhom');
+  });
+
+  it('still separates an unaccented task whose action starts with "nhac"', () => {
+    const drafts = parseVietnameseScheduleText(
+      '9h hop nhom, 10h nhac me uong thuoc',
+      context,
+    );
+
+    expect(drafts).toHaveLength(2);
+    expect(drafts[1]).toMatchObject({
+      startTime: '10:00',
+      title: 'Nhac me uong thuoc',
+    });
   });
 
   it('correctly schedules tasks by morning, afternoon, and evening periods', () => {

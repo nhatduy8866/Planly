@@ -19,6 +19,21 @@ describe('parseVietnameseTime', () => {
     ).toBe('14:00');
   });
 
+  it('does not read the unaccented pronoun in "2h toi da bong" as evening', () => {
+    expect(parseVietnameseTime('2h toi da bong')).toEqual({
+      startTime: '02:00',
+      matchedText: '2h',
+    });
+  });
+
+  it.each([
+    ['2h chieu', '14:00'],
+    ['buoi toi 8h', '20:00'],
+    ['8h buoi toi', '20:00'],
+  ])('recognizes an unaccented time period in "%s"', (input, expected) => {
+    expect(parseVietnameseTime(input)?.startTime).toBe(expected);
+  });
+
   it('rejects invalid clock values', () => {
     expect(parseVietnameseTime('lúc 25h99')).toBeNull();
   });

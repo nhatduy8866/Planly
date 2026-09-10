@@ -1,17 +1,8 @@
-function normalizeVietnamese(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { normalizeVietnameseText } from '../../utils/vietnameseText';
 
 /** Detects a whole-schedule reorder without mistaking a single task edit for one. */
 export function isReorderIntent(text: string): boolean {
-  const normalized = normalizeVietnamese(text);
+  const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
   if (!normalized) return false;
 
   if (/^(?:hay |giup (?:toi|minh) )?(?:(?:sap xep|xep|tai sap xep|phan bo)(?: lai)?|sap lai|toi uu)[.!?]?$/.test(normalized)) {

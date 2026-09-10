@@ -1,4 +1,5 @@
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
+import { isVietnameseTaskAttributeClause } from '../../utils/vietnameseText';
 import { isValidDateKey, resolveScheduleDate } from './dateIntent';
 import { parseVietnameseScheduleText, refineVietnameseSchedule } from './nlpParser';
 import { isReorderIntent } from './scheduleIntent';
@@ -209,6 +210,7 @@ Ngữ cảnh thời gian:
 Yêu cầu của người dùng: "${prompt}"
 
 Quy tắc quan trọng:
+0. Người dùng có thể nhập tiếng Việt không dấu. Hãy hiểu các cụm như "tao lich", "muc uu tien vua", "thoi luong 1h30p", "nhac dung gio" tương đương với bản có dấu. Mệnh đề mô tả ưu tiên, thời lượng hoặc nhắc hẹn là thuộc tính của công việc đứng trước, không được tách chúng thành công việc mới. Hiện JSON chưa có trường thời lượng, vì vậy không đưa cụm thời lượng vào title và không diễn giải nó thành startTime.
 1. NẾU YÊU CẦU LÀ SẮP XẾP LẠI CÁC VIỆC TRONG NGÀY (Reorder / Reschedule cả ngày):
    - Tuyệt đối KHÔNG tạo một công việc mới mang tên "Sắp xếp các công việc" hay "Sắp xếp lại các công việc".
    - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại giờ bắt đầu (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
@@ -266,7 +268,7 @@ Trả về duy nhất mảng JSON hợp lệ:
         if (!Array.isArray(parsed)) continue;
 
         const seenIds = new Set<string>();
-        return parsed.map((value, index) => {
+        return parsed.map<AiDraftTask>((value, index) => {
           const item = asRecord(value);
           const rawItemId = nonEmptyString(item.id);
           const itemTitle = nonEmptyString(item.title);
@@ -306,7 +308,7 @@ Trả về duy nhất mảng JSON hợp lệ:
             source,
             changeStatus,
           };
-        });
+        }).filter((draft) => !isVietnameseTaskAttributeClause(draft.title));
       } catch {
         continue;
       }
@@ -325,6 +327,7 @@ Trả về duy nhất mảng JSON hợp lệ:
 Danh sách hiện tại: ${JSON.stringify(currentDrafts)}
 Câu lệnh tinh chỉnh: "${instruction}"
 Ngữ cảnh ngày: ${context.targetDate}
+Người dùng có thể nhập tiếng Việt không dấu; hãy hiểu tương đương bản có dấu và giữ đúng id của công việc được nhắc đến.
 
 Trả về mảng JSON công việc mới sau khi áp dụng tinh chỉnh (thêm việc mới, xóa việc hoặc dời giờ bắt đầu).
 Nếu công việc bị thay đổi, gán changeStatus: "updated".`;

@@ -1,18 +1,13 @@
 import type { AiSchedulingContext } from '../../types/ai';
 import { addDays, fromDateKey, startOfWeek, toDateKey } from '../../utils/date';
+import {
+  normalizeVietnameseText,
+  replaceVietnameseMatches,
+} from '../../utils/vietnameseText';
 
 export interface ScheduleDateResolution {
   date: string;
   hasExplicitDate: boolean;
-}
-
-function normalizeVietnamese(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
 }
 
 export function isValidDateKey(value: unknown): value is string {
@@ -88,14 +83,20 @@ const WEEKDAY_BY_NAME: Record<string, number> = {
 };
 
 function resolveWeekday(text: string, anchorDate: Date): string | null {
-  const normalized = normalizeVietnamese(text).replace(/\s+/g, ' ').trim();
-  const normalizedSpacing = text.toLowerCase().replace(/\s+/g, ' ').trim();
-  const match = normalizedSpacing.match(
-    /(?:^|\s)(thứ\s*(?:[2-7]|hai|ba|tư|năm|sáu|bảy)|chủ\s*nhật|thu\s*[2-7])(?=$|[\s,.!?])/,
+  const normalized = normalizeVietnameseText(text).replace(/\s+/g, ' ').trim();
+  const weekdayPattern =
+    /(?:^|\s)(thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)(?=$|[\s,.!?])/g;
+  const match = Array.from(normalized.matchAll(weekdayPattern)).find(
+    (candidate) => {
+      const index = candidate.index ?? 0;
+      const before = normalized.slice(0, index).trimEnd();
+      const after = normalized.slice(index + candidate[0].length).trimStart();
+      return !(before.endsWith('theo') && after.startsWith('uu tien'));
+    },
   );
   if (!match) return null;
 
-  const weekdayName = normalizeVietnamese(match[1]).replace(/\s+/g, ' ');
+  const weekdayName = normalizeVietnameseText(match[1]).replace(/\s+/g, ' ');
   const targetWeekday = WEEKDAY_BY_NAME[weekdayName];
   if (targetWeekday === undefined) return null;
 
@@ -125,7 +126,7 @@ export function resolveScheduleDate(
     ? context.realToday
     : context.targetDate;
   const anchorDate = fromDateKey(anchorKey);
-  const normalized = normalizeVietnamese(text);
+  const normalized = normalizeVietnameseText(text);
 
   const absoluteDate = resolveAbsoluteDate(text, anchorDate);
   if (absoluteDate) return { date: absoluteDate, hasExplicitDate: true };
@@ -156,12 +157,10 @@ export function resolveScheduleDate(
 }
 
 export function stripScheduleDateReferences(text: string): string {
-  return text
-    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ')
-    .replace(/(?:^|\s)(?:ngày\s+)?\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?(?=$|[\s,.!?])/gi, ' ')
-    .replace(/(?:^|\s)ngày\s+\d{1,2}\s+tháng\s+\d{1,2}(?:\s+năm\s+\d{4})?(?=$|[\s,.!?])/gi, ' ')
-    .replace(/(?:^|\s)(?:hôm nay|ngày mai|mai|ngày kia|ngày mốt)(?=$|[\s,.!?])/gi, ' ')
-    .replace(/(?:^|\s)(?:thứ\s*(?:[2-7]|hai|ba|tư|năm|sáu|bảy)|chủ\s*nhật)(?:\s+tuần\s+(?:này|sau))?(?=$|[\s,.!?])/gi, ' ')
+  return replaceVietnameseMatches(
+    text,
+    /\b\d{4}-\d{2}-\d{2}\b|(?:^|\s)(?:ngay\s+)?\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?(?=$|[\s,.!?])|(?:^|\s)ngay\s+\d{1,2}\s+thang\s+\d{1,2}(?:\s+nam\s+\d{4})?(?=$|[\s,.!?])|(?:^|\s)(?:hom nay|ngay mai|mai|ngay kia|ngay mot)(?=$|[\s,.!?])|(?:^|\s)(?:thu\s*(?:[2-7]|hai|ba|tu|nam|sau|bay)|chu\s*nhat)(?:\s+tuan\s+(?:nay|sau))?(?=$|[\s,.!?])/g,
+  )
     .replace(/\s+/g, ' ')
     .trim();
 }

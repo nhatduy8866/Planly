@@ -1,5 +1,6 @@
 import type { Task } from '../../types';
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
+import { normalizeVietnameseText } from '../../utils/vietnameseText';
 import { resolveScheduleDate } from './dateIntent';
 import { parseVietnameseTime } from './timeIntent';
 
@@ -38,17 +39,8 @@ const TOKEN_NOISE = new Set([
 ]);
 const GENERIC_MATCH_TOKENS = new Set(['cong', 'lich', 'task', 'viec']);
 
-function normalizeVietnamese(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
-}
-
 function meaningfulTokens(value: string): string[] {
-  return normalizeVietnamese(value)
+  return normalizeVietnameseText(value)
     .split(/[^a-z0-9]+/)
     .filter(
       (token) =>
@@ -59,7 +51,7 @@ function meaningfulTokens(value: string): string[] {
 }
 
 export function isTaskUpdateIntent(text: string): boolean {
-  const normalized = normalizeVietnamese(text).trim();
+  const normalized = normalizeVietnameseText(text).trim();
   if (!normalized) return false;
 
   return (

@@ -276,7 +276,7 @@ async function scheduleTaskNotification(
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
         },
-        sound: 'default',
+        ...(Platform.OS === 'ios' ? { sound: 'default' as const } : {}),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

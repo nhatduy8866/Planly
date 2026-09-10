@@ -24,6 +24,7 @@ import {
   type TaskFormValues,
 } from '../components/TaskFormModal';
 import { AiScheduleModal } from '../components/ai/AiScheduleModal';
+import { AiSaveSnackbar } from '../components/ai/AiSaveSnackbar';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { useTaskActions } from '../hooks/useTaskActions';
@@ -535,7 +536,10 @@ export function ScheduleScreen() {
                 >
                   <TaskCard
                     completionPending={completionPending}
-                    highlighted={highlightedTaskId === task.id}
+                    highlighted={
+                      highlightedTaskId === task.id ||
+                      aiScheduler.highlightedTaskIds.has(task.id)
+                    }
                     task={task}
                     onToggle={handleTaskToggle}
                     onEdit={openEdit}
@@ -587,6 +591,26 @@ export function ScheduleScreen() {
         scheduler={aiScheduler}
         targetDate={selectedDate}
         onOpenManualTaskModal={openCreate}
+      />
+
+      <AiSaveSnackbar
+        action={
+          aiScheduler.saveFeedback?.tasks.some(
+            (task) => task.date !== selectedDate,
+          )
+            ? 'view'
+            : 'undo'
+        }
+        busy={aiScheduler.undoingSave}
+        feedback={aiScheduler.saveFeedback}
+        onAction={() => {
+          const differentDate = aiScheduler.saveFeedback?.tasks.find(
+            (task) => task.date !== selectedDate,
+          )?.date;
+          if (differentDate) aiScheduler.viewSavedTasks(differentDate);
+          else void aiScheduler.undoLastSave();
+        }}
+        onDismiss={aiScheduler.dismissSaveFeedback}
       />
 
       {formVisible ? (

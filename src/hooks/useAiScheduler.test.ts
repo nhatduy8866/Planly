@@ -27,6 +27,13 @@ const mockReplaceTaskReminders = jest.fn<
     options?: { language?: 'vi' | 'en' },
   ) => Promise<Task[]>
 >();
+const mockRollbackTaskReminders = jest.fn<
+  (
+    savedTasks: Task[],
+    previousTasks: Task[],
+    options?: { language?: 'vi' | 'en' },
+  ) => Promise<Task[]>
+>();
 
 jest.mock('../store/PlannerContext', () => ({
   usePlannerDispatch: () => mockDispatch,
@@ -65,6 +72,11 @@ jest.mock('../services/reminderTransaction', () => ({
     existingTasks: Task[],
     options?: { language?: 'vi' | 'en' },
   ) => mockReplaceTaskReminders(tasks, existingTasks, options),
+  rollbackTaskReminders: (
+    savedTasks: Task[],
+    previousTasks: Task[],
+    options?: { language?: 'vi' | 'en' },
+  ) => mockRollbackTaskReminders(savedTasks, previousTasks, options),
 }));
 
 jest.mock('expo-haptics', () => ({
@@ -149,7 +161,11 @@ describe('useAiScheduler', () => {
     mockParseScheduleRequest.mockReset();
     mockRefineSchedule.mockReset();
     mockReplaceTaskReminders.mockReset();
+    mockRollbackTaskReminders.mockReset();
     mockReplaceTaskReminders.mockImplementation(async (tasks) => tasks);
+    mockRollbackTaskReminders.mockImplementation(
+      async (_savedTasks, previousTasks) => previousTasks,
+    );
     await renderScheduler();
   });
 
@@ -251,7 +267,41 @@ describe('useAiScheduler', () => {
       mockPlannerState.tasks,
       { language: 'vi' },
     );
-    expect(scheduler.step).toBe('success');
+    expect(scheduler.visible).toBe(false);
+    expect(scheduler.saveFeedback).toMatchObject({
+      createdCount: 1,
+      updatedCount: 0,
+    });
+    expect(scheduler.highlightedTaskIds.has('task-new')).toBe(true);
+  });
+
+  it('undoes an AI update with its previous task and reminder', async () => {
+    const previous = makeTask({ notificationId: 'notification-old' });
+    updateTasks([previous]);
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ id: previous.id, startTime: '14:00' }),
+    ]);
+    await submitPrompt();
+    await act(async () => {
+      await scheduler.confirmSaveToCalendar();
+    });
+
+    const restored = { ...previous, notificationId: 'notification-restored' };
+    mockRollbackTaskReminders.mockResolvedValue([restored]);
+    await act(async () => {
+      await scheduler.undoLastSave();
+    });
+
+    expect(mockRollbackTaskReminders).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: previous.id })]),
+      [previous],
+      { language: 'vi' },
+    );
+    expect(mockDispatch).toHaveBeenLastCalledWith({
+      type: 'rollback_task_batch',
+      payload: { savedIds: [previous.id], previousTasks: [restored] },
+    });
+    expect(scheduler.saveFeedback).toBeNull();
   });
 
   it('rechecks conflicts introduced by refinement before previewing', async () => {

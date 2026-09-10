@@ -1,7 +1,7 @@
 import type { ReminderMinutes, Task, TaskPriority } from './index';
 
 /**
- * 10 bước trạng thái của luồng Planly AI (Khớp với UI/UX Concept 10 màn hình)
+ * Các trạng thái của luồng Planly AI trước khi lưu vào lịch.
  */
 export type AiModalStep =
   | 'menu_action_sheet'   // Màn 2: Menu từ nút +
@@ -10,9 +10,8 @@ export type AiModalStep =
   | 'draft_preview'       // Màn 5: Xem trước kế hoạch
   | 'refinement_chat'     // Màn 6: Chỉnh sửa bằng AI
   | 'updated_preview'     // Màn 7: Kế hoạch đã cập nhật
-  | 'auto_slotting'       // Màn 8: Tự động sắp xếp khi thiếu giờ
-  | 'conflict_resolution' // Màn 9: Xử lý xung đột trùng lịch
-  | 'success';            // Màn 10: Thông báo thành công
+  | 'auto_slotting'       // Tự động sắp xếp khi thiếu giờ
+  | 'conflict_resolution'; // Xử lý xung đột trùng lịch
 
 /**
  * Task dự thảo do AI tạo ra (ở trạng thái Preview, chưa lưu vào Database)

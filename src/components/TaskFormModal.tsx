@@ -74,8 +74,6 @@ export const CARD_COLOR_PRESETS = [
   '#94A3B8',
 ] as const;
 
-const MAX_CUSTOM_REMINDER_MINUTES = 10_080;
-const REMINDER_PRESET_VALUES = [0, 5, 15, 30, 60] as const;
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 
 const PRIORITY_OPTIONS: {
@@ -94,10 +92,6 @@ function formatTime(date: Date): string {
   ).padStart(2, '0')}`;
 }
 
-function isReminderPreset(value: number): boolean {
-  return REMINDER_PRESET_VALUES.some((preset) => preset === value);
-}
-
 export function TaskFormModal({
   visible,
   task,
@@ -109,20 +103,12 @@ export function TaskFormModal({
   const { colors, locale, t, theme } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const initialDate = task?.date ?? defaultDate;
-  const initialReminder = task?.reminderMinutes ?? 0;
 
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [date, setDate] = useState(initialDate);
   const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
   const [color, setColor] = useState<string | undefined>(task?.color);
-  const [reminder, setReminder] = useState(initialReminder);
-  const [customReminder, setCustomReminder] = useState(
-    isReminderPreset(initialReminder) ? '' : String(initialReminder),
-  );
-  const [isCustomReminder, setIsCustomReminder] = useState(
-    !isReminderPreset(initialReminder),
-  );
   const [priority, setPriority] = useState<TaskPriority>(
     task?.priority ?? 'none',
   );
@@ -227,21 +213,6 @@ export function TaskFormModal({
       return;
     }
 
-    let reminderMinutes = reminder;
-    if (isCustomReminder) {
-      const parsedReminder = Number(customReminder);
-      if (
-        !customReminder.trim() ||
-        !Number.isInteger(parsedReminder) ||
-        parsedReminder < 0 ||
-        parsedReminder > MAX_CUSTOM_REMINDER_MINUTES
-      ) {
-        setError(t('taskForm.reminderInvalid'));
-        return;
-      }
-      reminderMinutes = parsedReminder;
-    }
-
     if (
       !task &&
       batchEnabled &&
@@ -262,7 +233,7 @@ export function TaskFormModal({
         description: description.trim(),
         date,
         startTime,
-        reminderMinutes,
+        reminderMinutes: 0,
         color,
         priority,
         batchDates: !task && batchEnabled ? batchDates : undefined,
@@ -454,76 +425,6 @@ export function TaskFormModal({
               </View>
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <Text style={styles.label}>{t('taskForm.reminder')}</Text>
-              <View style={styles.chips}>
-                {REMINDER_PRESET_VALUES.map((value) => {
-                  const active = !isCustomReminder && value === reminder;
-                  const label =
-                    value === 0
-                      ? t('taskForm.onTime')
-                      : value === 60
-                        ? t('taskForm.oneHour')
-                        : t('taskForm.minutes', { count: value });
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => {
-                        setReminder(value);
-                        setIsCustomReminder(false);
-                      }}
-                      style={({ pressed }) => [
-                        styles.chip,
-                        active && styles.chipActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  onPress={() => setIsCustomReminder(true)}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    isCustomReminder && styles.chipActive,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      isCustomReminder && styles.chipTextActive,
-                    ]}
-                  >
-                    {t('taskForm.customReminder')}
-                  </Text>
-                </Pressable>
-              </View>
-
-              {isCustomReminder ? (
-                <View style={styles.reminderInputRow}>
-                  <TextInput
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    onChangeText={setCustomReminder}
-                    placeholder={t('taskForm.customReminderPlaceholder')}
-                    placeholderTextColor={colors.placeholder}
-                    style={[styles.input, styles.reminderInput]}
-                    value={customReminder}
-                  />
-                  <Text style={styles.inputUnit}>
-                    {t('taskForm.minuteUnit')}
-                  </Text>
-                </View>
-              ) : null}
 
               <Pressable
                 accessibilityRole="button"
@@ -1177,26 +1078,8 @@ const createStyles = (colors: ThemeColors) =>
       padding: 14,
       paddingTop: 16,
     },
-    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      paddingHorizontal: 13,
-      paddingVertical: 9,
-    },
     chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    chipText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
     chipTextActive: { color: colors.white },
-    reminderInputRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 10,
-    },
-    reminderInput: { flex: 1 },
-    inputUnit: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
     priorityRow: { flexDirection: 'row', gap: 7, marginTop: 4 },
     priorityChip: {
       alignItems: 'center',

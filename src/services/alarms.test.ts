@@ -115,7 +115,7 @@ describe('native task alarms', () => {
           secondaryButtonBehavior: 'openApp',
           stopIntentBehavior: 'recordOnly',
         }),
-        timestamp: new Date(2099, 0, 2, 13, 45).getTime(),
+        timestamp: new Date(2099, 0, 2, 14, 0).getTime(),
         title: task.title,
       }),
     );

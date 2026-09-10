@@ -124,7 +124,6 @@ export async function scheduleTaskAlarm(
   if (task.reminderMinutes === null) return undefined;
 
   const triggerDate = taskDateTime(task.date, task.startTime);
-  triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
   if (triggerDate.getTime() <= Date.now()) return undefined;
 
   const scheduler = await loadAlarmScheduler();
@@ -138,14 +137,7 @@ export async function scheduleTaskAlarm(
     return undefined;
   }
 
-  const alertTitle =
-    language === 'vi'
-      ? task.reminderMinutes === 0
-        ? 'Đến giờ rồi'
-        : 'Sắp đến lịch'
-      : task.reminderMinutes === 0
-        ? 'It’s time'
-        : 'Coming up soon';
+  const alertTitle = language === 'vi' ? 'Đến giờ rồi' : 'It’s time';
   const alertBody = `${task.startTime} · ${task.title}`;
   const stopButtonTitle = language === 'vi' ? 'Tắt' : 'Stop';
   const openButtonTitle = language === 'vi' ? 'Mở Planly' : 'Open Planly';

@@ -43,10 +43,8 @@ export interface TaskReminderReadiness {
 }
 
 export function getTaskReminderDate(task: Task): Date | undefined {
-  if (task.reminderMinutes === null) return undefined;
-
+  if (task.completed || task.reminderMinutes === null) return undefined;
   const triggerDate = taskDateTime(task.date, task.startTime);
-  triggerDate.setMinutes(triggerDate.getMinutes() - task.reminderMinutes);
   return Number.isFinite(triggerDate.getTime()) ? triggerDate : undefined;
 }
 
@@ -63,7 +61,6 @@ export function getTaskReminderKey(
     task.title,
     task.date,
     task.startTime,
-    task.reminderMinutes,
   ]);
 }
 
@@ -261,7 +258,7 @@ async function scheduleTaskNotification(
   task: Task,
   language: Language,
 ): Promise<string | undefined> {
-  if (Platform.OS === 'web' || task.reminderMinutes === null) return undefined;
+  if (Platform.OS === 'web') return undefined;
 
   const triggerDate = getTaskReminderDate(task);
   if (!triggerDate || triggerDate.getTime() <= Date.now()) return undefined;
@@ -270,14 +267,7 @@ async function scheduleTaskNotification(
 
   return Notifications.scheduleNotificationAsync({
     content: {
-      title:
-        language === 'vi'
-          ? task.reminderMinutes === 0
-            ? 'Đến giờ rồi'
-            : 'Sắp đến lịch'
-          : task.reminderMinutes === 0
-            ? 'It’s time'
-            : 'Coming up soon',
+      title: language === 'vi' ? 'Đến giờ rồi' : 'It’s time',
       body: `${task.startTime} · ${task.title}`,
       data: {
         reminderKey: getTaskReminderKey(task, language, 'notification'),

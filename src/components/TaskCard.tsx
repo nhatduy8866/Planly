@@ -196,23 +196,11 @@ export const TaskCard = memo(function TaskCard({
               {task.startTime}
             </Text>
             {task.reminderMinutes !== null ? (
-              <>
-                <Text
-                  style={[styles.meta, isCompleted && styles.completedMeta]}
-                >
-                  ·{' '}
-                  {task.reminderMinutes === 0
-                    ? t('task.reminderOnTime')
-                    : t('task.reminderBefore', {
-                        count: task.reminderMinutes,
-                      })}
-                </Text>
-                <MaterialIcons
-                  name="notifications"
-                  size={14}
-                  color={isCompleted ? colors.textMuted : colors.warning}
-                />
-              </>
+              <MaterialIcons
+                name="notifications"
+                size={14}
+                color={isCompleted ? colors.textMuted : colors.warning}
+              />
             ) : null}
             {task.batchId ? (
               <View style={styles.batchBadge}>

@@ -212,6 +212,12 @@ export async function getTaskReminderReadiness(
       (alarmPermission.canPostNotifications &&
         notificationPermission.state === 'granted'));
 
+  if (__DEV__ && !alarmReady) {
+    console.warn(
+      `[Planly Alarm] Alarm not ready: available=${alarmPermission.available}, canScheduleExactAlarms=${alarmPermission.canScheduleExactAlarms}, canPostNotifications=${alarmPermission.canPostNotifications}, notificationState=${notificationPermission.state}`,
+    );
+  }
+
   return {
     canSchedule: alarmReady,
     deliveryMode: 'alarm',

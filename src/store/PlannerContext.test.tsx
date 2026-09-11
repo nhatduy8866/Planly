@@ -170,4 +170,37 @@ describe('PlannerProvider persistence', () => {
       JSON.stringify([{ ...note, title: 'Ghi chú mới' }]),
     );
   });
+
+  it('preserves task color during hydration and persistence', async () => {
+    const taskWithColor: Task = {
+      ...task,
+      id: 'task-color-1',
+      color: '#A78BFA',
+    };
+    mockGetItem.mockImplementation(async (key) =>
+      key === '@planly/tasks/v1'
+        ? JSON.stringify([taskWithColor])
+        : key === '@planly/notes/v1'
+          ? JSON.stringify([])
+          : null,
+    );
+
+    await renderProvider();
+
+    expect(planner.hydrated).toBe(true);
+    expect(planner.tasks).toEqual([taskWithColor]);
+    expect(planner.tasks[0].color).toBe('#A78BFA');
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const tasksCall = mockSetItem.mock.calls.find(
+      (call) => call[0] === '@planly/tasks/v1',
+    );
+    expect(tasksCall).toBeDefined();
+    expect(JSON.parse(tasksCall![1])).toEqual([taskWithColor]);
+  });
 });

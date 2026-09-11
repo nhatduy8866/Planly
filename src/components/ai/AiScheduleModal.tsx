@@ -43,6 +43,7 @@ function toEditableTask(draft: AiDraftTask, order: number): Task {
     completed: false,
     order,
     priority: draft.priority,
+    color: draft.color,
     createdAt: '',
     updatedAt: '',
   };
@@ -95,6 +96,7 @@ export function AiScheduleModal({
       startTime: values.startTime,
       reminderMinutes: values.reminderMinutes,
       priority: values.priority,
+      color: values.color,
     });
   }
 

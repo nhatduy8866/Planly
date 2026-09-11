@@ -7,6 +7,8 @@ import { isExpoGoRuntime } from '../utils/expoRuntime';
 import {
   cancelTaskAlarm,
   consumePendingTaskAlarm,
+  dismissNativeAlarm,
+  getActiveAlarmState,
   getAlarmPermission,
   getScheduledTaskAlarms,
   scheduleTaskAlarm,
@@ -113,6 +115,16 @@ describe('native task alarms', () => {
       taskId: task.id,
     };
 
+    const expectedMetadata = {
+      ...metadata,
+      taskColor: '',
+      taskDescription: '',
+      taskId: task.id,
+      taskPriority: 'none',
+      taskStartTime: '14:00',
+      taskTitle: 'Đá bóng',
+    };
+
     await expect(scheduleTaskAlarm(task, 'vi', metadata)).resolves.toBe(
       'alarm:native-1',
     );
@@ -121,14 +133,15 @@ describe('native task alarms', () => {
       expect.objectContaining({
         android: expect.objectContaining({
           fullScreen: true,
-          fullScreenTarget: 'native',
-          launchUri: 'planly://',
+          fullScreenTarget: 'app',
+          launchUri: 'planly://alarm?taskId=task-1',
           maxRingDurationSeconds: 300,
+          metadata: expectedMetadata,
           vibrate: true,
         }),
         ios: expect.objectContaining({
           alertActionMode: 'default',
-          metadata,
+          metadata: expectedMetadata,
           secondaryButtonBehavior: 'openApp',
           stopIntentBehavior: 'recordOnly',
         }),
@@ -202,4 +215,36 @@ describe('native task alarms', () => {
     expect(scheduler.completeNativeAlarmAsync).toHaveBeenCalledWith('native-1');
     expect(scheduler.clearPendingNativeAlarmHandoffAsync).toHaveBeenCalled();
   });
+
+  it('reads active alarm state with snapshot metadata without clearing immediately', async () => {
+    scheduler.getCurrentAlarmContextAsync.mockResolvedValue({
+      id: 'native-99',
+      metadata: {
+        taskColor: '#10B981',
+        taskDescription: 'Mô tả chi tiết',
+        taskId: 'task-99',
+        taskPriority: 'high',
+        taskStartTime: '08:30',
+        taskTitle: 'Họp team',
+      },
+      state: 'alerting',
+    });
+
+    const active = await getActiveAlarmState();
+    expect(active).toEqual({
+      alarmId: 'native-99',
+      color: '#10B981',
+      description: 'Mô tả chi tiết',
+      priority: 'high',
+      startTime: '08:30',
+      taskId: 'task-99',
+      title: 'Họp team',
+    });
+    expect(scheduler.completeNativeAlarmAsync).not.toHaveBeenCalled();
+
+    await dismissNativeAlarm('native-99');
+    expect(scheduler.completeNativeAlarmAsync).toHaveBeenCalledWith('native-99');
+    expect(scheduler.clearPendingNativeAlarmHandoffAsync).toHaveBeenCalled();
+  });
 });
+

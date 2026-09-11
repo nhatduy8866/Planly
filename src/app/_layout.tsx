@@ -5,6 +5,7 @@ import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
+import { AlarmRingingModal } from '../components/AlarmRingingModal';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
@@ -36,7 +37,11 @@ function AppShell() {
   const styles = useThemedStyles(createStyles);
   const appReady = plannerHydrated && preferencesHydrated;
 
-  useAlarmTaskNavigation(requestTask, appReady);
+  const { activeAlarm, dismissAlarm, viewTask } = useAlarmTaskNavigation(
+    requestTask,
+    appReady,
+    tasks,
+  );
   useNotificationTaskNavigation(requestTask, appReady);
   useReminderReconciliation(
     tasks,
@@ -69,6 +74,12 @@ function AppShell() {
           <Slot />
         </View>
       </View>
+      <AlarmRingingModal
+        visible={Boolean(activeAlarm)}
+        task={activeAlarm?.task}
+        onDismiss={dismissAlarm}
+        onViewTask={viewTask}
+      />
     </>
   );
 }

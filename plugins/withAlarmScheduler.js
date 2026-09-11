@@ -64,6 +64,13 @@ function withAlarmScheduler(config, props = {}) {
       manifest,
       'com.android.alarm.permission.SET_ALARM',
     );
+    try {
+      const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(manifest);
+      mainActivity.$['android:showWhenLocked'] = 'true';
+      mainActivity.$['android:turnScreenOn'] = 'true';
+    } catch {
+      // ignore if main activity not resolved
+    }
     return modConfig;
   });
 

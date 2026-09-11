@@ -154,20 +154,31 @@ export async function scheduleTaskAlarm(
   const stopButtonTitle = language === 'vi' ? 'Tắt' : 'Stop';
   const openButtonTitle = language === 'vi' ? 'Mở Planly' : 'Open Planly';
 
+  const alarmMetadataPayload: Record<string, string> = {
+    ...metadata,
+    taskColor: task.color || '',
+    taskDescription: task.description || '',
+    taskId: task.id,
+    taskPriority: task.priority || 'none',
+    taskStartTime: task.startTime,
+    taskTitle: task.title,
+  };
+
   const alarm = await scheduler.scheduleAlarmAsync({
     android: {
       alertBody,
       fullScreen: true,
-      fullScreenTarget: 'native',
-      launchUri: 'planly://',
+      fullScreenTarget: 'app',
+      launchUri: `planly://alarm?taskId=${encodeURIComponent(task.id)}`,
       maxRingDurationSeconds: ALARM_MAX_RING_DURATION_SECONDS,
+      metadata: alarmMetadataPayload,
       vibrate: true,
     },
     hour: triggerDate.getHours(),
     ios: {
       alertActionMode: 'default',
       alertTitle,
-      metadata,
+      metadata: alarmMetadataPayload,
       secondaryButtonBehavior: 'openApp',
       secondaryButtonTitle: openButtonTitle,
       stopButtonTitle,
@@ -213,13 +224,18 @@ export async function getScheduledTaskAlarms(): Promise<
   });
 }
 
-interface PendingTaskAlarm {
+export interface ActiveAlarmState {
   alarmId: string;
   taskId?: string;
+  title?: string;
+  startTime?: string;
+  description?: string;
+  priority?: Task['priority'];
+  color?: string;
 }
 
-export async function consumePendingTaskAlarm(): Promise<
-  PendingTaskAlarm | undefined
+export async function getActiveAlarmState(): Promise<
+  ActiveAlarmState | undefined
 > {
   const scheduler = await loadAlarmScheduler();
   if (!scheduler) return undefined;
@@ -232,14 +248,97 @@ export async function consumePendingTaskAlarm(): Promise<
   if (!alarmId) return undefined;
 
   let metadata = context?.metadata;
+  let scheduledTitle: string | undefined;
   if (!metadata) {
     const scheduled = await scheduler.getScheduledAlarmsAsync();
-    metadata = scheduled.find((alarm) => alarm.id === alarmId)?.metadata;
+    const found = scheduled.find((alarm) => alarm.id === alarmId);
+    metadata = found?.metadata;
+    scheduledTitle = found?.title;
   }
+
   const taskId =
     typeof metadata?.taskId === 'string' ? metadata.taskId : undefined;
+  const title =
+    typeof metadata?.taskTitle === 'string'
+      ? metadata.taskTitle
+      : scheduledTitle;
+  const startTime =
+    typeof metadata?.taskStartTime === 'string'
+      ? metadata.taskStartTime
+      : undefined;
+  const description =
+    typeof metadata?.taskDescription === 'string'
+      ? metadata.taskDescription
+      : undefined;
+  const priority =
+    typeof metadata?.taskPriority === 'string'
+      ? (metadata.taskPriority as Task['priority'])
+      : undefined;
+  const color =
+    typeof metadata?.taskColor === 'string' && metadata.taskColor.length > 0
+      ? metadata.taskColor
+      : undefined;
 
+  return {
+    alarmId,
+    color,
+    description,
+    priority,
+    startTime,
+    taskId,
+    title,
+  };
+}
+
+export async function dismissNativeAlarm(alarmId: string): Promise<void> {
+  const scheduler = await loadAlarmScheduler();
+  if (!scheduler) return;
   await scheduler.completeNativeAlarmAsync(alarmId);
   await scheduler.clearPendingNativeAlarmHandoffAsync();
-  return { alarmId, taskId };
 }
+
+export function subscribeAlarmEvents(onAlarmEvent: () => void): () => void {
+  let unsubscribed = false;
+  let removeListener: (() => void) | undefined;
+
+  void loadAlarmScheduler().then((scheduler) => {
+    if (unsubscribed || !scheduler) return;
+    try {
+      const sub = scheduler.addListener?.('onAlarmTriggered', () => {
+        onAlarmEvent();
+      });
+      const subState = scheduler.addListener?.('onAlarmStateChange', (event) => {
+        if (event.state === 'alerting') {
+          onAlarmEvent();
+        }
+      });
+      removeListener = () => {
+        sub?.remove?.();
+        subState?.remove?.();
+      };
+    } catch {
+      // Event emitter might not be supported in test or restricted environments
+    }
+  });
+
+  return () => {
+    unsubscribed = true;
+    removeListener?.();
+  };
+}
+
+interface PendingTaskAlarm {
+  alarmId: string;
+  taskId?: string;
+}
+
+export async function consumePendingTaskAlarm(): Promise<
+  PendingTaskAlarm | undefined
+> {
+  const state = await getActiveAlarmState();
+  if (!state) return undefined;
+
+  await dismissNativeAlarm(state.alarmId);
+  return { alarmId: state.alarmId, taskId: state.taskId };
+}
+

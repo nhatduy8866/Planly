@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
-import type { ThemeColors } from '../theme/colors';
+import { CARD_COLOR_PRESETS, type ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { ReminderMinutes, Task, TaskPriority } from '../types';
 import {
@@ -59,20 +59,7 @@ interface TaskFormModalProps {
 type PickerTarget = 'date' | 'time' | 'batchEnd' | null;
 type BatchMode = 'weekly' | 'monthly';
 
-export const CARD_COLOR_PRESETS = [
-  '#A78BFA',
-  '#60A5FA',
-  '#34D399',
-  '#FBBF24',
-  '#F472B6',
-  '#C084FC',
-  '#FB923C',
-  '#A3E635',
-  '#2DD4BF',
-  '#F87171',
-  '#FACC15',
-  '#94A3B8',
-] as const;
+export { CARD_COLOR_PRESETS };
 
 const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 

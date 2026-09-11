@@ -441,11 +441,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                             : 'settings.reminderTypeAlarmDescription',
                         )}
                       </Text>
-                      {disabled ? (
-                        <Text style={styles.choiceDescription}>
-                          {t('settings.reminderTypeAlarmWeb')}
-                        </Text>
-                      ) : null}
                     </View>
                     {selected ? (
                       <MaterialIcons

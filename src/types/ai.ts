@@ -24,6 +24,7 @@ export interface AiDraftTask {
   startTime: string; // HH:mm hoặc rỗng nếu chưa có giờ
   reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
+  color?: string;
   source: 'direct_request' | 'auto_slotted' | 'conflict_resolved';
   batchGroupId?: string;
   slottingStatus?: 'scheduled' | 'unscheduled';

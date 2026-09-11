@@ -122,4 +122,19 @@ describe('task edit utilities', () => {
       ]),
     );
   });
+
+  it('updates task color when specified in edit values', () => {
+    const existing = makeTask({ color: '#A78BFA' });
+    const [result] = buildTaskEdits(
+      [existing],
+      existing,
+      editValues({ color: '#34D399' }),
+      {
+        applyToBatch: false,
+        updatedAt: '2026-09-09T02:00:00.000Z',
+      },
+    );
+
+    expect(result.color).toBe('#34D399');
+  });
 });

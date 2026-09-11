@@ -248,7 +248,7 @@ describe('notification foundation', () => {
     expect(scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
-  it('falls back to a standard notification when exact alarm access is unavailable', async () => {
+  it('does not fall back to notification when preferredMode is alarm and exact alarm access is unavailable', async () => {
     getPermissionsAsync.mockResolvedValue(permission('granted', true));
     mockGetAlarmPermission.mockResolvedValue({
       available: true,
@@ -258,14 +258,25 @@ describe('notification foundation', () => {
       canUseFullScreenIntent: true,
       state: 'denied',
     });
-    scheduleNotificationAsync.mockResolvedValue('notification-fallback');
 
     await expect(
       scheduleTaskReminder(makeFutureTask(), 'vi', 'alarm'),
-    ).resolves.toBe('notification-fallback');
+    ).resolves.toBeUndefined();
 
     expect(mockScheduleTaskAlarm).not.toHaveBeenCalled();
-    expect(scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+    expect(scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('strictly schedules alarm and never calls scheduleNotificationAsync when preferredMode is alarm', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    mockScheduleTaskAlarm.mockResolvedValue('alarm:native-1');
+
+    await expect(
+      scheduleTaskReminder(makeFutureTask(), 'vi', 'alarm'),
+    ).resolves.toBe('alarm:native-1');
+
+    expect(mockScheduleTaskAlarm).toHaveBeenCalledTimes(1);
+    expect(scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
   it('reports alarm readiness and combines both native reminder queues', async () => {

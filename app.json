@@ -46,6 +46,7 @@
       [
         "./plugins/withAlarmScheduler",
         {
+          "addUseExactAlarmPermission": true,
           "alarmKitUsageDescription": "Cho phép Planly đặt báo thức cho công việc của bạn."
         }
       ],

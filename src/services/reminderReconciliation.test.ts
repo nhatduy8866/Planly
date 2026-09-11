@@ -294,4 +294,32 @@ describe('reconcileTaskReminders', () => {
       { id: 'task-1', notificationId: 'new-1' },
     ]);
   });
+
+  it('replaces an alarm reminder after switching to notification mode', async () => {
+    const target = task({ notificationId: 'alarm-1' });
+    const scheduled = [
+      request(target, 'alarm-1', {
+        key: getTaskReminderKey(target, 'vi', 'alarm'),
+      }),
+    ];
+    const deps = dependencies(scheduled);
+
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'notification',
+      deps,
+    );
+
+    expect(deps.cancelReminder).toHaveBeenCalledWith('alarm-1');
+    expect(deps.scheduleReminder).toHaveBeenCalledWith(
+      target,
+      'vi',
+      'notification',
+    );
+    expect(result.notificationIdUpdates).toEqual([
+      { id: 'task-1', notificationId: 'new-1' },
+    ]);
+  });
 });
+

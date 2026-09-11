@@ -360,16 +360,7 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
           </View>
 
           <ScrollView contentContainerStyle={styles.modalContent}>
-            <View style={styles.settingsHeroIcon}>
-              <MaterialIcons name="tune" size={27} color={colors.primaryDark} />
-            </View>
-            <Text style={styles.settingsHeading}>{t('settings.title')}</Text>
-            <Text style={styles.settingsSubtitle}>{t('settings.subtitle')}</Text>
-
             <Text style={styles.cardLabel}>{t('settings.appearanceTitle')}</Text>
-            <Text style={styles.cardDescription}>
-              {t('settings.appearanceDescription')}
-            </Text>
             <View style={styles.choiceGroup}>
               {(['light', 'dark'] as const).map((item) => {
                 const selected = theme === item;
@@ -406,9 +397,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
 
             <Text style={[styles.cardLabel, styles.secondCardLabel]}>
               {t('settings.reminderTypeTitle')}
-            </Text>
-            <Text style={styles.cardDescription}>
-              {t('settings.reminderTypeDescription')}
             </Text>
             <View style={styles.choiceGroup}>
               {(['notification', 'alarm'] as const).map((item) => {
@@ -453,11 +441,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
                             : 'settings.reminderTypeAlarmDescription',
                         )}
                       </Text>
-                      {disabled ? (
-                        <Text style={styles.choiceDescription}>
-                          {t('settings.reminderTypeAlarmWeb')}
-                        </Text>
-                      ) : null}
                     </View>
                     {selected ? (
                       <MaterialIcons
@@ -473,9 +456,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
 
             <Text style={[styles.cardLabel, styles.secondCardLabel]}>
               {t('settings.languageTitle')}
-            </Text>
-            <Text style={styles.cardDescription}>
-              {t('settings.languageDescription')}
             </Text>
             <View style={styles.choiceGroup}>
               {(['vi', 'en'] as const).map((item) => {
@@ -509,9 +489,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
 
             <Text style={[styles.cardLabel, styles.secondCardLabel]}>
               {t('settings.notificationsTitle')}
-            </Text>
-            <Text style={styles.cardDescription}>
-              {t('settings.notificationsDescription')}
             </Text>
             <View style={styles.notificationCard}>
               <View
@@ -571,9 +548,6 @@ function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => 
               <>
                 <Text style={[styles.cardLabel, styles.secondCardLabel]}>
                   {t('settings.alarmAccessTitle')}
-                </Text>
-                <Text style={styles.cardDescription}>
-                  {t('settings.alarmAccessDescription')}
                 </Text>
                 <View style={styles.notificationCard}>
                   <View
@@ -728,44 +702,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 20,
     paddingBottom: 48,
   },
-  settingsHeroIcon: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 18,
-    height: 56,
-    justifyContent: 'center',
-    width: 56,
-  },
-  settingsHeading: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: '800',
-    marginTop: 14,
-    textAlign: 'center',
-  },
-  settingsSubtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 28,
-    marginTop: 6,
-    textAlign: 'center',
-  },
   cardLabel: {
     color: colors.text,
     fontSize: 16,
     fontWeight: '800',
+    marginBottom: 10,
   },
   secondCardLabel: {
     marginTop: 24,
-  },
-  cardDescription: {
-    color: colors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 10,
-    marginTop: 4,
   },
   choiceGroup: {
     gap: 8,

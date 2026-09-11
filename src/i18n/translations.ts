@@ -255,6 +255,11 @@ const vi = {
   'ai.noSlots': 'Không còn đủ giờ bắt đầu trống cho {{count}} công việc. Hãy bớt công việc hoặc chọn ngày khác.',
   'ai.unscheduledAfterRefinement': 'Còn {{count}} công việc chưa có giờ sau khi chỉnh sửa. Hãy để Planly tự sắp xếp hoặc chỉnh lại yêu cầu.',
   'ai.unscheduledSave': 'Còn {{count}} công việc chưa có giờ. Planly sẽ không lưu cho đến khi tất cả công việc được xếp hợp lệ.',
+  'alarmModal.badge': 'BÁO THỨC',
+  'alarmModal.dismiss': 'Tắt báo thức',
+  'alarmModal.viewTask': 'Xem công việc',
+  'alarmModal.startTime': 'Bắt đầu lúc {{time}}',
+  'alarmModal.noDescription': 'Không có mô tả chi tiết.',
 } as const;
 
 type TranslationKey = keyof typeof vi;
@@ -514,6 +519,11 @@ const en: Record<TranslationKey, string> = {
   'ai.noSlots': 'There are not enough open start times for {{count}} tasks. Remove a task or choose another day.',
   'ai.unscheduledAfterRefinement': '{{count}} tasks still have no time after refinement. Let Planly arrange them or revise your request.',
   'ai.unscheduledSave': '{{count}} tasks still have no time. Planly will wait until every task has a valid time.',
+  'alarmModal.badge': 'ALARM',
+  'alarmModal.dismiss': 'Stop Alarm',
+  'alarmModal.viewTask': 'View Task',
+  'alarmModal.startTime': 'Starts at {{time}}',
+  'alarmModal.noDescription': 'No description provided.',
 };
 
 const dictionaries: Record<Language, Record<TranslationKey, string>> = { vi, en };

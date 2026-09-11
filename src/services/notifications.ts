@@ -304,9 +304,17 @@ export async function scheduleTaskReminder(
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
         });
-      } catch {
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[Planly Alarm] Failed to schedule task alarm:', error);
+        }
         return undefined;
       }
+    }
+    if (__DEV__) {
+      console.warn(
+        `[Planly Alarm] Alarm not scheduled: readiness=${JSON.stringify(readiness)}`,
+      );
     }
     return undefined;
   }

@@ -37,7 +37,7 @@ function withAlarmScheduler(config, props = {}) {
     'Allow this app to schedule alarms that can alert you at the selected time.';
   const addExactAlarmPermission = props.addExactAlarmPermission !== false;
   const addNotificationPermission = props.addNotificationPermission !== false;
-  const addUseExactAlarmPermission = props.addUseExactAlarmPermission === true;
+  const addUseExactAlarmPermission = props.addUseExactAlarmPermission !== false;
   const iosAlarmSounds = normalizeIosAlarmSounds(props.iosAlarmSounds);
 
   config = withAndroidManifest(config, (modConfig) => {
@@ -48,16 +48,28 @@ function withAlarmScheduler(config, props = {}) {
         'android.permission.SCHEDULE_EXACT_ALARM',
       );
     }
-    if (addNotificationPermission) {
-      AndroidConfig.Permissions.addPermission(
-        manifest,
-        'android.permission.POST_NOTIFICATIONS',
-      );
-    }
     if (addUseExactAlarmPermission) {
       AndroidConfig.Permissions.addPermission(
         manifest,
         'android.permission.USE_EXACT_ALARM',
+      );
+    }
+    AndroidConfig.Permissions.addPermission(
+      manifest,
+      'android.permission.USE_FULL_SCREEN_INTENT',
+    );
+    AndroidConfig.Permissions.addPermission(
+      manifest,
+      'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
+    );
+    AndroidConfig.Permissions.addPermission(
+      manifest,
+      'android.permission.WAKE_LOCK',
+    );
+    if (addNotificationPermission) {
+      AndroidConfig.Permissions.addPermission(
+        manifest,
+        'android.permission.POST_NOTIFICATIONS',
       );
     }
     AndroidConfig.Permissions.addPermission(

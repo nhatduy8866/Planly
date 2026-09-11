@@ -146,6 +146,11 @@ export async function scheduleTaskAlarm(
     !permission.canScheduleExactAlarms ||
     (Platform.OS === 'android' && !permission.canPostNotifications)
   ) {
+    if (__DEV__) {
+      console.warn(
+        `[Planly Alarm] Cannot schedule alarm for "${task.title}". canScheduleExactAlarms=${permission.canScheduleExactAlarms}, canPostNotifications=${permission.canPostNotifications}`,
+      );
+    }
     return undefined;
   }
 
@@ -188,6 +193,12 @@ export async function scheduleTaskAlarm(
     timestamp: triggerDate.getTime(),
     title: task.title,
   });
+
+  if (__DEV__) {
+    console.warn(
+      `[Planly Alarm] Successfully scheduled alarm for "${task.title}" at ${triggerDate.toLocaleTimeString()} (id: ${alarm.id})`,
+    );
+  }
 
   return storedAlarmId(alarm.id);
 }

@@ -212,12 +212,10 @@ export async function getTaskReminderReadiness(
       (alarmPermission.canPostNotifications &&
         notificationPermission.state === 'granted'));
 
-  return alarmReady
-    ? { canSchedule: true, deliveryMode: 'alarm' }
-    : {
-        canSchedule: notificationPermission.state === 'granted',
-        deliveryMode: 'notification',
-      };
+  return {
+    canSchedule: alarmReady,
+    deliveryMode: 'alarm',
+  };
 }
 
 export async function getAllScheduledTaskReminders(): Promise<
@@ -301,17 +299,18 @@ export async function scheduleTaskReminder(
     const readiness = await getTaskReminderReadiness(preferredMode, language);
     if (readiness.deliveryMode === 'alarm' && readiness.canSchedule) {
       try {
-        const alarmId = await scheduleTaskAlarm(task, language, {
+        return await scheduleTaskAlarm(task, language, {
           reminderKey: getTaskReminderKey(task, language, 'alarm'),
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
         });
-        if (alarmId) return alarmId;
       } catch {
-        // Preserve the reminder by falling back to a standard notification.
+        return undefined;
       }
     }
+    return undefined;
   }
 
   return scheduleTaskNotification(task, language);
 }
+

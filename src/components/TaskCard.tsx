@@ -26,6 +26,9 @@ interface TaskCardProps {
   highlighted?: boolean;
 }
 
+const TASK_CARD_SCALE = 1.1;
+const scaleCardSize = (size: number) => size * TASK_CARD_SCALE;
+
 const CARD_ACCENT_KEYS = [
   'cardAccentLavender',
   'cardAccentBlue',
@@ -180,7 +183,7 @@ export const TaskCard = memo(function TaskCard({
           <Animated.View style={{ transform: [{ scale: toggleScale }] }}>
             <MaterialIcons
               name={isCompleted ? 'check-circle' : 'radio-button-unchecked'}
-              size={24}
+              size={scaleCardSize(24)}
               color={isCompleted ? colors.primary : colors.textMuted}
             />
           </Animated.View>
@@ -198,7 +201,7 @@ export const TaskCard = memo(function TaskCard({
             {task.reminderMinutes !== null ? (
               <MaterialIcons
                 name="notifications"
-                size={14}
+                size={scaleCardSize(14)}
                 color={isCompleted ? colors.textMuted : colors.warning}
               />
             ) : null}
@@ -206,7 +209,7 @@ export const TaskCard = memo(function TaskCard({
               <View style={styles.batchBadge}>
                 <MaterialIcons
                   name="repeat"
-                  size={12}
+                  size={scaleCardSize(12)}
                   color={isCompleted ? colors.textMuted : colors.primaryDark}
                 />
                 <Text
@@ -241,7 +244,7 @@ export const TaskCard = memo(function TaskCard({
             onPress={handleDelete}
             color={colors.danger}
             backgroundColor={colors.dangerSoft}
-            size={18}
+            size={scaleCardSize(18)}
             style={styles.smallButton}
           />
         </View>
@@ -274,7 +277,11 @@ export const TaskCard = memo(function TaskCard({
           ]}
         >
           <View pointerEvents="none" style={styles.completionOverlayMessage}>
-            <MaterialIcons name="undo" size={19} color={colors.primary} />
+            <MaterialIcons
+              name="undo"
+              size={scaleCardSize(19)}
+              color={colors.primary}
+            />
             <Text style={styles.completionOverlayText}>
               {t('task.completionPending')}
             </Text>
@@ -290,18 +297,18 @@ export const TaskCard = memo(function TaskCard({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardFrame: {
-    borderRadius: 16,
-    marginBottom: 10,
+    borderRadius: scaleCardSize(16),
+    marginBottom: scaleCardSize(10),
     overflow: 'hidden',
     position: 'relative',
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderLeftWidth: 15,
-    borderWidth: 4,
+    borderRadius: scaleCardSize(16),
+    borderLeftWidth: scaleCardSize(15),
+    borderWidth: scaleCardSize(4),
     flexDirection: 'row',
-    padding: 12,
+    padding: scaleCardSize(12),
   },
   highlightedCard: {
     borderColor: colors.primary,
@@ -317,9 +324,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   priorityCorner: {
     borderLeftColor: 'transparent',
-    borderLeftWidth: 32,
+    borderLeftWidth: scaleCardSize(32),
     borderStyle: 'solid',
-    borderTopWidth: 32,
+    borderTopWidth: scaleCardSize(32),
     height: 0,
     position: 'absolute',
     right: 0,
@@ -327,37 +334,62 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 0,
     zIndex: 1,
   },
-  checkButton: { paddingRight: 10, paddingTop: 2 },
+  checkButton: {
+    paddingRight: scaleCardSize(10),
+    paddingTop: scaleCardSize(2),
+  },
   content: { flex: 1 },
   timeRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 5,
+    gap: scaleCardSize(5),
   },
-  time: { color: colors.primary, fontSize: 13, fontWeight: '800' },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  time: {
+    color: colors.primary,
+    fontSize: scaleCardSize(13),
+    fontWeight: '800',
+  },
+  meta: { color: colors.textMuted, fontSize: scaleCardSize(12) },
   completedMeta: { color: colors.textMuted },
-  title: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
+  title: {
+    color: colors.text,
+    fontSize: scaleCardSize(15),
+    fontWeight: '700',
+    marginTop: scaleCardSize(4),
+  },
   completedText: { color: colors.textMuted, textDecorationLine: 'line-through' },
   batchBadge: {
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: colors.primarySoft,
-    borderRadius: 9,
+    borderRadius: scaleCardSize(9),
     flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    gap: scaleCardSize(4),
+    paddingHorizontal: scaleCardSize(7),
+    paddingVertical: scaleCardSize(3),
   },
   batchBadgeText: {
     color: colors.primaryDark,
-    fontSize: 10,
+    fontSize: scaleCardSize(10),
     fontWeight: '800',
   },
-  description: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
-  actions: { alignItems: 'flex-end', justifyContent: 'flex-end', marginLeft: 6 },
-  smallButton: { borderRadius: 9, height: 30, width: 30 },
+  description: {
+    color: colors.textMuted,
+    fontSize: scaleCardSize(13),
+    lineHeight: scaleCardSize(18),
+    marginTop: scaleCardSize(4),
+  },
+  actions: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    marginLeft: scaleCardSize(6),
+  },
+  smallButton: {
+    borderRadius: scaleCardSize(9),
+    height: scaleCardSize(30),
+    width: scaleCardSize(30),
+  },
   completionOverlay: {
     backgroundColor: colors.subtleOverlay,
     bottom: 0,
@@ -379,31 +411,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: scaleCardSize(12),
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 7,
+    gap: scaleCardSize(7),
     maxWidth: '82%',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: scaleCardSize(12),
+    paddingVertical: scaleCardSize(9),
   },
   completionOverlayText: {
     color: colors.primaryDark,
     flexShrink: 1,
-    fontSize: 12,
+    fontSize: scaleCardSize(12),
     fontWeight: '800',
     textAlign: 'center',
   },
   completionCountdown: {
     backgroundColor: colors.primarySoft,
-    borderRadius: 9,
+    borderRadius: scaleCardSize(9),
     color: colors.primaryDark,
-    fontSize: 11,
+    fontSize: scaleCardSize(11),
     fontWeight: '900',
-    minWidth: 28,
+    minWidth: scaleCardSize(28),
     overflow: 'hidden',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: scaleCardSize(6),
+    paddingVertical: scaleCardSize(3),
     textAlign: 'center',
   },
 });

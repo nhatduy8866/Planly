@@ -267,25 +267,27 @@ export function TaskFormModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      transparent={Platform.OS === 'web'}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
       onRequestClose={onClose}
     >
-      <View style={styles.modalBackdrop}>
+      <View
+        style={[
+          styles.modalBackdrop,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            paddingTop: Math.max(insets.top, 16),
+          },
+        ]}
+      >
         <View style={styles.modalCard}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.keyboardWrap}
           >
-            <View
-              style={[
-                styles.header,
-                {
-                  paddingTop:
-                    Platform.OS === 'web' ? 16 : Math.max(insets.top, 16),
-                },
-              ]}
-            >
+            <View style={styles.header}>
               <IconButton
                 icon="close"
                 accessibilityLabel={t('common.close')}
@@ -953,24 +955,23 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalBackdrop: {
       alignItems: 'center',
-      backgroundColor:
-        Platform.OS === 'web' ? colors.overlay : colors.background,
+      backgroundColor: colors.overlay,
       flex: 1,
       height: '100%',
       justifyContent: 'center',
+      paddingHorizontal: 16,
       width: '100%',
     },
     modalCard: {
       backgroundColor: colors.background,
       borderColor: colors.border,
-      borderRadius: Platform.OS === 'web' ? 24 : 0,
-      borderWidth: Platform.OS === 'web' ? 1 : 0,
-      flex: Platform.OS === 'web' ? undefined : 1,
-      height: Platform.OS === 'web' ? '88%' : '100%',
-      maxHeight: Platform.OS === 'web' ? 760 : undefined,
-      maxWidth: Platform.OS === 'web' ? 500 : undefined,
+      borderRadius: 24,
+      borderWidth: 1,
+      height: '88%',
+      maxHeight: 760,
+      maxWidth: 500,
       overflow: 'hidden',
-      width: Platform.OS === 'web' ? '92%' : '100%',
+      width: '100%',
     },
     keyboardWrap: { flex: 1, width: '100%' },
     scroll: { flex: 1 },
@@ -980,8 +981,8 @@ const createStyles = (colors: ThemeColors) =>
       borderBottomColor: colors.border,
       borderBottomWidth: 1,
       flexDirection: 'row',
-      paddingBottom: 12,
       paddingHorizontal: 12,
+      paddingVertical: 12,
     },
     headerTitle: {
       color: colors.text,

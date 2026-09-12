@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { StatusBar } from 'expo-status-bar';
 import {
   Animated,
   Easing,
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { TaskPriority } from '../types';
+import type { AlarmBackgroundAppearance, TaskPriority } from '../types';
 
 export interface AlarmModalTaskData {
   id: string;
@@ -32,6 +33,8 @@ export interface AlarmModalTaskData {
 }
 
 interface AlarmRingingModalProps {
+  backgroundAppearance?: AlarmBackgroundAppearance;
+  backgroundColor?: string;
   backgroundSource?: ImageSourcePropType;
   soundSource?: number | string;
   vibrate?: boolean;
@@ -60,6 +63,8 @@ function formatCurrentDate(locale: string): string {
 }
 
 export const AlarmRingingModal = memo(function AlarmRingingModal({
+  backgroundAppearance = 'dark',
+  backgroundColor,
   backgroundSource,
   soundSource,
   vibrate = true,
@@ -197,6 +202,9 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
 
   const cardAccent = task?.color || colors.primary;
   const priority = task?.priority ?? 'none';
+  const isLightBackground = backgroundAppearance === 'light';
+  const primaryContentColor = isLightBackground ? '#172033' : '#FFFFFF';
+  const alarmAccent = isLightBackground ? '#8A5A00' : '#FBBF24';
 
   const priorityConfigs: Record<
     TaskPriority,
@@ -242,19 +250,27 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
       transparent={false}
       visible={visible}
     >
+      <StatusBar style={isLightBackground ? 'dark' : 'light'} />
       <ImageBackground
         resizeMode="cover"
         source={backgroundSource}
-        style={styles.container}
+        style={[
+          styles.container,
+          backgroundColor ? { backgroundColor } : undefined,
+        ]}
       >
         <View
           style={[
             styles.contentContainer,
-            backgroundSource ? styles.backgroundOverlay : undefined,
-          {
-            paddingBottom: Math.max(insets.bottom, 24),
-            paddingTop: Math.max(insets.top, 32),
-          },
+            backgroundSource
+              ? isLightBackground
+                ? styles.lightBackgroundOverlay
+                : styles.darkBackgroundOverlay
+              : undefined,
+            {
+              paddingBottom: Math.max(insets.bottom, 24),
+              paddingTop: Math.max(insets.top, 32),
+            },
           ]}
         >
         {/* Header Huy hiệu BÁO THỨC */}
@@ -262,20 +278,33 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
           <Animated.View
             style={[
               styles.ringingBadge,
+              isLightBackground && styles.lightRingingBadge,
+              { borderColor: alarmAccent },
               { transform: [{ scale: pulseScale }] },
             ]}
           >
             <Animated.View style={{ transform: [{ rotate: bellRotation }] }}>
-              <MaterialIcons name="alarm" size={20} color="#FBBF24" />
+              <MaterialIcons name="alarm" size={20} color={alarmAccent} />
             </Animated.View>
-            <Text style={styles.ringingBadgeText}>{t('alarmModal.badge')}</Text>
+            <Text style={[styles.ringingBadgeText, { color: alarmAccent }]}>
+              {t('alarmModal.badge')}
+            </Text>
           </Animated.View>
         </View>
 
         {/* Đồng hồ lớn */}
         <View style={styles.clockSection}>
-          <Text style={styles.clockText}>{currentTime}</Text>
-          <Text style={styles.dateText}>{currentDate}</Text>
+          <Text style={[styles.clockText, { color: primaryContentColor }]}>
+            {currentTime}
+          </Text>
+          <Text
+            style={[
+              styles.dateText,
+              isLightBackground && styles.lightDateText,
+            ]}
+          >
+            {currentDate}
+          </Text>
         </View>
 
         {/* Thẻ Task Card chi tiết */}
@@ -283,6 +312,7 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
           <View
             style={[
               styles.taskCard,
+              isLightBackground && styles.lightTaskCard,
               {
                 borderColor: cardAccent,
                 borderLeftColor: cardAccent,
@@ -298,7 +328,12 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
             >
               {/* Hàng Giờ thực hiện & Badge Ưu tiên */}
               <View style={styles.taskMetaRow}>
-                <View style={styles.timeTag}>
+                <View
+                  style={[
+                    styles.timeTag,
+                    isLightBackground && styles.lightTimeTag,
+                  ]}
+                >
                   <MaterialIcons name="schedule" size={16} color={cardAccent} />
                   <Text style={[styles.timeTagText, { color: cardAccent }]}>
                     {t('alarmModal.startTime', {
@@ -337,14 +372,29 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
               </View>
 
               {/* Tiêu đề Task */}
-              <Text style={styles.taskTitle}>
+              <Text
+                style={[
+                  styles.taskTitle,
+                  isLightBackground && styles.lightTaskTitle,
+                ]}
+              >
                 {task?.title || t('settings.reminderTypeAlarm')}
               </Text>
 
               {/* Mô tả Task */}
               {task?.description ? (
-                <View style={styles.descriptionBox}>
-                  <Text style={styles.descriptionText}>
+                <View
+                  style={[
+                    styles.descriptionBox,
+                    isLightBackground && styles.lightDescriptionBox,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.descriptionText,
+                      isLightBackground && styles.lightDescriptionText,
+                    ]}
+                  >
                     {task.description}
                   </Text>
                 </View>
@@ -362,11 +412,21 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
             onPress={onViewTask}
             style={({ pressed }) => [
               styles.secondaryButton,
+              isLightBackground && styles.lightSecondaryButton,
               pressed && styles.buttonPressed,
             ]}
           >
-            <MaterialIcons name="event-note" size={22} color="#FFFFFF" />
-            <Text style={styles.secondaryButtonText}>
+            <MaterialIcons
+              name="event-note"
+              size={22}
+              color={primaryContentColor}
+            />
+            <Text
+              style={[
+                styles.secondaryButtonText,
+                { color: primaryContentColor },
+              ]}
+            >
               {t('alarmModal.viewTask')}
             </Text>
           </Pressable>
@@ -404,8 +464,11 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       paddingHorizontal: 24,
     },
-    backgroundOverlay: {
+    darkBackgroundOverlay: {
       backgroundColor: 'rgba(9, 13, 22, 0.68)',
+    },
+    lightBackgroundOverlay: {
+      backgroundColor: 'rgba(255, 252, 247, 0.38)',
     },
     topBar: {
       alignItems: 'center',
@@ -423,10 +486,12 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 8,
     },
     ringingBadgeText: {
-      color: '#FBBF24',
       fontSize: 13,
       fontWeight: '800',
       letterSpacing: 1.2,
+    },
+    lightRingingBadge: {
+      backgroundColor: 'rgba(255, 255, 255, 0.52)',
     },
     clockSection: {
       alignItems: 'center',
@@ -445,6 +510,9 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 4,
       textTransform: 'capitalize',
     },
+    lightDateText: {
+      color: 'rgba(23, 32, 51, 0.72)',
+    },
     cardContainer: {
       flex: 1,
       justifyContent: 'center',
@@ -458,6 +526,9 @@ const createStyles = (colors: ThemeColors) =>
       maxHeight: 340,
       overflow: 'hidden',
       position: 'relative',
+    },
+    lightTaskCard: {
+      backgroundColor: 'rgba(255, 255, 255, 0.68)',
     },
     cardAccentBar: {
       height: 4,
@@ -487,6 +558,9 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: 10,
       paddingVertical: 5,
     },
+    lightTimeTag: {
+      backgroundColor: 'rgba(255, 255, 255, 0.62)',
+    },
     timeTagText: {
       fontSize: 13,
       fontWeight: '700',
@@ -511,15 +585,24 @@ const createStyles = (colors: ThemeColors) =>
       lineHeight: 32,
       marginBottom: 12,
     },
+    lightTaskTitle: {
+      color: '#172033',
+    },
     descriptionBox: {
       backgroundColor: 'rgba(0, 0, 0, 0.28)',
       borderRadius: 14,
       padding: 14,
     },
+    lightDescriptionBox: {
+      backgroundColor: 'rgba(23, 32, 51, 0.07)',
+    },
     descriptionText: {
       color: 'rgba(255, 255, 255, 0.85)',
       fontSize: 14,
       lineHeight: 22,
+    },
+    lightDescriptionText: {
+      color: 'rgba(23, 32, 51, 0.82)',
     },
     actionsSection: {
       gap: 14,
@@ -535,6 +618,10 @@ const createStyles = (colors: ThemeColors) =>
       gap: 10,
       justifyContent: 'center',
       paddingVertical: 15,
+    },
+    lightSecondaryButton: {
+      backgroundColor: 'rgba(255, 255, 255, 0.68)',
+      borderColor: 'rgba(23, 32, 51, 0.14)',
     },
     secondaryButtonText: {
       color: '#FFFFFF',

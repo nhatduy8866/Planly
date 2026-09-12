@@ -62,7 +62,9 @@ describe('PreferencesProvider reminder mode', () => {
     expect(preferences.hydrated).toBe(true);
     expect(preferences.reminderDeliveryMode).toBe('notification');
     expect(preferences.alarmBackground).toBeNull();
+    expect(preferences.alarmBackgroundPreset).toBe('dawn');
     expect(preferences.alarmSound).toBeNull();
+    expect(preferences.alarmSoundPreset).toBe('classic');
     expect(preferences.alarmVibrationEnabled).toBe(true);
     expect(mockSetItem).toHaveBeenLastCalledWith(
       '@planly/preferences/v1',
@@ -74,7 +76,9 @@ describe('PreferencesProvider reminder mode', () => {
     mockGetItem.mockResolvedValue(
       JSON.stringify({
         alarmBackground: { name: 'night.jpg', uri: 'file:///night.jpg' },
+        alarmBackgroundPreset: 'cosmos',
         alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
+        alarmSoundPreset: 'gentle',
         alarmVibrationEnabled: false,
         reminderDeliveryMode: 'alarm',
       }),
@@ -91,6 +95,8 @@ describe('PreferencesProvider reminder mode', () => {
       name: 'bell.mp3',
       uri: 'file:///bell.mp3',
     });
+    expect(preferences.alarmBackgroundPreset).toBe('cosmos');
+    expect(preferences.alarmSoundPreset).toBe('gentle');
     expect(preferences.alarmVibrationEnabled).toBe(false);
   });
 });

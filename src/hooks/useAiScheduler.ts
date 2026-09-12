@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../preferences/PreferencesContext';
+import { getAlarmSchedulePreferences } from '../services/alarmPresets';
 import {
   usePlannerDispatch,
   usePlannerTasks,
@@ -42,6 +43,7 @@ export function useAiScheduler(
   const dispatch = usePlannerDispatch();
   const {
     alarmSound,
+    alarmSoundPreset,
     alarmVibrationEnabled,
     language,
     locale,
@@ -49,8 +51,13 @@ export function useAiScheduler(
     t,
   } = usePreferences();
   const alarmPreferences = useMemo(
-    () => ({ soundUri: alarmSound?.uri, vibrate: alarmVibrationEnabled }),
-    [alarmSound?.uri, alarmVibrationEnabled],
+    () =>
+      getAlarmSchedulePreferences(
+        alarmSoundPreset,
+        alarmSound,
+        alarmVibrationEnabled,
+      ),
+    [alarmSound, alarmSoundPreset, alarmVibrationEnabled],
   );
 
   const [visible, setVisible] = useState(false);

@@ -176,6 +176,7 @@ export async function scheduleTaskAlarm(
 
   const alarm = await scheduler.scheduleAlarmAsync({
     android: {
+      alertActionMode: 'openAppOnly',
       alertBody,
       fullScreen: true,
       fullScreenTarget: 'app',
@@ -186,11 +187,12 @@ export async function scheduleTaskAlarm(
     },
     hour: triggerDate.getHours(),
     ios: {
-      alertActionMode: 'default',
+      alertActionMode: 'openAppOnly',
       alertTitle,
       metadata: alarmMetadataPayload,
       secondaryButtonBehavior: 'openApp',
       secondaryButtonTitle: openButtonTitle,
+      soundName: preferences.soundName,
       stopButtonTitle,
       stopIntentBehavior: 'recordOnly',
     },

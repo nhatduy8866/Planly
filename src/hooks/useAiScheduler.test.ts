@@ -26,7 +26,7 @@ const mockReplaceTaskReminders = jest.fn<
     tasks: Task[],
     existingTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -37,7 +37,7 @@ const mockRollbackTaskReminders = jest.fn<
     savedTasks: Task[],
     previousTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -83,7 +83,7 @@ jest.mock('../services/reminderTransaction', () => ({
     tasks: Task[],
     existingTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -92,7 +92,7 @@ jest.mock('../services/reminderTransaction', () => ({
     savedTasks: Task[],
     previousTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -334,7 +334,7 @@ describe('useAiScheduler', () => {
       expect.any(Array),
       mockPlannerState.tasks,
       {
-        alarmPreferences: { soundUri: undefined, vibrate: true },
+        alarmPreferences: { soundName: 'planly_classic.wav', vibrate: true },
         language: 'vi',
         reminderDeliveryMode: 'notification',
       },
@@ -421,7 +421,7 @@ describe('useAiScheduler', () => {
       expect.arrayContaining([expect.objectContaining({ id: previous.id })]),
       [previous],
       {
-        alarmPreferences: { soundUri: undefined, vibrate: true },
+        alarmPreferences: { soundName: 'planly_classic.wav', vibrate: true },
         language: 'vi',
         reminderDeliveryMode: 'notification',
       },

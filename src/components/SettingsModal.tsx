@@ -1,8 +1,17 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import {
+  setAudioModeAsync,
+  type AudioPlayer,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
+  Image,
+  ImageBackground,
+  type ImageSourcePropType,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +23,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
+import {
+  ALARM_BACKGROUND_PRESETS,
+  ALARM_SOUND_PRESETS,
+  DEFAULT_ALARM_BACKGROUND_PRESET,
+  DEFAULT_ALARM_SOUND_PRESET,
+  getAlarmBackgroundPreset,
+  getAlarmSoundPreset,
+} from '../services/alarmPresets';
 import {
   AlarmMediaError,
   pickAlarmMedia,
@@ -34,7 +51,11 @@ import {
 } from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { ReminderDeliveryMode } from '../types';
+import type {
+  AlarmBackgroundPresetId,
+  AlarmSoundPresetId,
+  ReminderDeliveryMode,
+} from '../types';
 import { IconButton } from './IconButton';
 
 type SettingsPicker = 'background' | 'delivery' | 'sound' | 'vibration';
@@ -45,6 +66,9 @@ interface PickerOption {
   icon: MaterialIconName;
   label: string;
   onPress: () => void;
+  preview?:
+    | { kind: 'background'; source: ImageSourcePropType }
+    | { key: string; kind: 'sound'; source: number | string };
   selected?: boolean;
 }
 
@@ -60,23 +84,41 @@ interface SettingsModalProps {
   visible: boolean;
 }
 
+function configurePreviewPlayer(player: AudioPlayer): void {
+  player.loop = false;
+  player.volume = 0.8;
+}
+
 export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
   const {
     alarmBackground,
+    alarmBackgroundPreset = DEFAULT_ALARM_BACKGROUND_PRESET,
     alarmSound,
+    alarmSoundPreset = DEFAULT_ALARM_SOUND_PRESET,
     alarmVibrationEnabled,
     colors,
     language,
     reminderDeliveryMode,
     setAlarmBackground,
+    setAlarmBackgroundPreset,
     setAlarmSound,
+    setAlarmSoundPreset,
     setAlarmVibrationEnabled,
     setReminderDeliveryMode,
     t,
   } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const previewPlayer = useAudioPlayer(null);
+  const previewStatus = useAudioPlayerStatus(previewPlayer);
   const [activePicker, setActivePicker] = useState<SettingsPicker | null>(null);
+  const [backgroundPreview, setBackgroundPreview] = useState<{
+    label: string;
+    source: ImageSourcePropType;
+  } | null>(null);
+  const [previewingSoundKey, setPreviewingSoundKey] = useState<string | null>(
+    null,
+  );
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermissionSummary | null>(null);
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -87,6 +129,18 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const [alarmMediaBusy, setAlarmMediaBusy] =
     useState<AlarmMediaKind | null>(null);
   const [alarmMediaError, setAlarmMediaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activePicker === 'sound') return;
+    previewPlayer.pause();
+  }, [activePicker, previewPlayer]);
+
+  useEffect(
+    () => () => {
+      previewPlayer.pause();
+    },
+    [previewPlayer],
+  );
 
   const refreshNotificationPermission = useCallback(async () => {
     try {
@@ -140,8 +194,14 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     }
   }
 
-  async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
+  function closePicker() {
+    previewPlayer.pause();
+    setPreviewingSoundKey(null);
     setActivePicker(null);
+  }
+
+  async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
+    closePicker();
     setReminderDeliveryMode(mode);
     void Haptics.selectionAsync();
     if (mode !== 'alarm' || alarmBusy) return;
@@ -170,7 +230,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
   async function handleAlarmMediaPick(kind: AlarmMediaKind) {
     if (alarmMediaBusy) return;
-    setActivePicker(null);
+    closePicker();
     setAlarmMediaBusy(kind);
     setAlarmMediaError(null);
     try {
@@ -181,6 +241,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       } else {
         setAlarmBackground(file);
       }
+      setActivePicker(kind);
       void Haptics.selectionAsync();
     } catch (error) {
       setAlarmMediaError(
@@ -195,27 +256,67 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     }
   }
 
-  function setDefaultAlarmMedia(kind: AlarmMediaKind) {
-    setActivePicker(null);
-    if (kind === 'sound') {
-      setAlarmSound(null);
-    } else {
-      setAlarmBackground(null);
-    }
+  function selectAlarmSoundPreset(preset: AlarmSoundPresetId) {
+    closePicker();
+    setAlarmSound(null);
+    setAlarmSoundPreset(preset);
     setAlarmMediaError(null);
     void Haptics.selectionAsync();
   }
 
+  function selectAlarmBackgroundPreset(preset: AlarmBackgroundPresetId) {
+    closePicker();
+    setAlarmBackground(null);
+    setAlarmBackgroundPreset(preset);
+    setAlarmMediaError(null);
+    void Haptics.selectionAsync();
+  }
+
+  async function previewAlarmSound(
+    key: string,
+    source: number | string,
+  ) {
+    if (previewingSoundKey === key && previewStatus.playing) {
+      previewPlayer.pause();
+      await previewPlayer.seekTo(0);
+      setPreviewingSoundKey(null);
+      return;
+    }
+
+    previewPlayer.pause();
+    previewPlayer.replace(source);
+    configurePreviewPlayer(previewPlayer);
+    setPreviewingSoundKey(key);
+    try {
+      await setAudioModeAsync({
+        interruptionMode: 'doNotMix',
+        playsInSilentMode: true,
+      });
+      previewPlayer.play();
+    } catch {
+      setPreviewingSoundKey(null);
+      setAlarmMediaError(t('settings.alarmMediaUnavailable'));
+    }
+  }
+
   function setVibration(enabled: boolean) {
-    setActivePicker(null);
+    closePicker();
     setAlarmVibrationEnabled(enabled);
     void Haptics.selectionAsync();
   }
 
   function closeSettings() {
-    setActivePicker(null);
+    closePicker();
+    setBackgroundPreview(null);
     onClose();
   }
+
+  const selectedAlarmSoundLabel = alarmSound
+    ? alarmSound.name
+    : t(getAlarmSoundPreset(alarmSoundPreset).labelKey);
+  const selectedAlarmBackgroundLabel = alarmBackground
+    ? alarmBackground.name
+    : t(getAlarmBackgroundPreset(alarmBackgroundPreset).labelKey);
 
   const notificationStatus = notificationCheckFailed
     ? t('settings.statusUnavailable')
@@ -283,53 +384,55 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   } else if (activePicker === 'sound') {
     pickerTitle = t('settings.alarmSoundTitle');
     pickerOptions = [
-      {
-        icon: 'notifications-active',
-        label: t('settings.alarmSoundDefault'),
-        onPress: () => setDefaultAlarmMedia('sound'),
-        selected: alarmSound === null,
-      },
-      ...(alarmSound
-        ? [
-            {
-              icon: 'audio-file' as const,
-              label: alarmSound.name,
-              onPress: () => setActivePicker(null),
-              selected: true,
-            },
-          ]
-        : []),
+      ...ALARM_SOUND_PRESETS.map((preset) => ({
+        icon: 'notifications-active' as const,
+        label: t(preset.labelKey),
+        onPress: () => selectAlarmSoundPreset(preset.id),
+        preview: {
+          key: `preset:${preset.id}`,
+          kind: 'sound' as const,
+          source: preset.source,
+        },
+        selected: alarmSound === null && alarmSoundPreset === preset.id,
+      })),
       {
         disabled: Platform.OS === 'web' || alarmMediaBusy !== null,
         icon: 'upload-file',
-        label: t('settings.alarmSoundUpload'),
+        label: alarmSound?.name ?? t('settings.alarmSoundUpload'),
         onPress: () => void handleAlarmMediaPick('sound'),
+        preview: alarmSound
+          ? {
+              key: `upload:${alarmSound.uri}`,
+              kind: 'sound',
+              source: alarmSound.uri,
+            }
+          : undefined,
+        selected: alarmSound !== null,
       },
     ];
   } else if (activePicker === 'background') {
     pickerTitle = t('settings.alarmBackgroundTitle');
     pickerOptions = [
-      {
-        icon: 'wallpaper',
-        label: t('settings.alarmBackgroundDefault'),
-        onPress: () => setDefaultAlarmMedia('background'),
-        selected: alarmBackground === null,
-      },
-      ...(alarmBackground
-        ? [
-            {
-              icon: 'image' as const,
-              label: alarmBackground.name,
-              onPress: () => setActivePicker(null),
-              selected: true,
-            },
-          ]
-        : []),
+      ...ALARM_BACKGROUND_PRESETS.map((preset) => ({
+        icon: 'wallpaper' as const,
+        label: t(preset.labelKey),
+        onPress: () => selectAlarmBackgroundPreset(preset.id),
+        preview: {
+          kind: 'background' as const,
+          source: preset.source,
+        },
+        selected:
+          alarmBackground === null && alarmBackgroundPreset === preset.id,
+      })),
       {
         disabled: Platform.OS === 'web' || alarmMediaBusy !== null,
         icon: 'upload-file',
-        label: t('settings.alarmBackgroundUpload'),
+        label: alarmBackground?.name ?? t('settings.alarmBackgroundUpload'),
         onPress: () => void handleAlarmMediaPick('background'),
+        preview: alarmBackground
+          ? { kind: 'background', source: { uri: alarmBackground.uri } }
+          : undefined,
+        selected: alarmBackground !== null,
       },
     ];
   }
@@ -440,16 +543,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                     icon: 'audio-file',
                     label: t('settings.alarmSoundTitle'),
                     onPress: () => setActivePicker('sound'),
-                    value:
-                      alarmSound?.name ?? t('settings.alarmSoundDefault'),
+                    value: selectedAlarmSoundLabel,
                   })}
                   {renderSettingRow({
                     icon: 'image',
                     label: t('settings.alarmBackgroundTitle'),
                     onPress: () => setActivePicker('background'),
-                    value:
-                      alarmBackground?.name ??
-                      t('settings.alarmBackgroundDefault'),
+                    value: selectedAlarmBackgroundLabel,
                   })}
                 </>
               ) : null}
@@ -493,14 +593,14 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
       <Modal
         animationType="fade"
-        onRequestClose={() => setActivePicker(null)}
+        onRequestClose={closePicker}
         transparent
         visible={activePicker !== null}
       >
         <Pressable
           accessibilityLabel={t('common.close')}
           accessibilityRole="button"
-          onPress={() => setActivePicker(null)}
+          onPress={closePicker}
           style={styles.pickerBackdrop}
         >
           <Pressable
@@ -519,10 +619,14 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                 accessibilityLabel={t('common.close')}
                 backgroundColor={colors.surfaceMuted}
                 icon="close"
-                onPress={() => setActivePicker(null)}
+                onPress={closePicker}
               />
             </View>
-            <View style={styles.pickerOptions}>
+            <ScrollView
+              contentContainerStyle={styles.pickerOptions}
+              showsVerticalScrollIndicator={false}
+              style={styles.pickerOptionsScroll}
+            >
               {pickerOptions.map((option, index) => (
                 <Pressable
                   key={`${option.label}-${index}`}
@@ -541,13 +645,20 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <MaterialIcons
-                    name={option.icon}
-                    size={22}
-                    color={
-                      option.selected ? colors.primaryDark : colors.textMuted
-                    }
-                  />
+                  {option.preview?.kind === 'background' ? (
+                    <Image
+                      source={option.preview.source}
+                      style={styles.backgroundThumbnail}
+                    />
+                  ) : (
+                    <MaterialIcons
+                      name={option.icon}
+                      size={22}
+                      color={
+                        option.selected ? colors.primaryDark : colors.textMuted
+                      }
+                    />
+                  )}
                   <Text
                     numberOfLines={1}
                     style={[
@@ -557,6 +668,54 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   >
                     {option.label}
                   </Text>
+                  {option.preview ? (
+                    <Pressable
+                      accessibilityLabel={t(
+                        option.preview.kind === 'sound' &&
+                          previewingSoundKey === option.preview.key &&
+                          previewStatus.playing
+                          ? 'settings.alarmPreviewStop'
+                          : option.preview.kind === 'sound'
+                            ? 'settings.alarmPreviewPlay'
+                            : 'settings.alarmPreviewImage',
+                        { name: option.label },
+                      )}
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        if (option.preview?.kind === 'sound') {
+                          void previewAlarmSound(
+                            option.preview.key,
+                            option.preview.source,
+                          );
+                        } else if (option.preview?.kind === 'background') {
+                          setBackgroundPreview({
+                            label: option.label,
+                            source: option.preview.source,
+                          });
+                        }
+                      }}
+                      style={({ pressed }) => [
+                        styles.previewButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={
+                          option.preview.kind === 'sound' &&
+                          previewingSoundKey === option.preview.key &&
+                          previewStatus.playing
+                            ? 'stop-circle'
+                            : option.preview.kind === 'sound'
+                              ? 'play-circle'
+                              : 'visibility'
+                        }
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </Pressable>
+                  ) : null}
                   {option.selected ? (
                     <MaterialIcons
                       name="check-circle"
@@ -566,9 +725,44 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   ) : null}
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setBackgroundPreview(null)}
+        transparent
+        visible={backgroundPreview !== null}
+      >
+        <View style={styles.backgroundPreviewBackdrop}>
+          {backgroundPreview ? (
+            <ImageBackground
+              resizeMode="cover"
+              source={backgroundPreview.source}
+              style={styles.backgroundPreviewImage}
+            >
+              <View
+                style={[
+                  styles.backgroundPreviewOverlay,
+                  { paddingTop: Math.max(insets.top, 18) },
+                ]}
+              >
+                <Text style={styles.backgroundPreviewTitle}>
+                  {backgroundPreview.label}
+                </Text>
+                <IconButton
+                  accessibilityLabel={t('settings.alarmPreviewClose')}
+                  backgroundColor="rgba(9, 13, 22, 0.72)"
+                  color="#FFFFFF"
+                  icon="close"
+                  onPress={() => setBackgroundPreview(null)}
+                />
+              </View>
+            </ImageBackground>
+          ) : null}
+        </View>
       </Modal>
     </>
   );
@@ -686,6 +880,10 @@ const createStyles = (colors: ThemeColors) =>
     },
     pickerOptions: {
       gap: 8,
+      paddingBottom: 2,
+    },
+    pickerOptionsScroll: {
+      maxHeight: 410,
     },
     pickerOption: {
       alignItems: 'center',
@@ -712,6 +910,36 @@ const createStyles = (colors: ThemeColors) =>
     },
     pickerOptionTextSelected: {
       color: colors.primaryDark,
+      fontWeight: '800',
+    },
+    backgroundThumbnail: {
+      borderRadius: 9,
+      height: 40,
+      width: 40,
+    },
+    previewButton: {
+      alignItems: 'center',
+      height: 40,
+      justifyContent: 'center',
+      width: 40,
+    },
+    backgroundPreviewBackdrop: {
+      backgroundColor: '#090D16',
+      flex: 1,
+    },
+    backgroundPreviewImage: {
+      flex: 1,
+    },
+    backgroundPreviewOverlay: {
+      alignItems: 'center',
+      backgroundColor: 'rgba(9, 13, 22, 0.38)',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+    },
+    backgroundPreviewTitle: {
+      color: '#FFFFFF',
+      fontSize: 18,
       fontWeight: '800',
     },
     pressed: {

@@ -1,15 +1,18 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import {
   Animated,
   Easing,
   ImageBackground,
+  type ImageSourcePropType,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  Vibration,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +32,9 @@ export interface AlarmModalTaskData {
 }
 
 interface AlarmRingingModalProps {
-  backgroundUri?: string;
+  backgroundSource?: ImageSourcePropType;
+  soundSource?: number | string;
+  vibrate?: boolean;
   visible: boolean;
   task?: AlarmModalTaskData | null;
   onDismiss: () => void;
@@ -55,7 +60,9 @@ function formatCurrentDate(locale: string): string {
 }
 
 export const AlarmRingingModal = memo(function AlarmRingingModal({
-  backgroundUri,
+  backgroundSource,
+  soundSource,
+  vibrate = true,
   visible,
   task,
   onDismiss,
@@ -64,9 +71,48 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
   const insets = useSafeAreaInsets();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const alarmPlayer = useAudioPlayer(soundSource ?? null, {
+    keepAudioSessionActive: true,
+  });
 
   const [currentTime, setCurrentTime] = useState(formatCurrentTime);
   const [currentDate, setCurrentDate] = useState(() => formatCurrentDate(locale));
+
+  useEffect(() => {
+    if (!visible) {
+      alarmPlayer.pause();
+      Vibration.cancel();
+      return;
+    }
+
+    let active = true;
+    alarmPlayer.loop = true;
+    alarmPlayer.volume = 1;
+    void setAudioModeAsync({
+      interruptionMode: 'doNotMix',
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+    })
+      .then(() => {
+        if (active) alarmPlayer.play();
+      })
+      .catch(() => {
+        // The alarm screen remains actionable if media playback is unavailable.
+      });
+
+    if (vibrate) Vibration.vibrate([0, 700, 500], true);
+    const timeout = setTimeout(() => {
+      alarmPlayer.pause();
+      Vibration.cancel();
+    }, 5 * 60 * 1_000);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+      alarmPlayer.pause();
+      Vibration.cancel();
+    };
+  }, [alarmPlayer, vibrate, visible]);
 
   // Cập nhật đồng hồ theo thời gian thực
   useEffect(() => {
@@ -198,13 +244,13 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
     >
       <ImageBackground
         resizeMode="cover"
-        source={backgroundUri ? { uri: backgroundUri } : undefined}
+        source={backgroundSource}
         style={styles.container}
       >
         <View
           style={[
             styles.contentContainer,
-            backgroundUri && styles.backgroundOverlay,
+            backgroundSource ? styles.backgroundOverlay : undefined,
           {
             paddingBottom: Math.max(insets.bottom, 24),
             paddingTop: Math.max(insets.top, 32),

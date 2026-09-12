@@ -77,7 +77,7 @@ Lệnh này khởi động Metro đúng chế độ Expo Router và tự mở Pl
 npm run android:dev -- --clear
 ```
 
-Thông báo thường là chế độ mặc định và hoạt động trong Expo Go. Chế độ Báo thức sử dụng module native để reo, rung và hiển thị giao diện tắt báo thức trong tối đa 5 phút, vì vậy cần development build (`npm run android`) và không hoạt động trong Expo Go. Sau khi đổi dependency hoặc cấu hình Alarm, hãy build lại app trước khi kiểm thử.
+Thông báo thường là chế độ mặc định và hoạt động trong Expo Go. Chế độ Báo thức sử dụng module native để mở màn hình báo thức, sau đó app tiếp quản chuông và rung trong tối đa 5 phút; chế độ này không lên lịch thêm thông báo thường. Alarm cần development build và không hoạt động trong Expo Go. Sau khi đổi dependency, chuông đóng gói hoặc cấu hình Alarm, hãy chạy `npx expo prebuild --platform android` rồi `npm run android` trước khi kiểm thử.
 
 ## Kiểm tra chất lượng
 

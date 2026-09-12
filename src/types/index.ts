@@ -4,12 +4,27 @@ export type ReminderMinutes = number | null;
 
 export type ReminderDeliveryMode = 'notification' | 'alarm';
 
+export type AlarmSoundPresetId =
+  | 'classic'
+  | 'sunrise'
+  | 'gentle'
+  | 'pulse'
+  | 'digital';
+
+export type AlarmBackgroundPresetId =
+  | 'dawn'
+  | 'aurora'
+  | 'forest'
+  | 'ocean'
+  | 'cosmos';
+
 export interface AlarmFilePreference {
   name: string;
   uri: string;
 }
 
 export interface AlarmSchedulePreferences {
+  soundName?: string;
   soundUri?: string;
   vibrate: boolean;
 }

@@ -15,17 +15,28 @@ import {
   type Translate,
 } from '../i18n/translations';
 import {
+  DEFAULT_ALARM_BACKGROUND_PRESET,
+  DEFAULT_ALARM_SOUND_PRESET,
+} from '../services/alarmPresets';
+import {
   themes,
   type ThemeColors,
   type ThemeMode,
 } from '../theme/colors';
-import type { AlarmFilePreference, ReminderDeliveryMode } from '../types';
+import type {
+  AlarmBackgroundPresetId,
+  AlarmFilePreference,
+  AlarmSoundPresetId,
+  ReminderDeliveryMode,
+} from '../types';
 
 const STORAGE_KEY = '@planly/preferences/v1';
 
 interface StoredPreferences {
   alarmBackground: AlarmFilePreference | null;
+  alarmBackgroundPreset: AlarmBackgroundPresetId;
   alarmSound: AlarmFilePreference | null;
+  alarmSoundPreset: AlarmSoundPresetId;
   alarmVibrationEnabled: boolean;
   theme: ThemeMode;
   language: Language;
@@ -40,7 +51,9 @@ interface PreferencesContextValue extends StoredPreferences {
   locale: 'vi-VN' | 'en-US';
   setColorfulAccents: (enabled: boolean) => void;
   setAlarmBackground: (background: AlarmFilePreference | null) => void;
+  setAlarmBackgroundPreset: (preset: AlarmBackgroundPresetId) => void;
   setAlarmSound: (sound: AlarmFilePreference | null) => void;
+  setAlarmSoundPreset: (preset: AlarmSoundPresetId) => void;
   setAlarmVibrationEnabled: (enabled: boolean) => void;
   setLanguage: (language: Language) => void;
   setReminderDeliveryMode: (mode: ReminderDeliveryMode) => void;
@@ -67,6 +80,28 @@ function isReminderDeliveryMode(value: unknown): value is ReminderDeliveryMode {
   return value === 'notification' || value === 'alarm';
 }
 
+function isAlarmSoundPresetId(value: unknown): value is AlarmSoundPresetId {
+  return (
+    value === 'classic' ||
+    value === 'sunrise' ||
+    value === 'gentle' ||
+    value === 'pulse' ||
+    value === 'digital'
+  );
+}
+
+function isAlarmBackgroundPresetId(
+  value: unknown,
+): value is AlarmBackgroundPresetId {
+  return (
+    value === 'dawn' ||
+    value === 'aurora' ||
+    value === 'forest' ||
+    value === 'ocean' ||
+    value === 'cosmos'
+  );
+}
+
 function isAlarmFilePreference(value: unknown): value is AlarmFilePreference {
   if (!value || typeof value !== 'object') return false;
   const file = value as Partial<AlarmFilePreference>;
@@ -81,7 +116,11 @@ function isAlarmFilePreference(value: unknown): value is AlarmFilePreference {
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [alarmBackground, setAlarmBackground] =
     useState<AlarmFilePreference | null>(null);
+  const [alarmBackgroundPreset, setAlarmBackgroundPreset] =
+    useState<AlarmBackgroundPresetId>(DEFAULT_ALARM_BACKGROUND_PRESET);
   const [alarmSound, setAlarmSound] = useState<AlarmFilePreference | null>(null);
+  const [alarmSoundPreset, setAlarmSoundPreset] =
+    useState<AlarmSoundPresetId>(DEFAULT_ALARM_SOUND_PRESET);
   const [alarmVibrationEnabled, setAlarmVibrationEnabled] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [language, setLanguage] = useState<Language>('vi');
@@ -102,8 +141,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (isAlarmFilePreference(parsed.alarmBackground)) {
           setAlarmBackground(parsed.alarmBackground);
         }
+        if (isAlarmBackgroundPresetId(parsed.alarmBackgroundPreset)) {
+          setAlarmBackgroundPreset(parsed.alarmBackgroundPreset);
+        }
         if (isAlarmFilePreference(parsed.alarmSound)) {
           setAlarmSound(parsed.alarmSound);
+        }
+        if (isAlarmSoundPresetId(parsed.alarmSoundPreset)) {
+          setAlarmSoundPreset(parsed.alarmSoundPreset);
         }
         if (typeof parsed.alarmVibrationEnabled === 'boolean') {
           setAlarmVibrationEnabled(parsed.alarmVibrationEnabled);
@@ -138,7 +183,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       STORAGE_KEY,
       JSON.stringify({
         alarmBackground,
+        alarmBackgroundPreset,
         alarmSound,
+        alarmSoundPreset,
         alarmVibrationEnabled,
         colorfulAccents,
         language,
@@ -149,7 +196,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     );
   }, [
     alarmBackground,
+    alarmBackgroundPreset,
     alarmSound,
+    alarmSoundPreset,
     alarmVibrationEnabled,
     colorfulAccents,
     hydrated,
@@ -167,7 +216,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PreferencesContextValue>(
     () => ({
       alarmBackground,
+      alarmBackgroundPreset,
       alarmSound,
+      alarmSoundPreset,
       alarmVibrationEnabled,
       colorfulAccents,
       colors: themes[theme],
@@ -177,7 +228,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       reminderDeliveryMode,
       setColorfulAccents,
       setAlarmBackground,
+      setAlarmBackgroundPreset,
       setAlarmSound,
+      setAlarmSoundPreset,
       setAlarmVibrationEnabled,
       setLanguage,
       setReminderDeliveryMode,
@@ -191,7 +244,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }),
     [
       alarmBackground,
+      alarmBackgroundPreset,
       alarmSound,
+      alarmSoundPreset,
       alarmVibrationEnabled,
       colorfulAccents,
       hydrated,

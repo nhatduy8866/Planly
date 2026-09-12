@@ -5,8 +5,20 @@ import renderer, { act } from 'react-test-renderer';
 
 import { AlarmRingingModal, type AlarmModalTaskData } from './AlarmRingingModal';
 
+const mockAlarmPlayer = {
+  loop: false,
+  pause: jest.fn(),
+  play: jest.fn(),
+  volume: 1,
+};
+
 jest.mock('@expo/vector-icons', () => ({
   MaterialIcons: 'MaterialIcons',
+}));
+
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: jest.fn(async () => undefined),
+  useAudioPlayer: () => mockAlarmPlayer,
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -55,6 +67,7 @@ describe('AlarmRingingModal', () => {
   let tree: renderer.ReactTestRenderer | undefined;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     jest.spyOn(Animated, 'loop').mockReturnValue({
       reset: jest.fn(),
       start: jest.fn(),
@@ -113,7 +126,9 @@ describe('AlarmRingingModal', () => {
     act(() => {
       tree = renderer.create(
         <AlarmRingingModal
-          backgroundUri="file:///planly-alarm-media/background.jpg"
+          backgroundSource={{
+            uri: 'file:///planly-alarm-media/background.jpg',
+          }}
           visible={true}
           task={mockTaskData}
           onDismiss={jest.fn()}
@@ -125,6 +140,24 @@ describe('AlarmRingingModal', () => {
     expect(tree?.root.findByType(ImageBackground).props.source).toEqual({
       uri: 'file:///planly-alarm-media/background.jpg',
     });
+  });
+
+  it('continues the selected sound from the app-owned alarm screen', async () => {
+    await act(async () => {
+      tree = renderer.create(
+        <AlarmRingingModal
+          soundSource="file:///planly-alarm-media/sound.wav"
+          visible={true}
+          task={mockTaskData}
+          onDismiss={jest.fn()}
+          onViewTask={jest.fn()}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockAlarmPlayer.loop).toBe(true);
+    expect(mockAlarmPlayer.play).toHaveBeenCalled();
   });
 
   it('triggers onDismiss when Stop button is pressed', () => {

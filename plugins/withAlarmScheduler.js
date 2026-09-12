@@ -4,6 +4,7 @@ const {
   IOSConfig,
   PluginError,
   withAndroidManifest,
+  withDangerousMod,
   withInfoPlist,
   withXcodeProject,
 } = require('expo/config-plugins');
@@ -39,6 +40,9 @@ function withAlarmScheduler(config, props = {}) {
   const addNotificationPermission = props.addNotificationPermission !== false;
   const addUseExactAlarmPermission = props.addUseExactAlarmPermission !== false;
   const iosAlarmSounds = normalizeIosAlarmSounds(props.iosAlarmSounds);
+  const androidAlarmSounds = normalizeAndroidAlarmSounds(
+    props.androidAlarmSounds,
+  );
 
   config = withAndroidManifest(config, (modConfig) => {
     const manifest = modConfig.modResults;
@@ -92,6 +96,37 @@ function withAlarmScheduler(config, props = {}) {
     return modConfig;
   });
 
+  config = withDangerousMod(config, [
+    'android',
+    async (modConfig) => {
+      const projectRoot = modConfig.modRequest.projectRoot;
+      const rawDirectory = path.join(
+        modConfig.modRequest.platformProjectRoot,
+        'app',
+        'src',
+        'main',
+        'res',
+        'raw',
+      );
+      fs.mkdirSync(rawDirectory, { recursive: true });
+
+      androidAlarmSounds.forEach((sound) => {
+        const absolutePath = path.resolve(projectRoot, sound);
+        if (!fs.existsSync(absolutePath)) {
+          throw new PluginError(
+            `Alarm sound file does not exist: ${sound}`,
+            alarmSchedulerPackage.name,
+          );
+        }
+        fs.copyFileSync(
+          absolutePath,
+          path.join(rawDirectory, path.basename(absolutePath).toLowerCase()),
+        );
+      });
+      return modConfig;
+    },
+  ]);
+
   config = withXcodeProject(config, (modConfig) => {
     const project = modConfig.modResults;
     const projectRoot = modConfig.modRequest.projectRoot;
@@ -124,6 +159,21 @@ function withAlarmScheduler(config, props = {}) {
   });
 
   return config;
+}
+
+function normalizeAndroidAlarmSounds(value) {
+  const sounds = normalizeIosAlarmSounds(value);
+  if (
+    !sounds.every((sound) =>
+      /^[a-z0-9_]+\.[a-z0-9]+$/.test(path.basename(sound)),
+    )
+  ) {
+    throw new PluginError(
+      'androidAlarmSounds filenames must use lowercase letters, numbers, or underscores.',
+      alarmSchedulerPackage.name,
+    );
+  }
+  return sounds;
 }
 
 module.exports = createRunOncePlugin(

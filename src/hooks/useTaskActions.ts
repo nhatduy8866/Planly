@@ -4,6 +4,7 @@ import {
   cancelTaskReminder,
   scheduleTaskReminder,
 } from '../services/notifications';
+import { getAlarmSchedulePreferences } from '../services/alarmPresets';
 import { replaceTaskReminders } from '../services/reminderTransaction';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
@@ -21,14 +22,20 @@ export function useTaskActions() {
   const dispatch = usePlannerDispatch();
   const {
     alarmSound,
+    alarmSoundPreset,
     alarmVibrationEnabled,
     language,
     reminderDeliveryMode,
     t,
   } = usePreferences();
   const alarmPreferences = useMemo(
-    () => ({ soundUri: alarmSound?.uri, vibrate: alarmVibrationEnabled }),
-    [alarmSound?.uri, alarmVibrationEnabled],
+    () =>
+      getAlarmSchedulePreferences(
+        alarmSoundPreset,
+        alarmSound,
+        alarmVibrationEnabled,
+      ),
+    [alarmSound, alarmSoundPreset, alarmVibrationEnabled],
   );
 
   const saveTask = useCallback(

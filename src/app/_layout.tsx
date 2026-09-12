@@ -15,6 +15,11 @@ import {
 } from '../navigation/TaskNavigationContext';
 import { initializeNotifications } from '../services/notifications';
 import {
+  getAlarmBackgroundSource,
+  getAlarmSchedulePreferences,
+  getAlarmSoundSource,
+} from '../services/alarmPresets';
+import {
   PlannerProvider,
   usePlannerDispatch,
   usePlannerHydrated,
@@ -29,7 +34,9 @@ function AppShell() {
   const dispatch = usePlannerDispatch();
   const {
     alarmBackground,
+    alarmBackgroundPreset,
     alarmSound,
+    alarmSoundPreset,
     alarmVibrationEnabled,
     colors,
     hydrated: preferencesHydrated,
@@ -39,6 +46,11 @@ function AppShell() {
   const { requestTask } = useTaskNavigation();
   const styles = useThemedStyles(createStyles);
   const appReady = plannerHydrated && preferencesHydrated;
+  const alarmPreferences = getAlarmSchedulePreferences(
+    alarmSoundPreset,
+    alarmSound,
+    alarmVibrationEnabled,
+  );
 
   const { activeAlarm, dismissAlarm, viewTask } = useAlarmTaskNavigation(
     requestTask,
@@ -50,10 +62,7 @@ function AppShell() {
     tasks,
     language,
     reminderDeliveryMode,
-    {
-      soundUri: alarmSound?.uri,
-      vibrate: alarmVibrationEnabled,
-    },
+    alarmPreferences,
     appReady,
     dispatch,
   );
@@ -82,7 +91,15 @@ function AppShell() {
         </View>
       </View>
       <AlarmRingingModal
-        backgroundUri={alarmBackground?.uri}
+        backgroundSource={getAlarmBackgroundSource(
+          alarmBackgroundPreset,
+          alarmBackground,
+        )}
+        soundSource={getAlarmSoundSource(
+          alarmSoundPreset,
+          alarmSound,
+        )}
+        vibrate={alarmVibrationEnabled}
         visible={Boolean(activeAlarm)}
         task={activeAlarm?.task}
         onDismiss={dismissAlarm}

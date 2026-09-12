@@ -13,7 +13,7 @@ const mockReplaceTaskReminders = jest.fn<
     tasks: Task[],
     existingTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -24,7 +24,7 @@ const mockScheduleTaskReminder = jest.fn<
     task: Task,
     language?: 'vi' | 'en',
     reminderDeliveryMode?: 'notification' | 'alarm',
-    alarmPreferences?: { soundUri?: string; vibrate: boolean },
+    alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean },
   ) => Promise<string | undefined>
 >();
 
@@ -48,7 +48,7 @@ jest.mock('../services/reminderTransaction', () => ({
     tasks: Task[],
     existingTasks: Task[],
     options?: {
-      alarmPreferences?: { soundUri?: string; vibrate: boolean };
+      alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -61,7 +61,7 @@ jest.mock('../services/notifications', () => ({
     task: Task,
     language?: 'vi' | 'en',
     reminderDeliveryMode?: 'notification' | 'alarm',
-    alarmPreferences?: { soundUri?: string; vibrate: boolean },
+    alarmPreferences?: { soundName?: string; soundUri?: string; vibrate: boolean },
   ) =>
     mockScheduleTaskReminder(
       task,
@@ -159,7 +159,7 @@ describe('useTaskActions batch editing', () => {
       [expect.objectContaining({ id: 'task-1', batchId: undefined })],
       mockPlannerState.tasks,
       {
-        alarmPreferences: { soundUri: undefined, vibrate: true },
+        alarmPreferences: { soundName: 'planly_classic.wav', vibrate: true },
         language: 'vi',
         reminderDeliveryMode: 'notification',
       },

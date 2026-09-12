@@ -23,7 +23,7 @@ import {
 const CHANNEL_ID = 'planly-reminders-v2';
 const CHANNEL_COLOR = '#4F46E5';
 export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
-const TASK_REMINDER_SCHEMA_VERSION = 2;
+const TASK_REMINDER_SCHEMA_VERSION = 3;
 let configuredAndroidChannelLanguage: Language | undefined;
 let androidChannelSetupPromise: Promise<void> | undefined;
 let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
@@ -65,7 +65,11 @@ export function getTaskReminderKey(
     task.date,
     task.startTime,
     ...(deliveryMode === 'alarm'
-      ? [alarmPreferences.soundUri ?? null, alarmPreferences.vibrate]
+      ? [
+          alarmPreferences.soundName ?? null,
+          alarmPreferences.soundUri ?? null,
+          alarmPreferences.vibrate,
+        ]
       : []),
   ]);
 }

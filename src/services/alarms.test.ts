@@ -132,6 +132,7 @@ describe('native task alarms', () => {
     expect(scheduler.scheduleAlarmAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         android: expect.objectContaining({
+          alertActionMode: 'openAppOnly',
           fullScreen: true,
           fullScreenTarget: 'app',
           launchUri: 'planly://alarm?taskId=task-1',
@@ -140,7 +141,7 @@ describe('native task alarms', () => {
           vibrate: true,
         }),
         ios: expect.objectContaining({
-          alertActionMode: 'default',
+          alertActionMode: 'openAppOnly',
           metadata: expectedMetadata,
           secondaryButtonBehavior: 'openApp',
           stopIntentBehavior: 'recordOnly',
@@ -165,6 +166,23 @@ describe('native task alarms', () => {
       expect.objectContaining({
         android: expect.objectContaining({ vibrate: false }),
         soundUri: 'file:///planly-alarm-media/sound.mp3',
+      }),
+    );
+  });
+
+  it('passes a bundled preset sound name to both native platforms', async () => {
+    const task = futureTask();
+
+    await scheduleTaskAlarm(
+      task,
+      'vi',
+      { taskId: task.id },
+      { soundName: 'planly_classic.wav', vibrate: true },
+    );
+
+    expect(scheduler.scheduleAlarmAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ios: expect.objectContaining({ soundName: 'planly_classic.wav' }),
       }),
     );
   });

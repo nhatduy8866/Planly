@@ -22,6 +22,7 @@ export function useAlarmTaskNavigation(
 ) {
   const router = useRouter();
   const [activeAlarm, setActiveAlarm] = useState<ActiveAlarmInfo | null>(null);
+  const activeAlarmRef = useRef<ActiveAlarmInfo | null>(null);
   const tasksRef = useRef(tasks);
   useEffect(() => {
     tasksRef.current = tasks;
@@ -32,9 +33,9 @@ export function useAlarmTaskNavigation(
     if (processingRef.current) return processingRef.current;
 
     const run = getActiveAlarmState()
-      .then((state) => {
+      .then(async (state) => {
         if (!state) {
-          setActiveAlarm(null);
+          if (!activeAlarmRef.current) setActiveAlarm(null);
           return;
         }
 
@@ -51,10 +52,17 @@ export function useAlarmTaskNavigation(
           title: matchedTask?.title ?? state.title ?? 'Báo thức',
         };
 
-        setActiveAlarm({
+        const nextActiveAlarm = {
           alarmId: state.alarmId,
           task: taskData,
-        });
+        };
+        activeAlarmRef.current = nextActiveAlarm;
+        setActiveAlarm(nextActiveAlarm);
+
+        // Once the app-owned alarm screen has taken over, complete the native
+        // presentation so Android removes its foreground notification. The
+        // React screen continues the selected sound and vibration itself.
+        await dismissNativeAlarm(state.alarmId);
       })
       .catch(() => {
         // Native alarm state is reconciled again on the next event.
@@ -70,6 +78,7 @@ export function useAlarmTaskNavigation(
   const dismissAlarm = useCallback(async () => {
     if (!activeAlarm) return;
     const currentAlarmId = activeAlarm.alarmId;
+    activeAlarmRef.current = null;
     setActiveAlarm(null);
     try {
       await dismissNativeAlarm(currentAlarmId);
@@ -81,6 +90,7 @@ export function useAlarmTaskNavigation(
   const viewTask = useCallback(async () => {
     if (!activeAlarm) return;
     const { alarmId, task } = activeAlarm;
+    activeAlarmRef.current = null;
     setActiveAlarm(null);
     try {
       await dismissNativeAlarm(alarmId);

@@ -18,6 +18,7 @@ export function useReminderReconciliation(
   enabled: boolean,
   dispatch: (action: PlannerAction) => void,
 ): void {
+  const alarmSoundName = alarmPreferences.soundName;
   const alarmSoundUri = alarmPreferences.soundUri;
   const alarmVibrate = alarmPreferences.vibrate;
   const latestTasksRef = useRef(tasks);
@@ -40,10 +41,11 @@ export function useReminderReconciliation(
 
   useEffect(() => {
     alarmPreferencesRef.current = {
-      soundUri: alarmSoundUri,
+      ...(alarmSoundName ? { soundName: alarmSoundName } : {}),
+      ...(alarmSoundUri ? { soundUri: alarmSoundUri } : {}),
       vibrate: alarmVibrate,
     };
-  }, [alarmSoundUri, alarmVibrate]);
+  }, [alarmSoundName, alarmSoundUri, alarmVibrate]);
 
   const reconcile = useCallback(() => {
     if (runningRef.current) return runningRef.current;
@@ -83,6 +85,7 @@ export function useReminderReconciliation(
     return () => subscription.remove();
   }, [
     alarmSoundUri,
+    alarmSoundName,
     alarmVibrate,
     enabled,
     language,

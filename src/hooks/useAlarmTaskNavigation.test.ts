@@ -86,7 +86,7 @@ describe('useAlarmTaskNavigation', () => {
     jest.restoreAllMocks();
   });
 
-  it('captures the ringing alarm with task details on mount', async () => {
+  it('captures the ringing alarm and clears the native notification presentation', async () => {
     mockGetActiveAlarmState.mockResolvedValue({
       alarmId: 'native-1',
       taskId: 'task-1',
@@ -108,7 +108,7 @@ describe('useAlarmTaskNavigation', () => {
         title: 'Họp công ty',
       },
     });
-    expect(mockDismissNativeAlarm).not.toHaveBeenCalled();
+    expect(mockDismissNativeAlarm).toHaveBeenCalledWith('native-1');
   });
 
   it('dismisses native alarm when dismissAlarm is called', async () => {
@@ -186,6 +186,24 @@ describe('useAlarmTaskNavigation', () => {
     });
 
     expect(hookResult?.activeAlarm?.alarmId).toBe('native-3');
+  });
+
+  it('keeps the app alarm screen open after native presentation is cleared', async () => {
+    mockGetActiveAlarmState.mockResolvedValueOnce({
+      alarmId: 'native-screen-1',
+      taskId: 'task-1',
+    });
+
+    await act(async () => {
+      tree = create(createElement(Harness));
+    });
+    mockGetActiveAlarmState.mockResolvedValue(undefined);
+
+    await act(async () => {
+      mockAppStateListener?.('active');
+    });
+
+    expect(hookResult?.activeAlarm?.alarmId).toBe('native-screen-1');
   });
 
   it('checks when native alarm event fires', async () => {

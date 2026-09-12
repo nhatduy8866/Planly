@@ -23,6 +23,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import type { ReminderMinutes, Task, TaskPriority } from '../types';
 import {
   addDays,
+  formatCompactDate,
   fromDateKey,
   getWeekdayShort,
   taskDateTime,
@@ -32,6 +33,7 @@ import {
   addCalendarMonths,
   buildTaskBatchDates,
   getTaskBatchRangeIssue,
+  MAX_BATCH_RANGE_DAYS,
 } from '../utils/taskBatch';
 import { TaskTimeConflictError } from '../utils/taskConflicts';
 import { IconButton } from './IconButton';
@@ -56,8 +58,8 @@ interface TaskFormModalProps {
   onSubmit: (values: TaskFormValues) => Promise<void> | void;
 }
 
-type PickerTarget = 'date' | 'time' | 'batchEnd' | null;
-type BatchMode = 'weekly' | 'monthly';
+type PickerTarget = 'date' | 'time' | 'batchEnd' | 'specificDate' | null;
+type BatchMode = 'weekly' | 'monthly' | 'specific';
 
 export { CARD_COLOR_PRESETS };
 
@@ -112,6 +114,8 @@ export function TaskFormModal({
   const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([
     fromDateKey(initialDate).getDate(),
   ]);
+  const [specificDates, setSpecificDates] = useState<string[]>([initialDate]);
+  const [specificDateDraft, setSpecificDateDraft] = useState(initialDate);
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -127,16 +131,28 @@ export function TaskFormModal({
     });
   }, [locale]);
 
-  const batchRangeIssue = batchEnabled
+  const specificMaximumDate = toDateKey(
+    addDays(fromDateKey(date), MAX_BATCH_RANGE_DAYS - 1),
+  );
+  const specificDateCanBeAdded =
+    specificDateDraft.length === 10 &&
+    specificDateDraft >= date &&
+    specificDateDraft <= specificMaximumDate &&
+    !specificDates.includes(specificDateDraft);
+  const batchRangeIssue = batchEnabled && batchMode !== 'specific'
     ? getTaskBatchRangeIssue(date, batchEndDate)
     : null;
   const batchSelectionMissing =
     batchEnabled &&
     (batchMode === 'weekly'
       ? selectedWeekdays.length === 0
-      : selectedMonthDays.length === 0);
+      : batchMode === 'monthly'
+        ? selectedMonthDays.length === 0
+        : specificDates.length === 0);
   const batchDates = useMemo(() => {
-    if (!batchEnabled || batchRangeIssue) return [];
+    if (!batchEnabled) return [];
+    if (batchMode === 'specific') return [...specificDates].sort();
+    if (batchRangeIssue) return [];
 
     return buildTaskBatchDates(
       date,
@@ -151,6 +167,7 @@ export function TaskFormModal({
     batchMode,
     batchRangeIssue,
     date,
+    specificDates,
     selectedMonthDays,
     selectedWeekdays,
   ]);
@@ -167,7 +184,23 @@ export function TaskFormModal({
             : null;
 
   function updateDate(nextDate: string) {
+    if (!nextDate) return;
     setDate(nextDate);
+    const nextSpecificMaximumDate = toDateKey(
+      addDays(fromDateKey(nextDate), MAX_BATCH_RANGE_DAYS - 1),
+    );
+    setSpecificDates((current) =>
+      Array.from(
+        new Set([
+          nextDate,
+          ...current.filter(
+            (item) =>
+              item >= nextDate && item <= nextSpecificMaximumDate,
+          ),
+        ]),
+      ).sort(),
+    );
+    setSpecificDateDraft(nextDate);
     if (batchEndDate < nextDate) {
       setBatchEndDate(addCalendarMonths(nextDate, 3));
     }
@@ -182,6 +215,24 @@ export function TaskFormModal({
     if (target === 'date') updateDate(toDateKey(selected));
     if (target === 'time') setStartTime(formatTime(selected));
     if (target === 'batchEnd') setBatchEndDate(toDateKey(selected));
+    if (target === 'specificDate') {
+      setSpecificDateDraft(toDateKey(selected));
+    }
+  }
+
+  function addSpecificDate() {
+    if (!specificDateCanBeAdded) return;
+    setSpecificDates((current) =>
+      [...current, specificDateDraft].sort(),
+    );
+    void Haptics.selectionAsync();
+  }
+
+  function removeSpecificDate(targetDate: string) {
+    setSpecificDates((current) =>
+      current.filter((item) => item !== targetDate),
+    );
+    void Haptics.selectionAsync();
   }
 
   function toggleBatch() {
@@ -190,6 +241,8 @@ export function TaskFormModal({
       const currentDate = fromDateKey(date);
       setSelectedWeekdays([currentDate.getDay()]);
       setSelectedMonthDays([currentDate.getDate()]);
+      setSpecificDates([date]);
+      setSpecificDateDraft(date);
       setBatchEndDate(addCalendarMonths(date, 3));
     }
     setBatchEnabled(nextEnabled);
@@ -259,33 +312,43 @@ export function TaskFormModal({
       ? fromDateKey(date)
       : picker === 'batchEnd'
         ? fromDateKey(batchEndDate)
-        : taskDateTime(date, startTime);
+        : picker === 'specificDate'
+          ? fromDateKey(specificDateDraft)
+          : taskDateTime(date, startTime);
   const pickerMode = picker === 'time' ? 'time' : 'date';
   const pickerMinimumDate =
-    picker === 'batchEnd' ? fromDateKey(date) : new Date(2020, 0, 1);
+    picker === 'batchEnd' || picker === 'specificDate'
+      ? fromDateKey(date)
+      : new Date(2020, 0, 1);
+  const pickerMaximumDate =
+    picker === 'specificDate'
+      ? fromDateKey(specificMaximumDate)
+      : undefined;
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      transparent={Platform.OS === 'web'}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
       onRequestClose={onClose}
     >
-      <View style={styles.modalBackdrop}>
+      <View
+        style={[
+          styles.modalBackdrop,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            paddingTop: Math.max(insets.top, 16),
+          },
+        ]}
+      >
         <View style={styles.modalCard}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.keyboardWrap}
           >
-            <View
-              style={[
-                styles.header,
-                {
-                  paddingTop:
-                    Platform.OS === 'web' ? 16 : Math.max(insets.top, 16),
-                },
-              ]}
-            >
+            <View style={styles.header}>
               <IconButton
                 icon="close"
                 accessibilityLabel={t('common.close')}
@@ -677,7 +740,7 @@ export function TaskFormModal({
                             {t('taskForm.batchPattern')}
                           </Text>
                           <View style={styles.segmentedControl}>
-                            {(['weekly', 'monthly'] as const).map((mode) => {
+                            {(['weekly', 'monthly', 'specific'] as const).map((mode) => {
                               const active = batchMode === mode;
                               return (
                                 <Pressable
@@ -700,7 +763,9 @@ export function TaskFormModal({
                                     {t(
                                       mode === 'weekly'
                                         ? 'taskForm.batchWeekly'
-                                        : 'taskForm.batchMonthly',
+                                        : mode === 'monthly'
+                                          ? 'taskForm.batchMonthly'
+                                          : 'taskForm.batchSpecific',
                                     )}
                                   </Text>
                                 </Pressable>
@@ -748,7 +813,7 @@ export function TaskFormModal({
                                 })}
                               </View>
                             </>
-                          ) : (
+                          ) : batchMode === 'monthly' ? (
                             <>
                               <Text style={styles.batchLabel}>
                                 {t('taskForm.batchMonthDays')}
@@ -786,56 +851,194 @@ export function TaskFormModal({
                                 })}
                               </View>
                             </>
+                          ) : (
+                            <>
+                              <Text style={styles.batchLabel}>
+                                {t('taskForm.batchSpecificDates')}
+                              </Text>
+                              <View style={styles.specificDatePickerRow}>
+                                {Platform.OS === 'web' ? (
+                                  <View
+                                    style={[
+                                      styles.webPickerBox,
+                                      styles.specificDatePicker,
+                                    ]}
+                                  >
+                                    <MaterialIcons
+                                      name="event"
+                                      size={18}
+                                      color={colors.primary}
+                                    />
+                                    <input
+                                      type="date"
+                                      min={date}
+                                      max={specificMaximumDate}
+                                      value={specificDateDraft}
+                                      onChange={(event: any) =>
+                                        setSpecificDateDraft(event.target.value)
+                                      }
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: 'none',
+                                        color: colors.text,
+                                        cursor: 'pointer',
+                                        fontFamily: 'inherit',
+                                        fontSize: 14,
+                                        fontWeight: '600',
+                                        outline: 'none',
+                                        width: '100%',
+                                      }}
+                                    />
+                                  </View>
+                                ) : (
+                                  <Pressable
+                                    onPress={() => setPicker('specificDate')}
+                                    style={({ pressed }) => [
+                                      styles.pickerButton,
+                                      styles.specificDatePicker,
+                                      pressed && styles.pressed,
+                                    ]}
+                                  >
+                                    <MaterialIcons
+                                      name="event"
+                                      size={18}
+                                      color={colors.primary}
+                                    />
+                                    <Text style={styles.pickerText}>
+                                      {specificDateDraft
+                                        .split('-')
+                                        .reverse()
+                                        .join('/')}
+                                    </Text>
+                                  </Pressable>
+                                )}
+                                <Pressable
+                                  accessibilityLabel={t('common.add')}
+                                  accessibilityRole="button"
+                                  accessibilityState={{
+                                    disabled: !specificDateCanBeAdded,
+                                  }}
+                                  disabled={!specificDateCanBeAdded}
+                                  onPress={addSpecificDate}
+                                  style={({ pressed }) => [
+                                    styles.specificDateAddButton,
+                                    !specificDateCanBeAdded &&
+                                      styles.specificDateAddButtonDisabled,
+                                    pressed && styles.pressed,
+                                  ]}
+                                >
+                                  <MaterialIcons
+                                    name="add"
+                                    size={18}
+                                    color={colors.white}
+                                  />
+                                  <Text style={styles.specificDateAddText}>
+                                    {t('common.add')}
+                                  </Text>
+                                </Pressable>
+                              </View>
+
+                              {specificDates.length ? (
+                                <View style={styles.specificDateList}>
+                                  {specificDates.map((specificDate) => {
+                                    const dateLabel = formatCompactDate(
+                                      specificDate,
+                                      locale,
+                                    );
+                                    const fullDateLabel = `${dateLabel} · ${specificDate.slice(0, 4)}`;
+                                    return (
+                                      <Pressable
+                                        key={specificDate}
+                                        accessibilityLabel={t(
+                                          'taskForm.batchRemoveSpecificDate',
+                                          { date: fullDateLabel },
+                                        )}
+                                        accessibilityRole="button"
+                                        onPress={() =>
+                                          removeSpecificDate(specificDate)
+                                        }
+                                        style={({ pressed }) => [
+                                          styles.specificDateChip,
+                                          pressed && styles.pressed,
+                                        ]}
+                                      >
+                                        <Text
+                                          style={styles.specificDateChipText}
+                                        >
+                                          {fullDateLabel}
+                                        </Text>
+                                        <MaterialIcons
+                                          name="close"
+                                          size={15}
+                                          color={colors.primaryDark}
+                                        />
+                                      </Pressable>
+                                    );
+                                  })}
+                                </View>
+                              ) : (
+                                <Text style={styles.specificDateEmpty}>
+                                  {t('taskForm.batchSpecificEmpty')}
+                                </Text>
+                              )}
+                            </>
                           )}
 
-                          <Text style={styles.batchLabel}>
-                            {t('taskForm.batchEndDate')}
-                          </Text>
-                          {Platform.OS === 'web' ? (
-                            <View style={styles.webPickerBox}>
-                              <MaterialIcons
-                                name="date-range"
-                                size={18}
-                                color={colors.primary}
-                              />
-                              <input
-                                type="date"
-                                min={date}
-                                value={batchEndDate}
-                                onChange={(event: any) =>
-                                  setBatchEndDate(event.target.value)
-                                }
-                                style={{
-                                  backgroundColor: 'transparent',
-                                  border: 'none',
-                                  color: colors.text,
-                                  cursor: 'pointer',
-                                  fontFamily: 'inherit',
-                                  fontSize: 14,
-                                  fontWeight: '600',
-                                  outline: 'none',
-                                  width: '100%',
-                                }}
-                              />
-                            </View>
-                          ) : (
-                            <Pressable
-                              onPress={() => setPicker('batchEnd')}
-                              style={({ pressed }) => [
-                                styles.pickerButton,
-                                pressed && styles.pressed,
-                              ]}
-                            >
-                              <MaterialIcons
-                                name="date-range"
-                                size={18}
-                                color={colors.primary}
-                              />
-                              <Text style={styles.pickerText}>
-                                {batchEndDate.split('-').reverse().join('/')}
+                          {batchMode !== 'specific' ? (
+                            <>
+                              <Text style={styles.batchLabel}>
+                                {t('taskForm.batchEndDate')}
                               </Text>
-                            </Pressable>
-                          )}
+                              {Platform.OS === 'web' ? (
+                                <View style={styles.webPickerBox}>
+                                  <MaterialIcons
+                                    name="date-range"
+                                    size={18}
+                                    color={colors.primary}
+                                  />
+                                  <input
+                                    type="date"
+                                    min={date}
+                                    value={batchEndDate}
+                                    onChange={(event: any) =>
+                                      setBatchEndDate(event.target.value)
+                                    }
+                                    style={{
+                                      backgroundColor: 'transparent',
+                                      border: 'none',
+                                      color: colors.text,
+                                      cursor: 'pointer',
+                                      fontFamily: 'inherit',
+                                      fontSize: 14,
+                                      fontWeight: '600',
+                                      outline: 'none',
+                                      width: '100%',
+                                    }}
+                                  />
+                                </View>
+                              ) : (
+                                <Pressable
+                                  onPress={() => setPicker('batchEnd')}
+                                  style={({ pressed }) => [
+                                    styles.pickerButton,
+                                    pressed && styles.pressed,
+                                  ]}
+                                >
+                                  <MaterialIcons
+                                    name="date-range"
+                                    size={18}
+                                    color={colors.primary}
+                                  />
+                                  <Text style={styles.pickerText}>
+                                    {batchEndDate
+                                      .split('-')
+                                      .reverse()
+                                      .join('/')}
+                                  </Text>
+                                </Pressable>
+                              )}
+                            </>
+                          ) : null}
 
                           {batchValidationKey ? (
                             <Text style={styles.inlineError}>
@@ -867,6 +1070,7 @@ export function TaskFormModal({
                   mode={pickerMode}
                   value={pickerValue}
                   minimumDate={pickerMinimumDate}
+                  maximumDate={pickerMaximumDate}
                   onDismiss={() => setPicker(null)}
                   onValueChange={handlePickerValueChange}
                 />
@@ -883,7 +1087,7 @@ export function TaskFormModal({
               <View style={styles.iosPickerHeader}>
                 <Text style={styles.iosPickerTitle}>
                   {t(
-                    picker === 'date'
+                    picker === 'date' || picker === 'specificDate'
                       ? 'taskForm.selectDate'
                       : picker === 'batchEnd'
                         ? 'taskForm.batchEndDate'
@@ -905,6 +1109,7 @@ export function TaskFormModal({
                 textColor={colors.text}
                 accentColor={colors.primary}
                 minimumDate={pickerMinimumDate}
+                maximumDate={pickerMaximumDate}
                 onDismiss={() => setPicker(null)}
                 onValueChange={handlePickerValueChange}
               />
@@ -953,24 +1158,23 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalBackdrop: {
       alignItems: 'center',
-      backgroundColor:
-        Platform.OS === 'web' ? colors.overlay : colors.background,
+      backgroundColor: colors.overlay,
       flex: 1,
       height: '100%',
       justifyContent: 'center',
+      paddingHorizontal: 16,
       width: '100%',
     },
     modalCard: {
       backgroundColor: colors.background,
       borderColor: colors.border,
-      borderRadius: Platform.OS === 'web' ? 24 : 0,
-      borderWidth: Platform.OS === 'web' ? 1 : 0,
-      flex: Platform.OS === 'web' ? undefined : 1,
-      height: Platform.OS === 'web' ? '88%' : '100%',
-      maxHeight: Platform.OS === 'web' ? 760 : undefined,
-      maxWidth: Platform.OS === 'web' ? 500 : undefined,
+      borderRadius: 24,
+      borderWidth: 1,
+      height: '88%',
+      maxHeight: 760,
+      maxWidth: 500,
       overflow: 'hidden',
-      width: Platform.OS === 'web' ? '92%' : '100%',
+      width: '100%',
     },
     keyboardWrap: { flex: 1, width: '100%' },
     scroll: { flex: 1 },
@@ -980,8 +1184,8 @@ const createStyles = (colors: ThemeColors) =>
       borderBottomColor: colors.border,
       borderBottomWidth: 1,
       flexDirection: 'row',
-      paddingBottom: 12,
       paddingHorizontal: 12,
+      paddingVertical: 12,
     },
     headerTitle: {
       color: colors.text,
@@ -1193,6 +1397,8 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       borderRadius: 9,
       flex: 1,
+      justifyContent: 'center',
+      minHeight: 46,
       paddingHorizontal: 6,
       paddingVertical: 9,
     },
@@ -1235,6 +1441,59 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
       fontSize: 11,
       fontWeight: '700',
+    },
+    specificDatePickerRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    specificDatePicker: {
+      flex: 1,
+      minWidth: 0,
+    },
+    specificDateAddButton: {
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 11,
+      flexDirection: 'row',
+      gap: 4,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+    },
+    specificDateAddButtonDisabled: { opacity: 0.45 },
+    specificDateAddText: {
+      color: colors.white,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    specificDateList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 7,
+      marginTop: 10,
+    },
+    specificDateChip: {
+      alignItems: 'center',
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    specificDateChipText: {
+      color: colors.primaryDark,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    specificDateEmpty: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontStyle: 'italic',
+      marginTop: 9,
     },
     batchSummary: {
       alignItems: 'center',

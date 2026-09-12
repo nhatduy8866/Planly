@@ -19,11 +19,14 @@ import {
   type ThemeColors,
   type ThemeMode,
 } from '../theme/colors';
-import type { ReminderDeliveryMode } from '../types';
+import type { AlarmFilePreference, ReminderDeliveryMode } from '../types';
 
 const STORAGE_KEY = '@planly/preferences/v1';
 
 interface StoredPreferences {
+  alarmBackground: AlarmFilePreference | null;
+  alarmSound: AlarmFilePreference | null;
+  alarmVibrationEnabled: boolean;
   theme: ThemeMode;
   language: Language;
   colorfulAccents: boolean;
@@ -36,6 +39,9 @@ interface PreferencesContextValue extends StoredPreferences {
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
   setColorfulAccents: (enabled: boolean) => void;
+  setAlarmBackground: (background: AlarmFilePreference | null) => void;
+  setAlarmSound: (sound: AlarmFilePreference | null) => void;
+  setAlarmVibrationEnabled: (enabled: boolean) => void;
   setLanguage: (language: Language) => void;
   setReminderDeliveryMode: (mode: ReminderDeliveryMode) => void;
   setShowTaskBadges: (enabled: boolean) => void;
@@ -61,7 +67,22 @@ function isReminderDeliveryMode(value: unknown): value is ReminderDeliveryMode {
   return value === 'notification' || value === 'alarm';
 }
 
+function isAlarmFilePreference(value: unknown): value is AlarmFilePreference {
+  if (!value || typeof value !== 'object') return false;
+  const file = value as Partial<AlarmFilePreference>;
+  return (
+    typeof file.name === 'string' &&
+    file.name.length > 0 &&
+    typeof file.uri === 'string' &&
+    file.uri.length > 0
+  );
+}
+
 export function PreferencesProvider({ children }: { children: ReactNode }) {
+  const [alarmBackground, setAlarmBackground] =
+    useState<AlarmFilePreference | null>(null);
+  const [alarmSound, setAlarmSound] = useState<AlarmFilePreference | null>(null);
+  const [alarmVibrationEnabled, setAlarmVibrationEnabled] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [language, setLanguage] = useState<Language>('vi');
   const [colorfulAccents, setColorfulAccents] = useState(true);
@@ -78,6 +99,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<StoredPreferences>) : {};
         if (!active) return;
+        if (isAlarmFilePreference(parsed.alarmBackground)) {
+          setAlarmBackground(parsed.alarmBackground);
+        }
+        if (isAlarmFilePreference(parsed.alarmSound)) {
+          setAlarmSound(parsed.alarmSound);
+        }
+        if (typeof parsed.alarmVibrationEnabled === 'boolean') {
+          setAlarmVibrationEnabled(parsed.alarmVibrationEnabled);
+        }
         if (isThemeMode(parsed.theme)) setTheme(parsed.theme);
         if (isLanguage(parsed.language)) setLanguage(parsed.language);
         if (typeof parsed.colorfulAccents === 'boolean') {
@@ -107,6 +137,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     void AsyncStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
+        alarmBackground,
+        alarmSound,
+        alarmVibrationEnabled,
         colorfulAccents,
         language,
         reminderDeliveryMode,
@@ -115,6 +148,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       }),
     );
   }, [
+    alarmBackground,
+    alarmSound,
+    alarmVibrationEnabled,
     colorfulAccents,
     hydrated,
     language,
@@ -130,6 +166,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
+      alarmBackground,
+      alarmSound,
+      alarmVibrationEnabled,
       colorfulAccents,
       colors: themes[theme],
       hydrated,
@@ -137,6 +176,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
       reminderDeliveryMode,
       setColorfulAccents,
+      setAlarmBackground,
+      setAlarmSound,
+      setAlarmVibrationEnabled,
       setLanguage,
       setReminderDeliveryMode,
       setShowTaskBadges,
@@ -148,6 +190,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       toggleTheme: () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
     }),
     [
+      alarmBackground,
+      alarmSound,
+      alarmVibrationEnabled,
       colorfulAccents,
       hydrated,
       language,

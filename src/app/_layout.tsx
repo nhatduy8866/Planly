@@ -28,6 +28,9 @@ function AppShell() {
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
   const {
+    alarmBackground,
+    alarmSound,
+    alarmVibrationEnabled,
     colors,
     hydrated: preferencesHydrated,
     language,
@@ -47,6 +50,10 @@ function AppShell() {
     tasks,
     language,
     reminderDeliveryMode,
+    {
+      soundUri: alarmSound?.uri,
+      vibrate: alarmVibrationEnabled,
+    },
     appReady,
     dispatch,
   );
@@ -75,6 +82,7 @@ function AppShell() {
         </View>
       </View>
       <AlarmRingingModal
+        backgroundUri={alarmBackground?.uri}
         visible={Boolean(activeAlarm)}
         task={activeAlarm?.task}
         onDismiss={dismissAlarm}

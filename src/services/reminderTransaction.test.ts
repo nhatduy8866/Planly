@@ -75,13 +75,19 @@ describe('replaceTaskReminders', () => {
       expect.objectContaining({ id: 'task-1' }),
       'en',
       'notification',
+      { vibrate: true },
     );
   });
 
   it('passes the selected alarm mode to each replacement', async () => {
     const scheduleReminder = jest.fn(async () => 'alarm:new-1');
 
+    const alarmPreferences = {
+      soundUri: 'file:///alarm.mp3',
+      vibrate: false,
+    };
     await replaceTaskReminders([makeTask()], [], {
+      alarmPreferences,
       dependencies: {
         cancelReminder: jest.fn(async () => undefined),
         scheduleReminder,
@@ -93,6 +99,7 @@ describe('replaceTaskReminders', () => {
       expect.objectContaining({ id: 'task-1' }),
       'vi',
       'alarm',
+      alarmPreferences,
     );
   });
 
@@ -140,6 +147,7 @@ describe('rollbackTaskReminders', () => {
       expect.objectContaining({ id: 'updated', notificationId: undefined }),
       'vi',
       'notification',
+      { vibrate: true },
     );
     expect(restored).toEqual([
       expect.objectContaining({

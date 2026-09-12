@@ -1,6 +1,10 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
-import type { ScheduledTaskReminder, Task } from '../types';
+import type {
+  AlarmSchedulePreferences,
+  ScheduledTaskReminder,
+  Task,
+} from '../types';
 import { getTaskReminderKey, TASK_REMINDER_SOURCE } from './notifications';
 import {
   reconcileTaskReminders,
@@ -67,6 +71,7 @@ function dependencies(
       target: Task,
       language: 'vi' | 'en',
       deliveryMode: 'notification' | 'alarm',
+      alarmPreferences: AlarmSchedulePreferences,
     ) => Promise<string | undefined>
   >;
 } {
@@ -78,11 +83,21 @@ function dependencies(
     if (index >= 0) scheduled.splice(index, 1);
   });
   const scheduleReminder = jest.fn(
-    async (target: Task, language: 'vi' | 'en', deliveryMode: 'notification' | 'alarm') => {
+    async (
+      target: Task,
+      language: 'vi' | 'en',
+      deliveryMode: 'notification' | 'alarm',
+      alarmPreferences: AlarmSchedulePreferences,
+    ) => {
     const identifier = `new-${nextId++}`;
     scheduled.push(
       request(target, identifier, {
-        key: getTaskReminderKey(target, language, deliveryMode),
+        key: getTaskReminderKey(
+          target,
+          language,
+          deliveryMode,
+          alarmPreferences,
+        ),
       }),
     );
     return identifier;
@@ -270,6 +285,7 @@ describe('reconcileTaskReminders', () => {
       target,
       'en',
       'notification',
+      { vibrate: true },
     );
     expect(result.notificationIdUpdates).toEqual([
       { id: 'task-1', notificationId: 'new-1' },
@@ -289,7 +305,12 @@ describe('reconcileTaskReminders', () => {
     );
 
     expect(deps.cancelReminder).toHaveBeenCalledWith('notification-1');
-    expect(deps.scheduleReminder).toHaveBeenCalledWith(target, 'vi', 'alarm');
+    expect(deps.scheduleReminder).toHaveBeenCalledWith(
+      target,
+      'vi',
+      'alarm',
+      { vibrate: true },
+    );
     expect(result.notificationIdUpdates).toEqual([
       { id: 'task-1', notificationId: 'new-1' },
     ]);
@@ -316,6 +337,40 @@ describe('reconcileTaskReminders', () => {
       target,
       'vi',
       'notification',
+      { vibrate: true },
+    );
+    expect(result.notificationIdUpdates).toEqual([
+      { id: 'task-1', notificationId: 'new-1' },
+    ]);
+  });
+
+  it('replaces an alarm when its sound or vibration preference changes', async () => {
+    const target = task({ notificationId: 'alarm-1' });
+    const scheduled = [
+      request(target, 'alarm-1', {
+        key: getTaskReminderKey(target, 'vi', 'alarm', { vibrate: true }),
+      }),
+    ];
+    const deps = dependencies(scheduled);
+    const alarmPreferences = {
+      soundUri: 'file:///alarm.mp3',
+      vibrate: false,
+    };
+
+    const result = await reconcileTaskReminders(
+      [target],
+      'vi',
+      'alarm',
+      deps,
+      alarmPreferences,
+    );
+
+    expect(deps.cancelReminder).toHaveBeenCalledWith('alarm-1');
+    expect(deps.scheduleReminder).toHaveBeenCalledWith(
+      target,
+      'vi',
+      'alarm',
+      alarmPreferences,
     );
     expect(result.notificationIdUpdates).toEqual([
       { id: 'task-1', notificationId: 'new-1' },

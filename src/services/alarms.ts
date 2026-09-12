@@ -7,7 +7,11 @@ import type {
 } from 'react-native-alarm-scheduler';
 
 import type { Language } from '../i18n/translations';
-import type { ScheduledTaskReminder, Task } from '../types';
+import type {
+  AlarmSchedulePreferences,
+  ScheduledTaskReminder,
+  Task,
+} from '../types';
 import { taskDateTime } from '../utils/date';
 import { isExpoGoRuntime } from '../utils/expoRuntime';
 
@@ -132,6 +136,7 @@ export async function scheduleTaskAlarm(
   task: Task,
   language: Language,
   metadata: Record<string, string>,
+  preferences: AlarmSchedulePreferences = { vibrate: true },
 ): Promise<string | undefined> {
   if (task.reminderMinutes === null) return undefined;
 
@@ -177,7 +182,7 @@ export async function scheduleTaskAlarm(
       launchUri: `planly://alarm?taskId=${encodeURIComponent(task.id)}`,
       maxRingDurationSeconds: ALARM_MAX_RING_DURATION_SECONDS,
       metadata: alarmMetadataPayload,
-      vibrate: true,
+      vibrate: preferences.vibrate,
     },
     hour: triggerDate.getHours(),
     ios: {
@@ -190,6 +195,7 @@ export async function scheduleTaskAlarm(
       stopIntentBehavior: 'recordOnly',
     },
     minute: triggerDate.getMinutes(),
+    soundUri: preferences.soundUri,
     timestamp: triggerDate.getTime(),
     title: task.title,
   });

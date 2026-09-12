@@ -61,6 +61,9 @@ describe('PreferencesProvider reminder mode', () => {
 
     expect(preferences.hydrated).toBe(true);
     expect(preferences.reminderDeliveryMode).toBe('notification');
+    expect(preferences.alarmBackground).toBeNull();
+    expect(preferences.alarmSound).toBeNull();
+    expect(preferences.alarmVibrationEnabled).toBe(true);
     expect(mockSetItem).toHaveBeenLastCalledWith(
       '@planly/preferences/v1',
       expect.stringContaining('"reminderDeliveryMode":"notification"'),
@@ -69,11 +72,25 @@ describe('PreferencesProvider reminder mode', () => {
 
   it('restores a saved alarm preference', async () => {
     mockGetItem.mockResolvedValue(
-      JSON.stringify({ reminderDeliveryMode: 'alarm' }),
+      JSON.stringify({
+        alarmBackground: { name: 'night.jpg', uri: 'file:///night.jpg' },
+        alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
+        alarmVibrationEnabled: false,
+        reminderDeliveryMode: 'alarm',
+      }),
     );
 
     await renderProvider();
 
     expect(preferences.reminderDeliveryMode).toBe('alarm');
+    expect(preferences.alarmBackground).toEqual({
+      name: 'night.jpg',
+      uri: 'file:///night.jpg',
+    });
+    expect(preferences.alarmSound).toEqual({
+      name: 'bell.mp3',
+      uri: 'file:///bell.mp3',
+    });
+    expect(preferences.alarmVibrationEnabled).toBe(false);
   });
 });

@@ -40,7 +40,18 @@ export function useAiScheduler(
 ) {
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
-  const { language, locale, reminderDeliveryMode, t } = usePreferences();
+  const {
+    alarmSound,
+    alarmVibrationEnabled,
+    language,
+    locale,
+    reminderDeliveryMode,
+    t,
+  } = usePreferences();
+  const alarmPreferences = useMemo(
+    () => ({ soundUri: alarmSound?.uri, vibrate: alarmVibrationEnabled }),
+    [alarmSound?.uri, alarmVibrationEnabled],
+  );
 
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<AiModalStep>('menu_action_sheet');
@@ -445,7 +456,7 @@ export function useAiScheduler(
     const tasksWithReminders = await replaceTaskReminders(
       tasksToSave,
       tasks,
-      { language, reminderDeliveryMode },
+      { alarmPreferences, language, reminderDeliveryMode },
     );
     dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
 
@@ -475,6 +486,7 @@ export function useAiScheduler(
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     close();
   }, [
+    alarmPreferences,
     clearFeedbackTimer,
     close,
     draftTasks,
@@ -496,7 +508,7 @@ export function useAiScheduler(
     const previousTasks = await rollbackTaskReminders(
       snapshot.savedTasks,
       snapshot.previousTasks,
-      { language, reminderDeliveryMode },
+      { alarmPreferences, language, reminderDeliveryMode },
     );
     dispatch({
       type: 'rollback_task_batch',
@@ -510,7 +522,13 @@ export function useAiScheduler(
     setSaveFeedback(null);
     setUndoingSave(false);
     setHighlightedTaskIds(new Set());
-  }, [clearFeedbackTimer, dispatch, language, reminderDeliveryMode]);
+  }, [
+    alarmPreferences,
+    clearFeedbackTimer,
+    dispatch,
+    language,
+    reminderDeliveryMode,
+  ]);
 
   const viewSavedTasks = useCallback((date?: string) => {
     const feedback = saveFeedback;

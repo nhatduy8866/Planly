@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { AppState, type AppStateStatus } from 'react-native';
 
 import type { ReminderReconciliationResult } from '../services/reminderReconciliation';
-import type { ReminderDeliveryMode, Task } from '../types';
+import type {
+  AlarmSchedulePreferences,
+  ReminderDeliveryMode,
+  Task,
+} from '../types';
 import { useReminderReconciliation } from './useReminderReconciliation';
 
 const mockReconcileTaskReminders = jest.fn<
@@ -47,12 +51,14 @@ describe('useReminderReconciliation', () => {
   let dispatch: jest.Mock;
 
   interface HarnessProps {
+    alarmPreferences?: AlarmSchedulePreferences;
     enabled?: boolean;
     reminderDeliveryMode?: ReminderDeliveryMode;
     tasks?: Task[];
   }
 
   function Harness({
+    alarmPreferences = { vibrate: true },
     enabled = true,
     reminderDeliveryMode = 'notification',
     tasks = [task()],
@@ -61,6 +67,7 @@ describe('useReminderReconciliation', () => {
       tasks,
       'vi',
       reminderDeliveryMode,
+      alarmPreferences,
       enabled,
       dispatch,
     );
@@ -115,6 +122,8 @@ describe('useReminderReconciliation', () => {
       updatedTasks,
       'vi',
       'notification',
+      undefined,
+      { vibrate: true },
     );
   });
 
@@ -133,6 +142,39 @@ describe('useReminderReconciliation', () => {
       expect.any(Array),
       'vi',
       'alarm',
+      undefined,
+      { vibrate: true },
+    );
+  });
+
+  it('reconciles again when alarm sound or vibration changes', async () => {
+    await act(async () => {
+      tree = create(
+        createElement(Harness, {
+          alarmPreferences: { vibrate: true },
+          reminderDeliveryMode: 'alarm',
+        }),
+      );
+    });
+
+    await act(async () => {
+      tree?.update(
+        createElement(Harness, {
+          alarmPreferences: {
+            soundUri: 'file:///alarm.mp3',
+            vibrate: false,
+          },
+          reminderDeliveryMode: 'alarm',
+        }),
+      );
+    });
+
+    expect(mockReconcileTaskReminders).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      'vi',
+      'alarm',
+      undefined,
+      { soundUri: 'file:///alarm.mp3', vibrate: false },
     );
   });
 

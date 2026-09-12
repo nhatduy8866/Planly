@@ -1,5 +1,6 @@
 import type { Language } from '../i18n/translations';
 import type {
+  AlarmSchedulePreferences,
   ReminderDeliveryMode,
   ScheduledTaskReminder,
   Task,
@@ -39,6 +40,7 @@ export interface ReminderReconciliationDependencies {
     task: Task,
     language: Language,
     deliveryMode: ReminderDeliveryMode,
+    alarmPreferences: AlarmSchedulePreferences,
   ): Promise<string | undefined>;
 }
 
@@ -67,10 +69,12 @@ function isCurrentReminder(
   task: Task,
   language: Language,
   deliveryMode: ReminderDeliveryMode,
+  alarmPreferences: AlarmSchedulePreferences,
 ): boolean {
   return (
     request.source === TASK_REMINDER_SOURCE &&
-    request.reminderKey === getTaskReminderKey(task, language, deliveryMode)
+    request.reminderKey ===
+      getTaskReminderKey(task, language, deliveryMode, alarmPreferences)
   );
 }
 
@@ -84,6 +88,7 @@ export async function reconcileTaskReminders(
   language: Language = 'vi',
   preferredMode: ReminderDeliveryMode = 'notification',
   dependencies: ReminderReconciliationDependencies = defaultDependencies,
+  alarmPreferences: AlarmSchedulePreferences = { vibrate: true },
 ): Promise<ReminderReconciliationResult> {
   const result: ReminderReconciliationResult = {
     canceled: 0,
@@ -131,7 +136,13 @@ export async function reconcileTaskReminders(
     }
 
     const currentRequests = requests.filter((request) =>
-      isCurrentReminder(request, task, language, readiness.deliveryMode),
+      isCurrentReminder(
+        request,
+        task,
+        language,
+        readiness.deliveryMode,
+        alarmPreferences,
+      ),
     );
     const keptRequest =
       currentRequests.find(
@@ -161,6 +172,7 @@ export async function reconcileTaskReminders(
           task,
           language,
           readiness.deliveryMode,
+          alarmPreferences,
         );
         if (notificationId !== undefined) result.scheduled += 1;
       } catch {

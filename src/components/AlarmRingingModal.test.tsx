@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import React from 'react';
-import { Animated, Text } from 'react-native';
+import { Animated, ImageBackground, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 import { AlarmRingingModal, type AlarmModalTaskData } from './AlarmRingingModal';
@@ -107,6 +107,24 @@ describe('AlarmRingingModal', () => {
     expect(textContents).toContain('Cao');
     expect(textContents).toContain('Tắt báo thức');
     expect(textContents).toContain('Xem công việc');
+  });
+
+  it('renders the selected custom background behind the alarm content', () => {
+    act(() => {
+      tree = renderer.create(
+        <AlarmRingingModal
+          backgroundUri="file:///planly-alarm-media/background.jpg"
+          visible={true}
+          task={mockTaskData}
+          onDismiss={jest.fn()}
+          onViewTask={jest.fn()}
+        />,
+      );
+    });
+
+    expect(tree?.root.findByType(ImageBackground).props.source).toEqual({
+      uri: 'file:///planly-alarm-media/background.jpg',
+    });
   });
 
   it('triggers onDismiss when Stop button is pressed', () => {

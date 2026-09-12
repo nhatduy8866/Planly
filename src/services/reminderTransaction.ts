@@ -1,4 +1,8 @@
-import type { ReminderDeliveryMode, Task } from '../types';
+import type {
+  AlarmSchedulePreferences,
+  ReminderDeliveryMode,
+  Task,
+} from '../types';
 import type { Language } from '../i18n/translations';
 import {
   cancelTaskReminder,
@@ -16,6 +20,7 @@ const defaultDependencies: ReminderTransactionDependencies = {
 };
 
 interface ReplaceTaskReminderOptions {
+  alarmPreferences?: AlarmSchedulePreferences;
   language?: Language;
   reminderDeliveryMode?: ReminderDeliveryMode;
   dependencies?: ReminderTransactionDependencies;
@@ -32,6 +37,7 @@ export async function replaceTaskReminders(
   options: ReplaceTaskReminderOptions = {},
 ): Promise<Task[]> {
   const {
+    alarmPreferences = { vibrate: true },
     language = 'vi',
     reminderDeliveryMode = 'notification',
     dependencies = defaultDependencies,
@@ -51,6 +57,7 @@ export async function replaceTaskReminders(
           taskWithoutOldReminder,
           language,
           reminderDeliveryMode,
+          alarmPreferences,
         );
       } catch {
         // The old reminder is already gone, so do not persist its stale ID.

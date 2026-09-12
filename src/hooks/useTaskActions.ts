@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   cancelTaskReminder,
@@ -19,7 +19,17 @@ import type { TaskFormValues } from '../components/TaskFormModal';
 export function useTaskActions() {
   const plannerTasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
-  const { language, reminderDeliveryMode, t } = usePreferences();
+  const {
+    alarmSound,
+    alarmVibrationEnabled,
+    language,
+    reminderDeliveryMode,
+    t,
+  } = usePreferences();
+  const alarmPreferences = useMemo(
+    () => ({ soundUri: alarmSound?.uri, vibrate: alarmVibrationEnabled }),
+    [alarmSound?.uri, alarmVibrationEnabled],
+  );
 
   const saveTask = useCallback(
     async (values: TaskFormValues, existing?: Task) => {
@@ -35,7 +45,7 @@ export function useTaskActions() {
         const tasksWithReminders = await replaceTaskReminders(
           editedTasks,
           plannerTasks,
-          { language, reminderDeliveryMode },
+          { alarmPreferences, language, reminderDeliveryMode },
         );
 
         if (tasksWithReminders.length === 1) {
@@ -84,6 +94,7 @@ export function useTaskActions() {
               task,
               language,
               reminderDeliveryMode,
+              alarmPreferences,
             );
             return { ...task, notificationId };
           } catch {
@@ -98,7 +109,7 @@ export function useTaskActions() {
         dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
     },
-    [dispatch, language, plannerTasks, reminderDeliveryMode],
+    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode],
   );
 
   const duplicateTask = useCallback(
@@ -124,13 +135,14 @@ export function useTaskActions() {
           task,
           language,
           reminderDeliveryMode,
+          alarmPreferences,
         );
       } catch {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, language, plannerTasks, reminderDeliveryMode, t],
+    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode, t],
   );
 
   const deleteTask = useCallback(
@@ -161,6 +173,7 @@ export function useTaskActions() {
             task,
             language,
             reminderDeliveryMode,
+            alarmPreferences,
           );
         } catch {
           task.notificationId = undefined;
@@ -168,7 +181,7 @@ export function useTaskActions() {
       }
       dispatch({ type: 'upsert_task', payload: task });
     },
-    [dispatch, language, reminderDeliveryMode],
+    [alarmPreferences, dispatch, language, reminderDeliveryMode],
   );
 
   return { deleteTask, duplicateTask, saveTask, toggleTask };

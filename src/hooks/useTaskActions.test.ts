@@ -205,6 +205,30 @@ describe('useTaskActions batch editing', () => {
     });
   });
 
+  it('creates one batch task for each explicitly selected date', async () => {
+    await act(async () => {
+      await hook.saveTask(
+        formValues({
+          batchDates: ['2026-09-19', '2026-09-10', '2026-09-13'],
+        }),
+      );
+    });
+
+    const action = mockDispatch.mock.calls[0][0] as {
+      payload: Task[];
+      type: string;
+    };
+
+    expect(action.type).toBe('create_batch_tasks');
+    expect(action.payload.map((task) => task.date)).toEqual([
+      '2026-09-10',
+      '2026-09-13',
+      '2026-09-19',
+    ]);
+    expect(new Set(action.payload.map((task) => task.batchId)).size).toBe(1);
+    expect(mockScheduleTaskReminder).toHaveBeenCalledTimes(3);
+  });
+
   it('blocks creating a task at an occupied time before scheduling a reminder', async () => {
     await act(async () => {
       await expect(hook.saveTask(formValues())).rejects.toBeInstanceOf(

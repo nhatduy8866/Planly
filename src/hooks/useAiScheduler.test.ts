@@ -26,6 +26,7 @@ const mockReplaceTaskReminders = jest.fn<
     tasks: Task[],
     existingTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -36,6 +37,7 @@ const mockRollbackTaskReminders = jest.fn<
     savedTasks: Task[],
     previousTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -54,6 +56,8 @@ jest.mock('../preferences/PreferencesContext', () => {
 
   return {
     usePreferences: () => ({
+      alarmSound: null,
+      alarmVibrationEnabled: true,
       language: 'vi',
       locale: 'vi-VN',
       reminderDeliveryMode: 'notification',
@@ -79,6 +83,7 @@ jest.mock('../services/reminderTransaction', () => ({
     tasks: Task[],
     existingTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -87,6 +92,7 @@ jest.mock('../services/reminderTransaction', () => ({
     savedTasks: Task[],
     previousTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -327,7 +333,11 @@ describe('useAiScheduler', () => {
     expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
       expect.any(Array),
       mockPlannerState.tasks,
-      { language: 'vi', reminderDeliveryMode: 'notification' },
+      {
+        alarmPreferences: { soundUri: undefined, vibrate: true },
+        language: 'vi',
+        reminderDeliveryMode: 'notification',
+      },
     );
     expect(scheduler.visible).toBe(false);
     expect(scheduler.saveFeedback).toMatchObject({
@@ -410,7 +420,11 @@ describe('useAiScheduler', () => {
     expect(mockRollbackTaskReminders).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: previous.id })]),
       [previous],
-      { language: 'vi', reminderDeliveryMode: 'notification' },
+      {
+        alarmPreferences: { soundUri: undefined, vibrate: true },
+        language: 'vi',
+        reminderDeliveryMode: 'notification',
+      },
     );
     expect(mockDispatch).toHaveBeenLastCalledWith({
       type: 'rollback_task_batch',

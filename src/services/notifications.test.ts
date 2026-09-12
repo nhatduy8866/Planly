@@ -9,6 +9,7 @@ import {
   cancelTaskReminder,
   getAllScheduledTaskReminders,
   getNotificationPermission,
+  getTaskReminderKey,
   getTaskReminderReadiness,
   initializeNotifications,
   openNotificationSettings,
@@ -244,8 +245,43 @@ describe('notification foundation', () => {
         source: 'planly-task-reminder',
         taskId: 'task-1',
       }),
+      { vibrate: true },
     );
     expect(scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('includes custom alarm media settings when scheduling and versioning an alarm', async () => {
+    getPermissionsAsync.mockResolvedValue(permission('granted', true));
+    const alarmPreferences = {
+      soundUri: 'file:///planly-alarm-media/sound.mp3',
+      vibrate: false,
+    };
+
+    await scheduleTaskReminder(
+      makeFutureTask(),
+      'vi',
+      'alarm',
+      alarmPreferences,
+    );
+
+    expect(mockScheduleTaskAlarm).toHaveBeenCalledWith(
+      makeFutureTask(),
+      'vi',
+      expect.objectContaining({
+        reminderKey: getTaskReminderKey(
+          makeFutureTask(),
+          'vi',
+          'alarm',
+          alarmPreferences,
+        ),
+      }),
+      alarmPreferences,
+    );
+    expect(
+      getTaskReminderKey(makeFutureTask(), 'vi', 'alarm', alarmPreferences),
+    ).not.toBe(
+      getTaskReminderKey(makeFutureTask(), 'vi', 'alarm', { vibrate: true }),
+    );
   });
 
   it('does not fall back to notification when preferredMode is alarm and exact alarm access is unavailable', async () => {

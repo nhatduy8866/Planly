@@ -4,6 +4,16 @@ export type ReminderMinutes = number | null;
 
 export type ReminderDeliveryMode = 'notification' | 'alarm';
 
+export interface AlarmFilePreference {
+  name: string;
+  uri: string;
+}
+
+export interface AlarmSchedulePreferences {
+  soundUri?: string;
+  vibrate: boolean;
+}
+
 export type SortDirection = 'ascending' | 'descending';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'none';

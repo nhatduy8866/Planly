@@ -3,19 +3,27 @@ import { AppState } from 'react-native';
 
 import type { Language } from '../i18n/translations';
 import { reconcileTaskReminders } from '../services/reminderReconciliation';
-import type { ReminderDeliveryMode, Task } from '../types';
+import type {
+  AlarmSchedulePreferences,
+  ReminderDeliveryMode,
+  Task,
+} from '../types';
 import type { PlannerAction } from '../store/plannerReducer';
 
 export function useReminderReconciliation(
   tasks: Task[],
   language: Language,
   reminderDeliveryMode: ReminderDeliveryMode,
+  alarmPreferences: AlarmSchedulePreferences,
   enabled: boolean,
   dispatch: (action: PlannerAction) => void,
 ): void {
+  const alarmSoundUri = alarmPreferences.soundUri;
+  const alarmVibrate = alarmPreferences.vibrate;
   const latestTasksRef = useRef(tasks);
   const languageRef = useRef(language);
   const reminderDeliveryModeRef = useRef(reminderDeliveryMode);
+  const alarmPreferencesRef = useRef(alarmPreferences);
   const runningRef = useRef<Promise<void> | undefined>(undefined);
 
   useEffect(() => {
@@ -30,6 +38,13 @@ export function useReminderReconciliation(
     reminderDeliveryModeRef.current = reminderDeliveryMode;
   }, [reminderDeliveryMode]);
 
+  useEffect(() => {
+    alarmPreferencesRef.current = {
+      soundUri: alarmSoundUri,
+      vibrate: alarmVibrate,
+    };
+  }, [alarmSoundUri, alarmVibrate]);
+
   const reconcile = useCallback(() => {
     if (runningRef.current) return runningRef.current;
 
@@ -37,6 +52,8 @@ export function useReminderReconciliation(
       latestTasksRef.current,
       languageRef.current,
       reminderDeliveryModeRef.current,
+      undefined,
+      alarmPreferencesRef.current,
     )
       .then((result) => {
         if (result.notificationIdUpdates.length > 0) {
@@ -64,5 +81,12 @@ export function useReminderReconciliation(
       if (nextState === 'active') void reconcile();
     });
     return () => subscription.remove();
-  }, [enabled, language, reconcile, reminderDeliveryMode]);
+  }, [
+    alarmSoundUri,
+    alarmVibrate,
+    enabled,
+    language,
+    reconcile,
+    reminderDeliveryMode,
+  ]);
 }

@@ -3,6 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import {
   Animated,
   Easing,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -28,6 +29,7 @@ export interface AlarmModalTaskData {
 }
 
 interface AlarmRingingModalProps {
+  backgroundUri?: string;
   visible: boolean;
   task?: AlarmModalTaskData | null;
   onDismiss: () => void;
@@ -53,6 +55,7 @@ function formatCurrentDate(locale: string): string {
 }
 
 export const AlarmRingingModal = memo(function AlarmRingingModal({
+  backgroundUri,
   visible,
   task,
   onDismiss,
@@ -193,15 +196,21 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
       transparent={false}
       visible={visible}
     >
-      <View
-        style={[
-          styles.container,
+      <ImageBackground
+        resizeMode="cover"
+        source={backgroundUri ? { uri: backgroundUri } : undefined}
+        style={styles.container}
+      >
+        <View
+          style={[
+            styles.contentContainer,
+            backgroundUri && styles.backgroundOverlay,
           {
             paddingBottom: Math.max(insets.bottom, 24),
             paddingTop: Math.max(insets.top, 32),
           },
-        ]}
-      >
+          ]}
+        >
         {/* Header Huy hiệu BÁO THỨC */}
         <View style={styles.topBar}>
           <Animated.View
@@ -332,7 +341,8 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
             </Text>
           </Pressable>
         </View>
-      </View>
+        </View>
+      </ImageBackground>
     </Modal>
   );
 });
@@ -342,8 +352,14 @@ const createStyles = (colors: ThemeColors) =>
     container: {
       backgroundColor: '#090D16',
       flex: 1,
+    },
+    contentContainer: {
+      flex: 1,
       justifyContent: 'space-between',
       paddingHorizontal: 24,
+    },
+    backgroundOverlay: {
+      backgroundColor: 'rgba(9, 13, 22, 0.68)',
     },
     topBar: {
       alignItems: 'center',

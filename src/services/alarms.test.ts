@@ -151,6 +151,24 @@ describe('native task alarms', () => {
     );
   });
 
+  it('passes the selected sound and vibration preference to the native alarm', async () => {
+    const task = futureTask();
+
+    await scheduleTaskAlarm(
+      task,
+      'vi',
+      { taskId: task.id },
+      { soundUri: 'file:///planly-alarm-media/sound.mp3', vibrate: false },
+    );
+
+    expect(scheduler.scheduleAlarmAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        android: expect.objectContaining({ vibrate: false }),
+        soundUri: 'file:///planly-alarm-media/sound.mp3',
+      }),
+    );
+  });
+
   it('does not schedule an alarm without exact-alarm access', async () => {
     scheduler.getPermissionsAsync.mockResolvedValue(permission(false));
 

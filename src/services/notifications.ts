@@ -3,6 +3,7 @@ import { Linking, Platform } from 'react-native';
 
 import type { Language } from '../i18n/translations';
 import type {
+  AlarmSchedulePreferences,
   ReminderDeliveryMode,
   ScheduledTaskReminder,
   Task,
@@ -53,6 +54,7 @@ export function getTaskReminderKey(
   task: Task,
   language: Language = 'vi',
   deliveryMode: ReminderDeliveryMode = 'notification',
+  alarmPreferences: AlarmSchedulePreferences = { vibrate: true },
 ): string {
   return JSON.stringify([
     TASK_REMINDER_SCHEMA_VERSION,
@@ -62,6 +64,9 @@ export function getTaskReminderKey(
     task.title,
     task.date,
     task.startTime,
+    ...(deliveryMode === 'alarm'
+      ? [alarmPreferences.soundUri ?? null, alarmPreferences.vibrate]
+      : []),
   ]);
 }
 
@@ -294,16 +299,27 @@ export async function scheduleTaskReminder(
   task: Task,
   language: Language = 'vi',
   preferredMode: ReminderDeliveryMode = 'notification',
+  alarmPreferences: AlarmSchedulePreferences = { vibrate: true },
 ): Promise<string | undefined> {
   if (preferredMode === 'alarm') {
     const readiness = await getTaskReminderReadiness(preferredMode, language);
     if (readiness.deliveryMode === 'alarm' && readiness.canSchedule) {
       try {
-        return await scheduleTaskAlarm(task, language, {
-          reminderKey: getTaskReminderKey(task, language, 'alarm'),
-          source: TASK_REMINDER_SOURCE,
-          taskId: task.id,
-        });
+        return await scheduleTaskAlarm(
+          task,
+          language,
+          {
+            reminderKey: getTaskReminderKey(
+              task,
+              language,
+              'alarm',
+              alarmPreferences,
+            ),
+            source: TASK_REMINDER_SOURCE,
+            taskId: task.id,
+          },
+          alarmPreferences,
+        );
       } catch (error) {
         if (__DEV__) {
           console.warn('[Planly Alarm] Failed to schedule task alarm:', error);

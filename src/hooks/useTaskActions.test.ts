@@ -13,6 +13,7 @@ const mockReplaceTaskReminders = jest.fn<
     tasks: Task[],
     existingTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -23,6 +24,7 @@ const mockScheduleTaskReminder = jest.fn<
     task: Task,
     language?: 'vi' | 'en',
     reminderDeliveryMode?: 'notification' | 'alarm',
+    alarmPreferences?: { soundUri?: string; vibrate: boolean },
   ) => Promise<string | undefined>
 >();
 
@@ -33,6 +35,8 @@ jest.mock('../store/PlannerContext', () => ({
 
 jest.mock('../preferences/PreferencesContext', () => ({
   usePreferences: () => ({
+    alarmSound: null,
+    alarmVibrationEnabled: true,
     language: 'vi',
     reminderDeliveryMode: 'notification',
     t: (key: string) => key,
@@ -44,6 +48,7 @@ jest.mock('../services/reminderTransaction', () => ({
     tasks: Task[],
     existingTasks: Task[],
     options?: {
+      alarmPreferences?: { soundUri?: string; vibrate: boolean };
       language?: 'vi' | 'en';
       reminderDeliveryMode?: 'notification' | 'alarm';
     },
@@ -56,7 +61,14 @@ jest.mock('../services/notifications', () => ({
     task: Task,
     language?: 'vi' | 'en',
     reminderDeliveryMode?: 'notification' | 'alarm',
-  ) => mockScheduleTaskReminder(task, language, reminderDeliveryMode),
+    alarmPreferences?: { soundUri?: string; vibrate: boolean },
+  ) =>
+    mockScheduleTaskReminder(
+      task,
+      language,
+      reminderDeliveryMode,
+      alarmPreferences,
+    ),
 }));
 
 interface TestRendererInstance {
@@ -146,7 +158,11 @@ describe('useTaskActions batch editing', () => {
     expect(mockReplaceTaskReminders).toHaveBeenCalledWith(
       [expect.objectContaining({ id: 'task-1', batchId: undefined })],
       mockPlannerState.tasks,
-      { language: 'vi', reminderDeliveryMode: 'notification' },
+      {
+        alarmPreferences: { soundUri: undefined, vibrate: true },
+        language: 'vi',
+        reminderDeliveryMode: 'notification',
+      },
     );
     expect(mockDispatch).toHaveBeenCalledWith({
       type: 'upsert_task',

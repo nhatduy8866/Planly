@@ -28,7 +28,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 - Tạo, chỉnh sửa và xóa ghi chú.
 - Tìm kiếm theo tiêu đề và nội dung.
 
-Dữ liệu task và note được lưu cục bộ trên thiết bị bằng AsyncStorage, không cần tài khoản hoặc backend.
+Dữ liệu task và note luôn được lưu cục bộ bằng AsyncStorage để ứng dụng tiếp tục hoạt động khi mất mạng. Khi Supabase được cấu hình, người dùng có thể tạo tài khoản để tự động sao lưu, khôi phục sau khi cài lại và đồng bộ giữa các thiết bị.
 
 > Nhập giọng nói hiện mới là luồng demo, chưa tích hợp Speech-to-Text thật.
 
@@ -40,6 +40,7 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 - React 19
 - TypeScript
 - AsyncStorage
+- Supabase Auth và PostgreSQL
 - Expo Notifications
 - React Native Alarm Scheduler
 - Jest và ESLint
@@ -58,6 +59,23 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 npm install
 npm start
 ```
+
+### Cấu hình sao lưu và đồng bộ
+
+Planly vẫn hoạt động local-only nếu chưa cấu hình Supabase. Để bật đồng bộ:
+
+1. Tạo một project Supabase.
+2. Chạy migration trong `supabase/migrations` bằng Supabase CLI hoặc SQL Editor.
+3. Tạo `.env` từ `.env.example` và điền:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+4. Khởi động lại Metro, mở **Cài đặt → Sao lưu và đồng bộ**, sau đó tạo tài khoản hoặc đăng nhập.
+
+Chỉ task và note được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
 
 Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu hình Android SDK và đang chạy emulator:
 
@@ -97,7 +115,8 @@ Planly/
 │   ├── components/            # Calendar, task card và các form modal
 │   ├── hooks/                 # Luồng CRUD task và đồng bộ reminder
 │   ├── screens/               # Lịch, công việc, ghi chú
-│   ├── services/              # Thông báo local và báo thức native
+│   ├── services/              # Thông báo, báo thức và dịch vụ cloud
+│   ├── sync/                  # Điều phối đồng bộ local-first
 │   ├── store/                 # Context, reducer và persistence
 │   ├── theme/                 # Design tokens
 │   ├── types/                 # Kiểu dữ liệu dùng chung
@@ -109,7 +128,7 @@ Planly/
 ## Phạm vi tiếp theo
 
 - Tích hợp Speech-to-Text thật cho Planly AI.
-- Đồng bộ nhiều thiết bị và sao lưu tài khoản.
+- Hoàn thiện quản lý tài khoản và lịch sử khôi phục dữ liệu.
 - Task lặp lại và các quy tắc nhắc lịch nâng cao.
 - Widget Android và tích hợp lịch hệ thống.
 

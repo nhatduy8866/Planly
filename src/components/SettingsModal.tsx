@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
   ALARM_BACKGROUND_PRESETS,
@@ -50,12 +51,14 @@ import {
   type NotificationPermissionSummary,
 } from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
+import { useCloudSync } from '../sync/CloudSyncContext';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type {
   AlarmBackgroundPresetId,
   AlarmSoundPresetId,
   ReminderDeliveryMode,
 } from '../types';
+import { AccountSyncModal } from './AccountSyncModal';
 import { IconButton } from './IconButton';
 
 type SettingsPicker = 'background' | 'delivery' | 'sound' | 'vibration';
@@ -89,8 +92,18 @@ function configurePreviewPlayer(player: AudioPlayer): void {
   player.volume = 0.8;
 }
 
+function pausePreviewPlayer(player: AudioPlayer): void {
+  try {
+    player.pause();
+  } catch {
+    // Expo releases shared audio objects during unmount and Fast Refresh.
+  }
+}
+
 export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
+  const { configured: syncConfigured, user } = useAuth();
+  const { status: syncStatus } = useCloudSync();
   const {
     alarmBackground,
     alarmBackgroundPreset = DEFAULT_ALARM_BACKGROUND_PRESET,
@@ -111,6 +124,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const styles = useThemedStyles(createStyles);
   const previewPlayer = useAudioPlayer(null);
   const previewStatus = useAudioPlayerStatus(previewPlayer);
+  const [accountSyncVisible, setAccountSyncVisible] = useState(false);
   const [activePicker, setActivePicker] = useState<SettingsPicker | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<{
     label: string;
@@ -132,15 +146,8 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
   useEffect(() => {
     if (activePicker === 'sound') return;
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
   }, [activePicker, previewPlayer]);
-
-  useEffect(
-    () => () => {
-      previewPlayer.pause();
-    },
-    [previewPlayer],
-  );
 
   const refreshNotificationPermission = useCallback(async () => {
     try {
@@ -195,7 +202,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   }
 
   function closePicker() {
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
     setPreviewingSoundKey(null);
     setActivePicker(null);
   }
@@ -277,13 +284,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     source: number | string,
   ) {
     if (previewingSoundKey === key && previewStatus.playing) {
-      previewPlayer.pause();
+      pausePreviewPlayer(previewPlayer);
       await previewPlayer.seekTo(0);
       setPreviewingSoundKey(null);
       return;
     }
 
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
     previewPlayer.replace(source);
     configurePreviewPlayer(previewPlayer);
     setPreviewingSoundKey(key);
@@ -307,6 +314,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
   function closeSettings() {
     closePicker();
+    setAccountSyncVisible(false);
     setBackgroundPreview(null);
     onClose();
   }
@@ -344,6 +352,19 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     alarmPermission?.available &&
     (!alarmPermission.canScheduleExactAlarms ||
       !alarmPermission.canUseFullScreenIntent);
+  const syncStatusLabel = !syncConfigured
+    ? t('sync.statusDisabled')
+    : !user
+      ? t('sync.statusSignedOut')
+      : t(
+          syncStatus === 'error'
+            ? 'sync.statusError'
+            : syncStatus === 'pending'
+              ? 'sync.statusPending'
+              : syncStatus === 'syncing'
+                ? 'sync.statusSyncing'
+                : 'sync.statusSynced',
+        );
 
   let pickerTitle = '';
   let pickerOptions: PickerOption[] = [];
@@ -516,6 +537,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
               showsVerticalScrollIndicator={false}
             >
               {renderSettingRow({
+                icon: user ? 'cloud-done' : 'cloud-sync',
+                label: t('sync.title'),
+                onPress: () => setAccountSyncVisible(true),
+                value: syncStatusLabel,
+              })}
+
+              {renderSettingRow({
                 icon:
                   reminderDeliveryMode === 'alarm' ? 'alarm' : 'notifications',
                 label: t('settings.reminderTypeTitle'),
@@ -590,6 +618,11 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
           </View>
         </View>
       </Modal>
+
+      <AccountSyncModal
+        onClose={() => setAccountSyncVisible(false)}
+        visible={accountSyncVisible}
+      />
 
       <Modal
         animationType="fade"

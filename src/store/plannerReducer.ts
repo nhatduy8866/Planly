@@ -16,6 +16,7 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 
 export type PlannerAction =
   | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
+  | { type: 'replace_from_sync'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
   | { type: 'upsert_task'; payload: Task }
   | { type: 'upsert_tasks'; payload: Task[] }
   | {
@@ -45,6 +46,12 @@ export function plannerReducer(
         tasks: action.payload.tasks,
         notes: action.payload.notes,
         hydrated: true,
+      };
+    case 'replace_from_sync':
+      return {
+        ...state,
+        tasks: action.payload.tasks,
+        notes: action.payload.notes,
       };
     case 'upsert_task': {
       const exists = state.tasks.some((task) => task.id === action.payload.id);

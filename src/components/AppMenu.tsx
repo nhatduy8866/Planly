@@ -152,10 +152,12 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
         </View>
       ) : null}
 
-      <SettingsModal
-        visible={settingsVisible}
-        onClose={() => setSettingsVisible(false)}
-      />
+      {settingsVisible ? (
+        <SettingsModal
+          visible
+          onClose={() => setSettingsVisible(false)}
+        />
+      ) : null}
     </>
   );
 }

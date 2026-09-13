@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '../auth/AuthContext';
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
@@ -25,6 +26,7 @@ import {
   usePlannerHydrated,
   usePlannerTasks,
 } from '../store/PlannerContext';
+import { CloudSyncProvider } from '../sync/CloudSyncContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
@@ -112,13 +114,17 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <PreferencesProvider>
-        <TaskNavigationProvider>
-          <PlannerProvider>
-            <AppShell />
-          </PlannerProvider>
-        </TaskNavigationProvider>
-      </PreferencesProvider>
+      <AuthProvider>
+        <PreferencesProvider>
+          <TaskNavigationProvider>
+            <PlannerProvider>
+              <CloudSyncProvider>
+                <AppShell />
+              </CloudSyncProvider>
+            </PlannerProvider>
+          </TaskNavigationProvider>
+        </PreferencesProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

@@ -37,6 +37,26 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
 }));
 
+jest.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({
+    configured: false,
+    hydrated: true,
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    signUp: jest.fn(),
+    user: null,
+  }),
+}));
+
+jest.mock('../sync/CloudSyncContext', () => ({
+  useCloudSync: () => ({
+    lastSyncedAt: null,
+    pendingCount: 0,
+    status: 'disabled',
+    syncNow: jest.fn(),
+  }),
+}));
+
 jest.mock('../preferences/PreferencesContext', () => ({
   usePreferences: () => ({
     alarmBackground: null,

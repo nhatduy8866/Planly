@@ -13,14 +13,16 @@ import { AppState } from 'react-native';
 
 import type { Note, PlannerState, Task } from '../types';
 import {
+  LEGACY_PLANNER_STORAGE_KEY,
+  NOTES_STORAGE_KEY,
+  TASKS_STORAGE_KEY,
+} from '../storage/keys';
+import {
   initialPlannerState,
   plannerReducer,
   type PlannerAction,
 } from './plannerReducer';
 
-const LEGACY_STORAGE_KEY = '@planly/planner/v1';
-const TASKS_STORAGE_KEY = '@planly/tasks/v1';
-const NOTES_STORAGE_KEY = '@planly/notes/v1';
 const PERSISTENCE_DEBOUNCE_MS = 300;
 
 const PlannerTasksContext = createContext<Task[] | undefined>(undefined);
@@ -142,7 +144,7 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
         const [tasksRaw, notesRaw, legacyRaw] = await Promise.all([
           AsyncStorage.getItem(TASKS_STORAGE_KEY),
           AsyncStorage.getItem(NOTES_STORAGE_KEY),
-          AsyncStorage.getItem(LEGACY_STORAGE_KEY),
+          AsyncStorage.getItem(LEGACY_PLANNER_STORAGE_KEY),
         ]);
         const legacy = parseLegacyState(legacyRaw);
         const storedTasks =

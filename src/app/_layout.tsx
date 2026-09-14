@@ -10,6 +10,7 @@ import { AlarmRingingModal } from '../components/AlarmRingingModal';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
+import { useTodayWidgetSync } from '../hooks/useTodayWidgetSync';
 import {
   TaskNavigationProvider,
   useTaskNavigation,
@@ -44,6 +45,7 @@ function AppShell() {
     hydrated: preferencesHydrated,
     language,
     reminderDeliveryMode,
+    theme,
   } = usePreferences();
   const { requestTask } = useTaskNavigation();
   const styles = useThemedStyles(createStyles);
@@ -68,6 +70,7 @@ function AppShell() {
     appReady,
     dispatch,
   );
+  useTodayWidgetSync(tasks, language, theme, appReady);
 
   useEffect(() => {
     if (!preferencesHydrated) return;

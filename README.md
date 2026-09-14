@@ -13,6 +13,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 - Đổi thứ tự công việc trong ngày bằng tay hoặc tự sắp theo giờ bắt đầu.
 - Đặt nhắc việc đúng giờ hoặc trước 5, 15, 30, 60 phút.
 - Chọn giữa thông báo thường (mặc định) và báo thức toàn màn hình có chuông, rung trong phần Cài đặt.
+- Xem nhanh công việc hôm nay bằng widget màn hình chính trên Android và iOS.
 - Tạo hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên.
 - Tự chọn giờ bắt đầu chưa được sử dụng, phát hiện trùng giờ và đề xuất giờ thay thế.
 - Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
@@ -43,6 +44,7 @@ Dữ liệu task và note luôn được lưu cục bộ bằng AsyncStorage đ�
 - Supabase Auth và PostgreSQL
 - Expo Notifications
 - React Native Alarm Scheduler
+- Expo Widgets và React Native Android Widget
 - Jest và ESLint
 
 ## Yêu cầu môi trường
@@ -52,6 +54,7 @@ Dữ liệu task và note luôn được lưu cục bộ bằng AsyncStorage đ�
 - Một trong các lựa chọn chạy Android:
   - Điện thoại Android cài Expo Go; hoặc
   - Android Studio, Android SDK và máy ảo Android.
+- macOS và Xcode nếu cần build widget iOS.
 
 ## Cài đặt
 
@@ -97,6 +100,12 @@ npm run android:dev -- --clear
 
 Thông báo thường là chế độ mặc định và hoạt động trong Expo Go. Chế độ Báo thức sử dụng module native để mở màn hình báo thức, sau đó app tiếp quản chuông và rung trong tối đa 5 phút; chế độ này không lên lịch thêm thông báo thường. Alarm cần development build và không hoạt động trong Expo Go. Sau khi đổi dependency, chuông đóng gói hoặc cấu hình Alarm, hãy chạy `npx expo prebuild --platform android` rồi `npm run android` trước khi kiểm thử.
 
+### Widget Hôm nay
+
+Widget hiển thị công việc sắp tới trong ngày theo giờ bắt đầu và tự thích ứng giao diện sáng/tối. Chạm vào vòng tròn để hoàn thành task ngay từ widget; trong 5 giây tiếp theo có thể chạm lại dấu tích để hoàn tác. Chạm vào phần còn lại để mở Planly. Dữ liệu được làm mới ngay khi task hoặc ngôn ngữ thay đổi; Android còn yêu cầu cập nhật định kỳ tối đa mỗi 30 phút, còn iOS nhận timeline cho 7 ngày tiếp theo.
+
+Widget sử dụng native extension nên không xuất hiện trong Expo Go. Sau khi cài dependency, hãy tạo development build bằng `npm run android` trên Android hoặc `npm run ios` trên macOS. Sau đó nhấn giữ màn hình chính, chọn **Widget**, tìm **Planly Hôm nay** và thêm vào màn hình.
+
 ## Kiểm tra chất lượng
 
 ```bash
@@ -120,7 +129,8 @@ Planly/
 │   ├── store/                 # Context, reducer và persistence
 │   ├── theme/                 # Design tokens
 │   ├── types/                 # Kiểu dữ liệu dùng chung
-│   └── utils/                 # Xử lý ngày giờ và ID
+│   ├── utils/                 # Xử lý ngày giờ và ID
+│   └── widgets/               # Giao diện và đồng bộ widget Android/iOS
 ├── app.json                   # Cấu hình Expo/Android
 └── package.json
 ```
@@ -130,7 +140,7 @@ Planly/
 - Tích hợp Speech-to-Text thật cho Planly AI.
 - Hoàn thiện quản lý tài khoản và lịch sử khôi phục dữ liệu.
 - Task lặp lại và các quy tắc nhắc lịch nâng cao.
-- Widget Android và tích hợp lịch hệ thống.
+- Tích hợp lịch hệ thống và widget màn hình khóa.
 
 ## License
 

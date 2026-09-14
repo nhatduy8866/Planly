@@ -23,14 +23,13 @@ import {
   type ThemeColors,
   type ThemeMode,
 } from '../theme/colors';
+import { PREFERENCES_STORAGE_KEY } from '../storage/keys';
 import type {
   AlarmBackgroundPresetId,
   AlarmFilePreference,
   AlarmSoundPresetId,
   ReminderDeliveryMode,
 } from '../types';
-
-const STORAGE_KEY = '@planly/preferences/v1';
 
 interface StoredPreferences {
   alarmBackground: AlarmFilePreference | null;
@@ -135,7 +134,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     async function hydrate() {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<StoredPreferences>) : {};
         if (!active) return;
         if (isAlarmFilePreference(parsed.alarmBackground)) {
@@ -180,7 +179,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     void AsyncStorage.setItem(
-      STORAGE_KEY,
+      PREFERENCES_STORAGE_KEY,
       JSON.stringify({
         alarmBackground,
         alarmBackgroundPreset,

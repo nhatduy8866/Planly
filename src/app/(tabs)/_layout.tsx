@@ -73,16 +73,6 @@ export default function TabLayout() {
               tabBarLabel: ({ focused }) => label(t('nav.tasks'), focused),
             }}
           />
-          <Tabs.Screen
-            name="notes"
-            options={{
-              title: t('nav.notes'),
-              tabBarIcon: ({ focused }) => (
-                <TabIcon focused={focused} name="sticky-note-2" />
-              ),
-              tabBarLabel: ({ focused }) => label(t('nav.notes'), focused),
-            }}
-          />
         </Tabs>
       </View>
     </CalendarNavigationProvider>

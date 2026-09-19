@@ -5,6 +5,7 @@ import {
   type WidgetRepresentation,
 } from 'react-native-android-widget';
 
+import { scaleFontSize } from '../theme/typography';
 import type { TodayWidgetSnapshot, TodayWidgetTask } from './todayWidgetData';
 import {
   TODAY_WIDGET_COMPLETE_ACTION,
@@ -90,7 +91,7 @@ function AndroidTodayWidget({
           text="Planly"
           style={{
             color: palette.headerText,
-            fontSize: 13,
+            fontSize: scaleFontSize(13),
             fontWeight: 'bold',
           }}
         />
@@ -113,7 +114,7 @@ function AndroidTodayWidget({
         >
           <TextWidget
             text={snapshot.emptyLabel}
-            style={{ color: palette.textMuted, fontSize: 11 }}
+            style={{ color: palette.textMuted, fontSize: scaleFontSize(11) }}
           />
         </FlexWidget>
       ) : (
@@ -177,7 +178,7 @@ function AndroidTodayWidget({
                   <TextWidget
                     style={{
                       color: isCompleted ? palette.completed : task.color,
-                      fontSize: isCompleted ? 24 : 28,
+                      fontSize: scaleFontSize(isCompleted ? 24 : 28),
                       textAlign: 'center',
                       width: 36,
                     }}
@@ -207,7 +208,7 @@ function AndroidTodayWidget({
                       truncate="END"
                       style={{
                         color: palette.accent,
-                        fontSize: 16,
+                        fontSize: scaleFontSize(16),
                         fontWeight: 'bold',
                         textAlign: 'center',
                         width: 'match_parent',
@@ -225,7 +226,7 @@ function AndroidTodayWidget({
                       text={task.startTime}
                       style={{
                         color: palette.accent,
-                        fontSize: 14,
+                        fontSize: scaleFontSize(14),
                         fontWeight: 'bold',
                       }}
                     />
@@ -235,7 +236,7 @@ function AndroidTodayWidget({
                       truncate="END"
                       style={{
                         color: palette.text,
-                        fontSize: 16,
+                        fontSize: scaleFontSize(16),
                         fontWeight: 'bold',
                         marginTop: 1,
                       }}

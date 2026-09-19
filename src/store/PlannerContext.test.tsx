@@ -2,12 +2,11 @@ import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AppState } from 'react-native';
 
-import type { Note, Task } from '../types';
+import type { Task } from '../types';
 import {
   PlannerProvider,
   usePlannerDispatch,
   usePlannerHydrated,
-  usePlannerNotes,
   usePlannerTasks,
 } from './PlannerContext';
 
@@ -46,20 +45,11 @@ const task: Task = {
   updatedAt: '2026-09-09T00:00:00.000Z',
 };
 
-const note: Note = {
-  id: 'note-1',
-  title: 'Ghi chú',
-  content: '',
-  createdAt: '2026-09-09T00:00:00.000Z',
-  updatedAt: '2026-09-09T00:00:00.000Z',
-};
-
 describe('PlannerProvider persistence', () => {
   let renderer!: TestRendererInstance;
   let planner!: {
     dispatch: ReturnType<typeof usePlannerDispatch>;
     hydrated: boolean;
-    notes: Note[];
     tasks: Task[];
   };
 
@@ -67,7 +57,6 @@ describe('PlannerProvider persistence', () => {
     planner = {
       dispatch: usePlannerDispatch(),
       hydrated: usePlannerHydrated(),
-      notes: usePlannerNotes(),
       tasks: usePlannerTasks(),
     };
     return null;
@@ -99,10 +88,10 @@ describe('PlannerProvider persistence', () => {
     jest.useRealTimers();
   });
 
-  it('migrates the legacy combined state and persists each collection separately', async () => {
+  it('migrates tasks from the legacy combined state', async () => {
     mockGetItem.mockImplementation(async (key) =>
       key === '@planly/planner/v1'
-        ? JSON.stringify({ tasks: [task], notes: [note] })
+        ? JSON.stringify({ tasks: [task] })
         : null,
     );
 
@@ -110,7 +99,6 @@ describe('PlannerProvider persistence', () => {
 
     expect(planner.hydrated).toBe(true);
     expect(planner.tasks).toEqual([task]);
-    expect(planner.notes).toEqual([note]);
     expect(mockSetItem).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -123,52 +111,6 @@ describe('PlannerProvider persistence', () => {
       '@planly/tasks/v1',
       JSON.stringify([task]),
     );
-    expect(mockSetItem).toHaveBeenCalledWith(
-      '@planly/notes/v1',
-      JSON.stringify([note]),
-    );
-  });
-
-  it('coalesces rapid note changes without rewriting tasks', async () => {
-    mockGetItem.mockImplementation(async (key) => {
-      if (key === '@planly/tasks/v1') return JSON.stringify([task]);
-      if (key === '@planly/notes/v1') return JSON.stringify([]);
-      return null;
-    });
-
-    await renderProvider();
-    await act(async () => {
-      jest.advanceTimersByTime(300);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    mockSetItem.mockClear();
-
-    act(() => {
-      planner.dispatch({ type: 'upsert_note', payload: note });
-      planner.dispatch({
-        type: 'upsert_note',
-        payload: { ...note, title: 'Ghi chú mới' },
-      });
-    });
-
-    await act(async () => {
-      jest.advanceTimersByTime(299);
-      await Promise.resolve();
-    });
-    expect(mockSetItem).not.toHaveBeenCalled();
-
-    await act(async () => {
-      jest.advanceTimersByTime(1);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(mockSetItem).toHaveBeenCalledTimes(1);
-    expect(mockSetItem).toHaveBeenCalledWith(
-      '@planly/notes/v1',
-      JSON.stringify([{ ...note, title: 'Ghi chú mới' }]),
-    );
   });
 
   it('preserves task color during hydration and persistence', async () => {
@@ -180,9 +122,7 @@ describe('PlannerProvider persistence', () => {
     mockGetItem.mockImplementation(async (key) =>
       key === '@planly/tasks/v1'
         ? JSON.stringify([taskWithColor])
-        : key === '@planly/notes/v1'
-          ? JSON.stringify([])
-          : null,
+        : null,
     );
 
     await renderProvider();

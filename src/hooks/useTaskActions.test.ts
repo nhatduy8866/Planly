@@ -125,7 +125,6 @@ describe('useTaskActions batch editing', () => {
     jest.clearAllMocks();
     mockPlannerState = {
       hydrated: true,
-      notes: [],
       tasks: [
         makeTask(),
         makeTask({

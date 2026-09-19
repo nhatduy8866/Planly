@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import type { Note, Task } from '../../types';
+import type { Task } from '../../types';
 import { diffPlannerData, mergePlannerSnapshots } from './merge';
 import {
   createDeleteMutation,
@@ -23,23 +23,14 @@ const task: Task = {
   updatedAt: '2026-09-13T01:00:00.000Z',
 };
 
-const note: Note = {
-  content: 'Nội dung',
-  createdAt: '2026-09-13T01:00:00.000Z',
-  id: 'note-1',
-  title: 'Ghi chú',
-  updatedAt: '2026-09-13T01:00:00.000Z',
-};
-
-const emptyCloud: CloudPlannerSnapshot = { notes: [], tasks: [] };
+const emptyCloud: CloudPlannerSnapshot = { tasks: [] };
 
 describe('mergePlannerSnapshots', () => {
   it('uploads existing local data on the first account sync without notification ids', () => {
-    const result = mergePlannerSnapshots([task], [note], emptyCloud, []);
+    const result = mergePlannerSnapshots([task], emptyCloud, []);
 
     expect(result.tasks).toEqual([task]);
-    expect(result.notes).toEqual([note]);
-    expect(result.mutationsToPush).toHaveLength(2);
+    expect(result.mutationsToPush).toHaveLength(1);
     const taskMutation = result.mutationsToPush.find(
       (mutation) => mutation.entity === 'task',
     );
@@ -57,9 +48,7 @@ describe('mergePlannerSnapshots', () => {
     };
     const result = mergePlannerSnapshots(
       [],
-      [],
       {
-        notes: [],
         tasks: [
           {
             changedAt: remoteTask.updatedAt,
@@ -86,9 +75,7 @@ describe('mergePlannerSnapshots', () => {
     };
     const result = mergePlannerSnapshots(
       [task],
-      [],
       {
-        notes: [],
         tasks: [
           {
             changedAt: remoteTask.updatedAt,
@@ -110,9 +97,7 @@ describe('mergePlannerSnapshots', () => {
   it('applies a newer remote deletion instead of reviving stale local data', () => {
     const result = mergePlannerSnapshots(
       [task],
-      [],
       {
-        notes: [],
         tasks: [
           {
             changedAt: '2026-09-13T04:00:00.000Z',
@@ -137,9 +122,7 @@ describe('mergePlannerSnapshots', () => {
     );
     const result = mergePlannerSnapshots(
       [],
-      [],
       {
-        notes: [],
         tasks: [
           {
             changedAt: task.updatedAt,
@@ -162,9 +145,7 @@ describe('diffPlannerData', () => {
   it('does not sync notification ids because they belong to one device', () => {
     const mutations = diffPlannerData(
       [task],
-      [note],
       [{ ...task, notificationId: 'another-device-id' }],
-      [note],
     );
 
     expect(mutations).toEqual([]);
@@ -173,7 +154,7 @@ describe('diffPlannerData', () => {
   it('creates a timestamped mutation for a changed task', () => {
     const changedAt = '2026-09-13T06:00:00.000Z';
     const updated = { ...task, title: 'Tên mới' };
-    const mutations = diffPlannerData([task], [], [updated], [], changedAt);
+    const mutations = diffPlannerData([task], [updated], changedAt);
 
     expect(mutations).toHaveLength(1);
     expect(mutations[0]).toEqual(

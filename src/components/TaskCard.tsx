@@ -82,7 +82,7 @@ export const TaskCard = memo(function TaskCard({
   highlighted = false,
 }: TaskCardProps) {
   const { colorfulAccents, colors, t } = usePreferences();
-  const styles = useThemedStyles(createStyles);
+  const styles = useThemedStyles(createStyles, { scaleFontSizes: false });
   const cardAccent = task.color
     ? task.color
     : colorfulAccents

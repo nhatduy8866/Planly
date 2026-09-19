@@ -425,7 +425,7 @@ export function useAiScheduler(
         ? batchIds.get(draft.batchGroupId)
         : undefined;
       if (existing) {
-        // Cập nhật lại task hiện có, giữ nguyên trạng thái hoàn thành, ghi chú và ngày tạo
+        // Cập nhật task hiện có, giữ nguyên trạng thái hoàn thành, mô tả và ngày tạo
         return {
           ...existing,
           title: draft.title,

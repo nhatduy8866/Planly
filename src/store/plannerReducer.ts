@@ -1,9 +1,8 @@
-import type { Note, PlannerState, Task } from '../types';
+import type { PlannerState, Task } from '../types';
 import { timeToMinutes } from '../utils/date';
 
 export const initialPlannerState: PlannerState = {
   tasks: [],
-  notes: [],
   hydrated: false,
 };
 
@@ -15,8 +14,8 @@ const PRIORITY_WEIGHT: Record<string, number> = {
 };
 
 export type PlannerAction =
-  | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
-  | { type: 'replace_from_sync'; payload: Pick<PlannerState, 'tasks' | 'notes'> }
+  | { type: 'hydrate'; payload: Pick<PlannerState, 'tasks'> }
+  | { type: 'replace_from_sync'; payload: Pick<PlannerState, 'tasks'> }
   | { type: 'upsert_task'; payload: Task }
   | { type: 'upsert_tasks'; payload: Task[] }
   | {
@@ -31,9 +30,7 @@ export type PlannerAction =
   | { type: 'delete_task'; payload: { id: string } }
   | { type: 'toggle_task'; payload: { id: string } }
   | { type: 'move_task'; payload: { id: string; direction: -1 | 1 } }
-  | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' | 'priority' } }
-  | { type: 'upsert_note'; payload: Note }
-  | { type: 'delete_note'; payload: { id: string } };
+  | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' | 'priority' } };
 
 
 export function plannerReducer(
@@ -44,14 +41,12 @@ export function plannerReducer(
     case 'hydrate':
       return {
         tasks: action.payload.tasks,
-        notes: action.payload.notes,
         hydrated: true,
       };
     case 'replace_from_sync':
       return {
         ...state,
         tasks: action.payload.tasks,
-        notes: action.payload.notes,
       };
     case 'upsert_task': {
       const exists = state.tasks.some((task) => task.id === action.payload.id);
@@ -215,22 +210,6 @@ export function plannerReducer(
         ),
       };
     }
-    case 'upsert_note': {
-      const exists = state.notes.some((note) => note.id === action.payload.id);
-      return {
-        ...state,
-        notes: exists
-          ? state.notes.map((note) =>
-              note.id === action.payload.id ? action.payload : note,
-            )
-          : [action.payload, ...state.notes],
-      };
-    }
-    case 'delete_note':
-      return {
-        ...state,
-        notes: state.notes.filter((note) => note.id !== action.payload.id),
-      };
     default:
       return state;
   }

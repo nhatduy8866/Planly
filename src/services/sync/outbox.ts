@@ -17,7 +17,7 @@ function isSyncMutation(value: unknown): value is SyncMutation {
   const mutation = value as Partial<SyncMutation>;
   const hasBaseFields =
     typeof mutation.changedAt === 'string' &&
-    (mutation.entity === 'task' || mutation.entity === 'note') &&
+    mutation.entity === 'task' &&
     typeof mutation.id === 'string' &&
     typeof mutation.mutationId === 'string' &&
     (mutation.ownerId === undefined || typeof mutation.ownerId === 'string');

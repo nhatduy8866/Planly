@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import { CARD_COLOR_PRESETS, type ThemeColors } from '../theme/colors';
+import { scaleFontSize } from '../theme/typography';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { ReminderMinutes, Task, TaskPriority } from '../types';
 import {
@@ -26,6 +27,7 @@ import {
   formatCompactDate,
   fromDateKey,
   getWeekdayShort,
+  roundTimeUpToHalfHour,
   taskDateTime,
   toDateKey,
 } from '../utils/date';
@@ -96,7 +98,9 @@ export function TaskFormModal({
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [date, setDate] = useState(initialDate);
-  const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
+  const [startTime, setStartTime] = useState(
+    () => task?.startTime ?? roundTimeUpToHalfHour(),
+  );
   const [color, setColor] = useState<string | undefined>(task?.color);
   const [priority, setPriority] = useState<TaskPriority>(
     task?.priority ?? 'none',
@@ -409,7 +413,7 @@ export function TaskFormModal({
                           color: colors.text,
                           cursor: 'pointer',
                           fontFamily: 'inherit',
-                          fontSize: 14,
+                          fontSize: scaleFontSize(14),
                           fontWeight: '600',
                           outline: 'none',
                           width: '100%',
@@ -457,7 +461,7 @@ export function TaskFormModal({
                           color: colors.text,
                           cursor: 'pointer',
                           fontFamily: 'inherit',
-                          fontSize: 14,
+                          fontSize: scaleFontSize(14),
                           fontWeight: '600',
                           outline: 'none',
                           width: '100%',
@@ -883,7 +887,7 @@ export function TaskFormModal({
                                         color: colors.text,
                                         cursor: 'pointer',
                                         fontFamily: 'inherit',
-                                        fontSize: 14,
+                                        fontSize: scaleFontSize(14),
                                         fontWeight: '600',
                                         outline: 'none',
                                         width: '100%',
@@ -1009,7 +1013,7 @@ export function TaskFormModal({
                                       color: colors.text,
                                       cursor: 'pointer',
                                       fontFamily: 'inherit',
-                                      fontSize: 14,
+                                      fontSize: scaleFontSize(14),
                                       fontWeight: '600',
                                       outline: 'none',
                                       width: '100%',

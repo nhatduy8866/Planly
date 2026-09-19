@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Note, TaskPriority } from '../../types';
+import type { TaskPriority } from '../../types';
 import type {
   CloudPlannerSnapshot,
   RemoteRecord,
@@ -25,15 +25,6 @@ interface TaskRow {
   updated_at: string;
 }
 
-interface NoteRow {
-  content: string | null;
-  created_at: string | null;
-  deleted_at: string | null;
-  id: string;
-  title: string | null;
-  updated_at: string;
-}
-
 const TASK_COLUMNS = [
   'id',
   'title',
@@ -46,15 +37,6 @@ const TASK_COLUMNS = [
   'completed',
   'order_index',
   'priority',
-  'created_at',
-  'updated_at',
-  'deleted_at',
-].join(',');
-
-const NOTE_COLUMNS = [
-  'id',
-  'title',
-  'content',
   'created_at',
   'updated_at',
   'deleted_at',
@@ -110,50 +92,18 @@ function taskFromRow(row: TaskRow): RemoteRecord<SyncedTask> {
   };
 }
 
-function noteFromRow(row: NoteRow): RemoteRecord<Note> {
-  const deleted = row.deleted_at !== null;
-  const hasLiveData =
-    row.title !== null &&
-    row.content !== null &&
-    row.created_at !== null;
-
-  return {
-    changedAt: normalizeTimestamp(row.updated_at),
-    deletedAt: row.deleted_at ? normalizeTimestamp(row.deleted_at) : null,
-    id: row.id,
-    record:
-      deleted || !hasLiveData
-        ? null
-        : {
-            content: row.content!,
-            createdAt: row.created_at!,
-            id: row.id,
-            title: row.title!,
-            updatedAt: normalizeTimestamp(row.updated_at),
-          },
-  };
-}
-
 export async function fetchCloudPlannerSnapshot(
   client: SupabaseClient,
   userId: string,
 ): Promise<CloudPlannerSnapshot> {
-  const [tasksResult, notesResult] = await Promise.all([
-    client
-      .from('planly_tasks')
-      .select(TASK_COLUMNS)
-      .eq('user_id', userId),
-    client
-      .from('planly_notes')
-      .select(NOTE_COLUMNS)
-      .eq('user_id', userId),
-  ]);
+  const tasksResult = await client
+    .from('planly_tasks')
+    .select(TASK_COLUMNS)
+    .eq('user_id', userId);
 
   if (tasksResult.error) throw tasksResult.error;
-  if (notesResult.error) throw notesResult.error;
 
   return {
-    notes: ((notesResult.data ?? []) as unknown as NoteRow[]).map(noteFromRow),
     tasks: ((tasksResult.data ?? []) as unknown as TaskRow[]).map(taskFromRow),
   };
 }
@@ -199,31 +149,6 @@ function taskMutationRow(mutation: SyncMutation, userId: string) {
   };
 }
 
-function noteMutationRow(mutation: SyncMutation, userId: string) {
-  if (mutation.entity !== 'note') return undefined;
-  if (mutation.operation === 'delete') {
-    return {
-      content: null,
-      created_at: null,
-      deleted_at: mutation.changedAt,
-      id: mutation.id,
-      title: null,
-      updated_at: mutation.changedAt,
-      user_id: userId,
-    };
-  }
-
-  return {
-    content: mutation.record.content,
-    created_at: mutation.record.createdAt,
-    deleted_at: null,
-    id: mutation.record.id,
-    title: mutation.record.title,
-    updated_at: mutation.changedAt,
-    user_id: userId,
-  };
-}
-
 export async function pushCloudPlannerMutations(
   client: SupabaseClient,
   userId: string,
@@ -232,23 +157,10 @@ export async function pushCloudPlannerMutations(
   const taskRows = mutations
     .map((mutation) => taskMutationRow(mutation, userId))
     .filter((row) => row !== undefined);
-  const noteRows = mutations
-    .map((mutation) => noteMutationRow(mutation, userId))
-    .filter((row) => row !== undefined);
+  if (taskRows.length === 0) return;
 
-  const results = await Promise.all([
-    taskRows.length > 0
-      ? client.from('planly_tasks').upsert(taskRows, {
-          onConflict: 'user_id,id',
-        })
-      : Promise.resolve({ error: null }),
-    noteRows.length > 0
-      ? client.from('planly_notes').upsert(noteRows, {
-          onConflict: 'user_id,id',
-        })
-      : Promise.resolve({ error: null }),
-  ]);
-
-  const error = results.find((result) => result.error)?.error;
-  if (error) throw error;
+  const result = await client.from('planly_tasks').upsert(taskRows, {
+    onConflict: 'user_id,id',
+  });
+  if (result.error) throw result.error;
 }

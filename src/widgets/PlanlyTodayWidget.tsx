@@ -15,6 +15,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { createWidget, type WidgetEnvironment } from 'expo-widgets';
 
+import { scaleFontSize } from '../theme/typography';
 import type { TodayWidgetSnapshot } from './todayWidgetData';
 import {
   completeTodayWidgetSnapshot,
@@ -61,7 +62,7 @@ function PlanlyTodayWidgetView(
       >
         <Text
           modifiers={[
-            font({ size: 13, weight: 'bold', design: 'rounded' }),
+            font({ size: scaleFontSize(13), weight: 'bold', design: 'rounded' }),
             foregroundStyle(headerTextColor),
           ]}
         >
@@ -88,7 +89,7 @@ function PlanlyTodayWidgetView(
         >
           <Text
             modifiers={[
-              font({ size: 12 }),
+              font({ size: scaleFontSize(12) }),
               foregroundStyle(mutedColor),
               lineLimit(2),
             ]}
@@ -173,7 +174,10 @@ function PlanlyTodayWidgetView(
                   >
                     <Text
                       modifiers={[
-                        font({ size: isCompleted ? 24 : 28, weight: 'bold' }),
+                        font({
+                          size: scaleFontSize(isCompleted ? 24 : 28),
+                          weight: 'bold',
+                        }),
                         foregroundStyle(
                           isCompleted ? completedColor : task.color,
                         ),
@@ -204,7 +208,7 @@ function PlanlyTodayWidgetView(
                     >
                       <Text
                         modifiers={[
-                          font({ size: 16, weight: 'bold' }),
+                          font({ size: scaleFontSize(16), weight: 'bold' }),
                           foregroundStyle(accentColor),
                           frame({ maxWidth: 1000, alignment: 'center' }),
                           lineLimit(1),
@@ -218,7 +222,7 @@ function PlanlyTodayWidgetView(
                       <Text
                         modifiers={[
                           font({
-                            size: 14,
+                            size: scaleFontSize(14),
                             weight: 'bold',
                             design: 'monospaced',
                           }),
@@ -229,7 +233,7 @@ function PlanlyTodayWidgetView(
                       </Text>
                       <Text
                         modifiers={[
-                          font({ size: 16, weight: 'semibold' }),
+                          font({ size: scaleFontSize(16), weight: 'semibold' }),
                           foregroundStyle(textColor),
                           lineLimit(1),
                         ]}

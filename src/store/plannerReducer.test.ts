@@ -20,26 +20,16 @@ function task(overrides: Partial<Task>): Task {
 }
 
 describe('plannerReducer', () => {
-  it('hydrates persisted tasks and notes', () => {
+  it('hydrates persisted tasks', () => {
     const result = plannerReducer(initialPlannerState, {
       type: 'hydrate',
       payload: {
         tasks: [task({})],
-        notes: [
-          {
-            id: 'note-1',
-            title: 'Ý tưởng',
-            content: 'Nội dung',
-            createdAt: '2026-09-05T00:00:00.000Z',
-            updatedAt: '2026-09-05T00:00:00.000Z',
-          },
-        ],
       },
     });
 
     expect(result.hydrated).toBe(true);
     expect(result.tasks).toHaveLength(1);
-    expect(result.notes).toHaveLength(1);
   });
 
   it('sorts a day by start time', () => {

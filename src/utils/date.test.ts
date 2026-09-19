@@ -6,6 +6,7 @@ import {
   fromDateKey,
   getMonthGrid,
   getWeekDays,
+  roundTimeUpToHalfHour,
   startOfWeek,
   timeToMinutes,
   toDateKey,
@@ -34,6 +35,13 @@ describe('date utilities', () => {
   it('adds days and converts time to minutes', () => {
     expect(toDateKey(addDays(new Date(2026, 11, 31), 1))).toBe('2027-01-01');
     expect(timeToMinutes('13:45')).toBe(825);
+  });
+
+  it('rounds the current time up to the next half-hour boundary', () => {
+    expect(roundTimeUpToHalfHour(new Date(2026, 8, 19, 8, 49))).toBe('09:00');
+    expect(roundTimeUpToHalfHour(new Date(2026, 8, 19, 11, 11))).toBe('11:30');
+    expect(roundTimeUpToHalfHour(new Date(2026, 8, 19, 14, 30))).toBe('14:30');
+    expect(roundTimeUpToHalfHour(new Date(2026, 8, 19, 23, 49))).toBe('00:00');
   });
 
   it('formats dates for both supported languages', () => {

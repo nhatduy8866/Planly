@@ -1,12 +1,10 @@
-import type { Note, Task } from '../../types';
+import type { Task } from '../../types';
 import {
   createDeleteMutation,
-  createNoteUpsertMutation,
   createTaskUpsertMutation,
   taskForSync,
   type CloudPlannerSnapshot,
   type RemoteRecord,
-  type SyncEntity,
   type SyncMutation,
   type SyncedTask,
 } from './types';
@@ -14,7 +12,6 @@ import {
 export interface PlannerSyncMergeResult {
   consumedMutations: SyncMutation[];
   mutationsToPush: SyncMutation[];
-  notes: Note[];
   tasks: Task[];
 }
 
@@ -34,17 +31,11 @@ function compareChangedAt(left: string, right: string): number {
 
 function mutationMap(
   mutations: SyncMutation[],
-  entity: SyncEntity,
 ): Map<string, SyncMutation> {
-  return new Map(
-    mutations
-      .filter((mutation) => mutation.entity === entity)
-      .map((mutation) => [mutation.id, mutation]),
-  );
+  return new Map(mutations.map((mutation) => [mutation.id, mutation]));
 }
 
 function mergeCollection<T extends { id: string; updatedAt: string }>(
-  entity: SyncEntity,
   localRecords: T[],
   remoteRecords: RemoteRecord<T>[],
   queuedMutations: SyncMutation[],
@@ -54,7 +45,7 @@ function mergeCollection<T extends { id: string; updatedAt: string }>(
 ): MergeCollectionResult<T> {
   const localById = new Map(localRecords.map((record) => [record.id, record]));
   const remoteById = new Map(remoteRecords.map((record) => [record.id, record]));
-  const queuedById = mutationMap(queuedMutations, entity);
+  const queuedById = mutationMap(queuedMutations);
   const ids = new Set([
     ...localById.keys(),
     ...remoteById.keys(),
@@ -121,14 +112,6 @@ function taskRecordFromMutation(
     : undefined;
 }
 
-function noteRecordFromMutation(
-  mutation: SyncMutation | undefined,
-): Note | undefined {
-  return mutation?.entity === 'note' && mutation.operation === 'upsert'
-    ? mutation.record
-    : undefined;
-}
-
 function updateTaskMutationRecord(
   mutation: SyncMutation,
   record: SyncedTask,
@@ -138,24 +121,13 @@ function updateTaskMutationRecord(
     : createTaskUpsertMutation(record, record.updatedAt);
 }
 
-function updateNoteMutationRecord(
-  mutation: SyncMutation,
-  record: Note,
-): SyncMutation {
-  return mutation.entity === 'note' && mutation.operation === 'upsert'
-    ? { ...mutation, record }
-    : createNoteUpsertMutation(record, record.updatedAt);
-}
-
 export function mergePlannerSnapshots(
   localTasks: Task[],
-  localNotes: Note[],
   remote: CloudPlannerSnapshot,
   queuedMutations: SyncMutation[],
 ): PlannerSyncMergeResult {
   const localTaskById = new Map(localTasks.map((task) => [task.id, task]));
   const tasks = mergeCollection<SyncedTask>(
-    'task',
     localTasks.map(taskForSync),
     remote.tasks,
     queuedMutations,
@@ -163,20 +135,9 @@ export function mergePlannerSnapshots(
     taskRecordFromMutation,
     updateTaskMutationRecord,
   );
-  const notes = mergeCollection<Note>(
-    'note',
-    localNotes,
-    remote.notes,
-    queuedMutations,
-    createNoteUpsertMutation,
-    noteRecordFromMutation,
-    updateNoteMutationRecord,
-  );
-
   return {
     consumedMutations: queuedMutations,
-    mutationsToPush: tasks.mutationsToPush.concat(notes.mutationsToPush),
-    notes: notes.records,
+    mutationsToPush: tasks.mutationsToPush,
     tasks: tasks.records.map((task) => ({
       ...task,
       notificationId: localTaskById.get(task.id)?.notificationId,
@@ -186,17 +147,13 @@ export function mergePlannerSnapshots(
 
 export function diffPlannerData(
   previousTasks: Task[],
-  previousNotes: Note[],
   currentTasks: Task[],
-  currentNotes: Note[],
   changedAt = new Date().toISOString(),
   ownerId?: string,
 ): SyncMutation[] {
   const mutations: SyncMutation[] = [];
   const previousTasksById = new Map(previousTasks.map((task) => [task.id, task]));
   const currentTasksById = new Map(currentTasks.map((task) => [task.id, task]));
-  const previousNotesById = new Map(previousNotes.map((note) => [note.id, note]));
-  const currentNotesById = new Map(currentNotes.map((note) => [note.id, note]));
 
   for (const task of currentTasks) {
     const previous = previousTasksById.get(task.id);
@@ -209,18 +166,6 @@ export function diffPlannerData(
   for (const id of previousTasksById.keys()) {
     if (!currentTasksById.has(id)) {
       mutations.push(createDeleteMutation('task', id, changedAt, ownerId));
-    }
-  }
-
-  for (const note of currentNotes) {
-    const previous = previousNotesById.get(note.id);
-    if (!previous || JSON.stringify(previous) !== JSON.stringify(note)) {
-      mutations.push(createNoteUpsertMutation(note, changedAt, ownerId));
-    }
-  }
-  for (const id of previousNotesById.keys()) {
-    if (!currentNotesById.has(id)) {
-      mutations.push(createDeleteMutation('note', id, changedAt, ownerId));
     }
   }
 

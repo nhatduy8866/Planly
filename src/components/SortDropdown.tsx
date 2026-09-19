@@ -25,7 +25,7 @@ interface SortDropdownProps<T extends string = string> {
   selectedKey: T;
   onSelect: (key: T) => void;
   accessibilityLabel?: string;
-  buttonIcon?: keyof typeof MaterialIcons.glyphMap;
+  buttonIcon?: keyof typeof MaterialIcons.glyphMap | null;
   direction?: SortDirection;
   fullWidth?: boolean;
 }
@@ -94,7 +94,9 @@ export function SortDropdown<T extends string = string>({
             isOpen && styles.buttonActive,
           ]}
         >
-          <MaterialIcons name={buttonIcon} size={16} color={colors.primary} />
+          {buttonIcon ? (
+            <MaterialIcons name={buttonIcon} size={16} color={colors.primary} />
+          ) : null}
           <Text
             style={[styles.buttonText, fullWidth && styles.fullWidthButtonText]}
           >

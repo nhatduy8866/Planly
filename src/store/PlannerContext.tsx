@@ -11,10 +11,9 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
-import type { Note, PlannerState, Task } from '../types';
+import type { PlannerState, Task } from '../types';
 import {
   LEGACY_PLANNER_STORAGE_KEY,
-  NOTES_STORAGE_KEY,
   TASKS_STORAGE_KEY,
 } from '../storage/keys';
 import {
@@ -26,7 +25,6 @@ import {
 const PERSISTENCE_DEBOUNCE_MS = 300;
 
 const PlannerTasksContext = createContext<Task[] | undefined>(undefined);
-const PlannerNotesContext = createContext<Note[] | undefined>(undefined);
 const PlannerHydratedContext = createContext<boolean | undefined>(undefined);
 const PlannerDispatchContext = createContext<Dispatch<PlannerAction> | undefined>(
   undefined,
@@ -141,18 +139,14 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
 
     async function hydrate() {
       try {
-        const [tasksRaw, notesRaw, legacyRaw] = await Promise.all([
+        const [tasksRaw, legacyRaw] = await Promise.all([
           AsyncStorage.getItem(TASKS_STORAGE_KEY),
-          AsyncStorage.getItem(NOTES_STORAGE_KEY),
           AsyncStorage.getItem(LEGACY_PLANNER_STORAGE_KEY),
         ]);
         const legacy = parseLegacyState(legacyRaw);
         const storedTasks =
           parseStoredArray<Task>(tasksRaw) ??
           (Array.isArray(legacy.tasks) ? legacy.tasks : []);
-        const storedNotes =
-          parseStoredArray<Note>(notesRaw) ??
-          (Array.isArray(legacy.notes) ? legacy.notes : []);
         const cleanTasks = storedTasks
           .filter(
             (task) =>
@@ -164,15 +158,12 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
         if (active) {
           dispatch({
             type: 'hydrate',
-            payload: {
-              tasks: cleanTasks,
-              notes: storedNotes,
-            },
+            payload: { tasks: cleanTasks },
           });
         }
       } catch {
         if (active) {
-          dispatch({ type: 'hydrate', payload: { tasks: [], notes: [] } });
+          dispatch({ type: 'hydrate', payload: { tasks: [] } });
         }
       }
     }
@@ -184,15 +175,12 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useDebouncedStorageWrite(TASKS_STORAGE_KEY, state.tasks, state.hydrated);
-  useDebouncedStorageWrite(NOTES_STORAGE_KEY, state.notes, state.hydrated);
 
   return (
     <PlannerHydratedContext.Provider value={state.hydrated}>
       <PlannerDispatchContext.Provider value={dispatch}>
         <PlannerTasksContext.Provider value={state.tasks}>
-          <PlannerNotesContext.Provider value={state.notes}>
-            {children}
-          </PlannerNotesContext.Provider>
+          {children}
         </PlannerTasksContext.Provider>
       </PlannerDispatchContext.Provider>
     </PlannerHydratedContext.Provider>
@@ -205,14 +193,6 @@ export function usePlannerTasks(): Task[] {
     throw new Error('usePlannerTasks must be used inside PlannerProvider');
   }
   return tasks;
-}
-
-export function usePlannerNotes(): Note[] {
-  const notes = useContext(PlannerNotesContext);
-  if (!notes) {
-    throw new Error('usePlannerNotes must be used inside PlannerProvider');
-  }
-  return notes;
 }
 
 export function usePlannerHydrated(): boolean {

@@ -1,7 +1,7 @@
-import type { Note, Task } from '../../types';
+import type { Task } from '../../types';
 
 export type SyncedTask = Omit<Task, 'notificationId'>;
-export type SyncEntity = 'note' | 'task';
+export type SyncEntity = 'task';
 
 interface SyncMutationBase {
   changedAt: string;
@@ -17,12 +17,7 @@ export type SyncMutation =
       record: SyncedTask;
     })
   | (SyncMutationBase & {
-      entity: 'note';
-      operation: 'upsert';
-      record: Note;
-    })
-  | (SyncMutationBase & {
-      entity: SyncEntity;
+      entity: 'task';
       operation: 'delete';
     });
 
@@ -34,7 +29,6 @@ export interface RemoteRecord<T> {
 }
 
 export interface CloudPlannerSnapshot {
-  notes: RemoteRecord<Note>[];
   tasks: RemoteRecord<SyncedTask>[];
 }
 
@@ -61,22 +55,6 @@ export function createTaskUpsertMutation(
     operation: 'upsert',
     ownerId,
     record: { ...record, updatedAt: changedAt },
-  };
-}
-
-export function createNoteUpsertMutation(
-  note: Note,
-  changedAt = new Date().toISOString(),
-  ownerId?: string,
-): SyncMutation {
-  return {
-    changedAt,
-    entity: 'note',
-    id: note.id,
-    mutationId: createMutationId(),
-    operation: 'upsert',
-    ownerId,
-    record: { ...note, updatedAt: changedAt },
   };
 }
 

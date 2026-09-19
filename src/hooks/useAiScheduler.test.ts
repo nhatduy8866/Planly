@@ -176,7 +176,7 @@ describe('useAiScheduler', () => {
 
   beforeEach(async () => {
     jest.useFakeTimers();
-    mockPlannerState = { tasks: [], notes: [], hydrated: true };
+    mockPlannerState = { tasks: [], hydrated: true };
     mockDispatch.mockReset();
     mockParseScheduleRequest.mockReset();
     mockRefineSchedule.mockReset();

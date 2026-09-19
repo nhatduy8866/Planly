@@ -123,7 +123,10 @@ export function AiScheduleModal({
           style={[
             styles.modalContainer,
             isActionSheet ? styles.actionSheetWrapper : styles.fullSheetWrapper,
-            { paddingBottom: isActionSheet ? insets.bottom : 0 },
+            isActionSheet && {
+              paddingBottom: Math.max(insets.bottom, 16),
+              paddingTop: Math.max(insets.top, 16),
+            },
           ]}
         >
           <View
@@ -232,7 +235,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     backgroundColor: colors.overlay,
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   modalContainer: {
     alignSelf: 'center',
@@ -240,7 +243,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
   },
   actionSheetWrapper: {
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   fullSheetWrapper: {
     flex: 1,
@@ -253,8 +257,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   actionSheetCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
   },
   fullSheetCard: {
     borderRadius: Platform.OS === 'web' ? 24 : 0,

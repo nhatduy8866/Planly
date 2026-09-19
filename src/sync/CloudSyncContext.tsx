@@ -15,7 +15,6 @@ import { useAuth } from '../auth/AuthContext';
 import {
   usePlannerDispatch,
   usePlannerHydrated,
-  usePlannerNotes,
   usePlannerTasks,
 } from '../store/PlannerContext';
 import {
@@ -30,7 +29,7 @@ import {
   removeProcessedSyncMutations,
 } from '../services/sync/outbox';
 import { supabase } from '../services/supabase';
-import type { Note, Task } from '../types';
+import type { Task } from '../types';
 
 export type CloudSyncStatus =
   | 'disabled'
@@ -48,7 +47,6 @@ interface CloudSyncContextValue {
 }
 
 interface PlannerSnapshot {
-  notes: Note[];
   ownerId: string | null;
   tasks: Task[];
 }
@@ -60,23 +58,14 @@ const CloudSyncContext = createContext<CloudSyncContextValue | undefined>(
   undefined,
 );
 
-function samePlannerData(
-  leftTasks: Task[],
-  leftNotes: Note[],
-  rightTasks: Task[],
-  rightNotes: Note[],
-): boolean {
-  return (
-    JSON.stringify(leftTasks) === JSON.stringify(rightTasks) &&
-    JSON.stringify(leftNotes) === JSON.stringify(rightNotes)
-  );
+function samePlannerData(leftTasks: Task[], rightTasks: Task[]): boolean {
+  return JSON.stringify(leftTasks) === JSON.stringify(rightTasks);
 }
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const { configured, hydrated: authHydrated, user } = useAuth();
   const hydrated = usePlannerHydrated();
   const tasks = usePlannerTasks();
-  const notes = usePlannerNotes();
   const dispatch = usePlannerDispatch();
   const [status, setStatus] = useState<CloudSyncStatus>(
     configured ? 'signedOut' : 'disabled',
@@ -87,7 +76,6 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     string | null | undefined
   >(configured ? undefined : null);
   const latestTasksRef = useRef(tasks);
-  const latestNotesRef = useRef(notes);
   const latestUserIdRef = useRef<string | null>(user?.id ?? null);
   const preparedOwnerIdRef = useRef<string | null | undefined>(
     preparedOwnerId,
@@ -104,10 +92,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     latestTasksRef.current = tasks;
-    latestNotesRef.current = notes;
     latestUserIdRef.current = user?.id ?? null;
     preparedOwnerIdRef.current = preparedOwnerId;
-  }, [notes, preparedOwnerId, tasks, user?.id]);
+  }, [preparedOwnerId, tasks, user?.id]);
 
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current === undefined) return;
@@ -135,26 +122,17 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (latestUserIdRef.current !== userId) return;
 
       const currentTasks = latestTasksRef.current;
-      const currentNotes = latestNotesRef.current;
       const merged = mergePlannerSnapshots(
         currentTasks,
-        currentNotes,
         remote,
         queuedMutations,
       );
 
-      if (
-        !samePlannerData(
-          currentTasks,
-          currentNotes,
-          merged.tasks,
-          merged.notes,
-        )
-      ) {
+      if (!samePlannerData(currentTasks, merged.tasks)) {
         applyingCloudDataRef.current = true;
         dispatch({
           type: 'replace_from_sync',
-          payload: { notes: merged.notes, tasks: merged.tasks },
+          payload: { tasks: merged.tasks },
         });
       }
 
@@ -231,23 +209,21 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 
     if (applyingCloudDataRef.current) {
       applyingCloudDataRef.current = false;
-      previousSnapshotRef.current = { notes, ownerId, tasks };
+      previousSnapshotRef.current = { ownerId, tasks };
       return;
     }
 
     if (!previous || previous.ownerId !== ownerId) {
-      previousSnapshotRef.current = { notes, ownerId, tasks };
+      previousSnapshotRef.current = { ownerId, tasks };
       return;
     }
 
-    previousSnapshotRef.current = { notes, ownerId, tasks };
+    previousSnapshotRef.current = { ownerId, tasks };
     if (!ownerId || preparedOwnerId !== ownerId) return;
 
     const mutations = diffPlannerData(
       previous.tasks,
-      previous.notes,
       tasks,
-      notes,
       undefined,
       ownerId,
     );
@@ -261,7 +237,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       setStatus('pending');
       void syncNowRef.current();
     });
-  }, [hydrated, notes, preparedOwnerId, tasks, user?.id]);
+  }, [hydrated, preparedOwnerId, tasks, user?.id]);
 
   useEffect(() => {
     if (!authHydrated || !hydrated) return;
@@ -278,7 +254,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
             applyingCloudDataRef.current = true;
             dispatch({
               type: 'replace_from_sync',
-              payload: { notes: [], tasks: [] },
+              payload: { tasks: [] },
             });
             await Promise.all([
               AsyncStorage.removeItem(CACHE_OWNER_STORAGE_KEY),
@@ -299,7 +275,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
           applyingCloudDataRef.current = true;
           dispatch({
             type: 'replace_from_sync',
-            payload: { notes: [], tasks: [] },
+            payload: { tasks: [] },
           });
         }
         await AsyncStorage.setItem(CACHE_OWNER_STORAGE_KEY, userId);

@@ -40,27 +40,8 @@ create table if not exists public.planly_tasks (
   )
 );
 
-create table if not exists public.planly_notes (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  id text not null,
-  title text,
-  content text,
-  created_at timestamptz,
-  updated_at timestamptz not null,
-  deleted_at timestamptz,
-  server_updated_at timestamptz not null default now(),
-  primary key (user_id, id),
-  constraint planly_notes_live_data_check check (
-    deleted_at is not null
-    or (title is not null and content is not null and created_at is not null)
-  )
-);
-
 create index if not exists planly_tasks_user_server_updated_idx
   on public.planly_tasks (user_id, server_updated_at);
-
-create index if not exists planly_notes_user_server_updated_idx
-  on public.planly_notes (user_id, server_updated_at);
 
 create or replace function public.apply_planly_sync_timestamp()
 returns trigger
@@ -82,18 +63,10 @@ create trigger planly_tasks_sync_timestamp
 before insert or update on public.planly_tasks
 for each row execute function public.apply_planly_sync_timestamp();
 
-drop trigger if exists planly_notes_sync_timestamp on public.planly_notes;
-create trigger planly_notes_sync_timestamp
-before insert or update on public.planly_notes
-for each row execute function public.apply_planly_sync_timestamp();
-
 alter table public.planly_tasks enable row level security;
-alter table public.planly_notes enable row level security;
 
 revoke all on public.planly_tasks from anon;
-revoke all on public.planly_notes from anon;
 grant select, insert, update, delete on public.planly_tasks to authenticated;
-grant select, insert, update, delete on public.planly_notes to authenticated;
 
 drop policy if exists "Users can read their own Planly tasks" on public.planly_tasks;
 create policy "Users can read their own Planly tasks"
@@ -117,30 +90,5 @@ with check ((select auth.uid()) = user_id);
 drop policy if exists "Users can delete their own Planly tasks" on public.planly_tasks;
 create policy "Users can delete their own Planly tasks"
 on public.planly_tasks for delete
-to authenticated
-using ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can read their own Planly notes" on public.planly_notes;
-create policy "Users can read their own Planly notes"
-on public.planly_notes for select
-to authenticated
-using ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can insert their own Planly notes" on public.planly_notes;
-create policy "Users can insert their own Planly notes"
-on public.planly_notes for insert
-to authenticated
-with check ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can update their own Planly notes" on public.planly_notes;
-create policy "Users can update their own Planly notes"
-on public.planly_notes for update
-to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can delete their own Planly notes" on public.planly_notes;
-create policy "Users can delete their own Planly notes"
-on public.planly_notes for delete
 to authenticated
 using ((select auth.uid()) = user_id);

@@ -16,7 +16,6 @@ type IconName = ComponentProps<typeof MaterialIcons>['name'];
 
 function getRouteIcon(pathname: string): IconName {
   if (pathname === '/tasks') return 'check-circle-outline';
-  if (pathname === '/notes') return 'sticky-note-2';
   return 'calendar-month';
 }
 

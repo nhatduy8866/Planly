@@ -473,11 +473,6 @@ export function ScheduleScreen() {
             >
               {formatLongDate(selectedDate, locale)}
             </Text>
-            <Text style={styles.taskCount}>
-              {dayTasks.length
-                ? t('schedule.taskCount', { count: dayTasks.length })
-                : t('schedule.noTasks')}
-            </Text>
           </View>
           {dayTasks.length ? (
             <View style={styles.listActions}>
@@ -704,7 +699,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   listTitleWrap: { flex: 1, minWidth: 0 },
   dayTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  taskCount: { color: colors.textMuted, fontSize: 12, marginTop: 3 },
   listActions: {
     alignItems: 'center',
     flexDirection: 'row',

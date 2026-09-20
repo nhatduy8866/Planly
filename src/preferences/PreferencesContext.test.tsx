@@ -66,6 +66,7 @@ describe('PreferencesProvider reminder mode', () => {
     expect(preferences.alarmSound).toBeNull();
     expect(preferences.alarmSoundPreset).toBe('classic');
     expect(preferences.alarmVibrationEnabled).toBe(true);
+    expect(preferences.hasSeenOnboarding).toBe(false);
     expect(mockSetItem).toHaveBeenLastCalledWith(
       '@planly/preferences/v1',
       expect.stringContaining('"reminderDeliveryMode":"notification"'),
@@ -80,6 +81,7 @@ describe('PreferencesProvider reminder mode', () => {
         alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
         alarmSoundPreset: 'gentle',
         alarmVibrationEnabled: false,
+        hasSeenOnboarding: true,
         reminderDeliveryMode: 'alarm',
       }),
     );
@@ -98,5 +100,21 @@ describe('PreferencesProvider reminder mode', () => {
     expect(preferences.alarmBackgroundPreset).toBe('cosmos');
     expect(preferences.alarmSoundPreset).toBe('gentle');
     expect(preferences.alarmVibrationEnabled).toBe(false);
+    expect(preferences.hasSeenOnboarding).toBe(true);
+  });
+
+  it('persists onboarding completion', async () => {
+    await renderProvider();
+
+    await act(async () => {
+      preferences.setHasSeenOnboarding(true);
+      await Promise.resolve();
+    });
+
+    expect(preferences.hasSeenOnboarding).toBe(true);
+    expect(mockSetItem).toHaveBeenLastCalledWith(
+      '@planly/preferences/v1',
+      expect.stringContaining('"hasSeenOnboarding":true'),
+    );
   });
 });

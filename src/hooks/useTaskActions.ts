@@ -152,16 +152,46 @@ export function useTaskActions() {
     [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode, t],
   );
 
-  const deleteTask = useCallback(
-    async (task: Task) => {
-      dispatch({ type: 'delete_task', payload: { id: task.id } });
-      try {
-        await cancelTaskReminder(task.notificationId);
-      } catch {
-        // Notification might already have fired or failed
+  const deleteTasks = useCallback(
+    async (tasks: Task[]) => {
+      if (!tasks.length) return;
+
+      if (tasks.length === 1) {
+        dispatch({ type: 'delete_task', payload: { id: tasks[0].id } });
+      } else {
+        dispatch({
+          type: 'delete_tasks',
+          payload: { ids: tasks.map((task) => task.id) },
+        });
       }
+
+      await Promise.all(
+        tasks.map(async (task) => {
+          try {
+            await cancelTaskReminder(task.notificationId);
+          } catch {
+            // Notification might already have fired or failed.
+          }
+        }),
+      );
     },
     [dispatch],
+  );
+
+  const deleteTask = useCallback(
+    async (task: Task, applyToBatch = false) => {
+      const tasksToDelete =
+        applyToBatch && task.batchId
+          ? plannerTasks.filter((item) => item.batchId === task.batchId)
+          : [task];
+      await deleteTasks(tasksToDelete);
+    },
+    [deleteTasks, plannerTasks],
+  );
+
+  const deleteAllTasks = useCallback(
+    async () => deleteTasks(plannerTasks),
+    [deleteTasks, plannerTasks],
   );
 
   const toggleTask = useCallback(
@@ -191,5 +221,5 @@ export function useTaskActions() {
     [alarmPreferences, dispatch, language, reminderDeliveryMode],
   );
 
-  return { deleteTask, duplicateTask, saveTask, toggleTask };
+  return { deleteAllTasks, deleteTask, duplicateTask, saveTask, toggleTask };
 }

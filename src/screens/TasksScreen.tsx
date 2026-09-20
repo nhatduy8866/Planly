@@ -69,6 +69,7 @@ export function TasksScreen() {
   const [formSession, setFormSession] = useState(0);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const [deleteBatch, setDeleteBatch] = useState(false);
   const aiTargetDate = todayKey();
   const aiScheduler = useAiScheduler(aiTargetDate);
   const filters: { key: TaskListFilter; label: string }[] = [
@@ -125,6 +126,7 @@ export function TasksScreen() {
   }, []);
 
   const handleDeleteTask = useCallback((task: Task) => {
+    setDeleteBatch(false);
     setDeletingTask(task);
   }, []);
 
@@ -291,13 +293,25 @@ export function TasksScreen() {
         visible={Boolean(deletingTask)}
         title={t('schedule.deleteTitle')}
         message={t('tasks.deleteMessage', { title: deletingTask?.title ?? '' })}
+        optionChecked={deleteBatch}
+        optionDescription={
+          deletingTask?.batchId ? t('task.deleteBatchDescription') : undefined
+        }
+        optionLabel={
+          deletingTask?.batchId ? t('task.deleteBatch') : undefined
+        }
+        onOptionChange={setDeleteBatch}
         onConfirm={() => {
           if (deletingTask) {
-            void deleteTask(deletingTask);
+            void deleteTask(deletingTask, deleteBatch);
             setDeletingTask(undefined);
+            setDeleteBatch(false);
           }
         }}
-        onCancel={() => setDeletingTask(undefined)}
+        onCancel={() => {
+          setDeletingTask(undefined);
+          setDeleteBatch(false);
+        }}
       />
     </View>
   );

@@ -142,7 +142,6 @@ export function AccountSyncModal({
             </View>
             <View style={styles.headerCopy}>
               <Text style={styles.title}>{t('sync.title')}</Text>
-              <Text style={styles.subtitle}>{t('sync.subtitle')}</Text>
             </View>
             <IconButton
               accessibilityLabel={t('common.close')}
@@ -425,6 +424,5 @@ const createStyles = (colors: ThemeColors) =>
     statusLabel: { color: colors.textMuted, fontSize: 13 },
     statusRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
     statusValue: { color: colors.primaryDark, fontSize: 13, fontWeight: '800' },
-    subtitle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
     title: { color: colors.text, fontSize: 18, fontWeight: '800' },
   });

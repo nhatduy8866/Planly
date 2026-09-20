@@ -10,7 +10,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: 'Chuẩn bị nội dung',
     date: '2026-09-09',
     startTime: '09:00',
-    reminderMinutes: 15,
     notificationId: 'notification-1',
     batchId: 'batch-1',
     completed: false,
@@ -28,7 +27,6 @@ function editValues(overrides: Partial<TaskEditValues> = {}): TaskEditValues {
     description: 'Chuẩn bị nội dung',
     date: '2026-09-09',
     startTime: '09:00',
-    reminderMinutes: 15,
     priority: 'medium',
     ...overrides,
   };

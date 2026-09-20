@@ -305,7 +305,7 @@ export function useAiScheduler(
     draftId: string,
     values: Pick<
       AiDraftTask,
-      'title' | 'description' | 'date' | 'startTime' | 'reminderMinutes' | 'priority' | 'color'
+      'title' | 'description' | 'date' | 'startTime' | 'priority' | 'color'
     >,
   ) => {
     setDraftTasks((currentDrafts) =>
@@ -432,7 +432,6 @@ export function useAiScheduler(
           description: draft.description ?? existing.description,
           date: draft.date,
           startTime: draft.startTime || existing.startTime,
-          reminderMinutes: draft.reminderMinutes,
           priority: draft.priority,
           color: draft.color ?? existing.color,
           batchId: batchId ?? existing.batchId,
@@ -448,7 +447,6 @@ export function useAiScheduler(
         description: draft.description ?? '',
         date: draft.date,
         startTime: draft.startTime,
-        reminderMinutes: draft.reminderMinutes,
         batchId,
         completed: false,
         order: takeNextOrder(draft.date),

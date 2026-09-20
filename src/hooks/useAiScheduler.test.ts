@@ -123,7 +123,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    reminderMinutes: null,
     completed: false,
     order: 0,
     createdAt: '2026-09-07T00:00:00.000Z',
@@ -138,7 +137,6 @@ function makeDraft(overrides: Partial<AiDraftTask> = {}): AiDraftTask {
     title: 'Việc AI',
     date: '2026-09-08',
     startTime: '09:00',
-    reminderMinutes: 15,
     priority: 'medium',
     source: 'direct_request',
     ...overrides,
@@ -253,7 +251,6 @@ describe('useAiScheduler', () => {
         description: 'Tập thân trên',
         date: '2026-09-09',
         startTime: '16:30',
-        reminderMinutes: 30,
         priority: 'high',
       });
     });
@@ -269,7 +266,6 @@ describe('useAiScheduler', () => {
       description: 'Tập thân trên',
       date: '2026-09-09',
       startTime: '16:30',
-      reminderMinutes: 30,
       priority: 'high',
       changeStatus: 'updated',
     });

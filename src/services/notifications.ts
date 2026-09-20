@@ -45,7 +45,7 @@ export interface TaskReminderReadiness {
 }
 
 export function getTaskReminderDate(task: Task): Date | undefined {
-  if (task.completed || task.reminderMinutes === null) return undefined;
+  if (task.completed) return undefined;
   const triggerDate = taskDateTime(task.date, task.startTime);
   return Number.isFinite(triggerDate.getTime()) ? triggerDate : undefined;
 }

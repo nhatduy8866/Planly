@@ -17,7 +17,6 @@ const task: Task = {
   notificationId: 'device-notification-1',
   order: 0,
   priority: 'medium',
-  reminderMinutes: 15,
   startTime: '09:00',
   title: 'Họp nhóm',
   updatedAt: '2026-09-13T01:00:00.000Z',

@@ -31,7 +31,6 @@ function makeDraft(overrides: Partial<AiDraftTask>): AiDraftTask {
     title: 'Công việc',
     date: '2026-09-10',
     startTime: '14:00',
-    reminderMinutes: 15,
     priority: 'medium',
     source: 'direct_request',
     ...overrides,

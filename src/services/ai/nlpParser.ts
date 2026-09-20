@@ -1,4 +1,4 @@
-import type { ReminderMinutes, TaskPriority } from '../../types';
+import type { TaskPriority } from '../../types';
 import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
 import {
   isVietnameseTaskAttributeClause,
@@ -22,39 +22,8 @@ import { parseVietnameseTime } from './timeIntent';
 
 export { isReorderIntent } from './scheduleIntent';
 
-const NUMERIC_REMINDER_PATTERN =
-  /(?:nhac|bao)\s+(?:(?:cho\s+)?(?:toi|minh|em)\s+)?(?:truoc\s+)?(\d+)\s*(?:phut|p|gio|g)?(?:\s*(?:nhe|nha|giup|voi))?/g;
-const ON_TIME_REMINDER_PATTERN =
-  /(?:nhac|bao)\s+(?:(?:cho\s+)?(?:toi|minh|em)\s+)?(?:dung\s+(?:gio|hen)|khi\s+den\s+gio)(?:\s*(?:nhe|nha|giup|voi))?/g;
-const DURATION_CLAUSE_PATTERN =
-  /(?:^|\s)(?:va\s+)?(?:thoi\s+luong|keo\s+dai)\s*(?:la\s+)?\d+\s*(?:(?:h|gio)(?:\s*\d+\s*(?:p|phut))?|p|phut)(?:\s*(?:nhe|nha))?/g;
 const PRIORITY_CLAUSE_PATTERN =
   /(?:^|\s)(?:va\s+)?(?:muc\s+)?uu\s+tien\s*(?:la\s+)?(?:rat\s+)?(?:cao|vua|thap|gap|hang\s+dau)/g;
-
-function parseReminder(text: string): ReminderMinutes {
-  const normalized = normalizeVietnameseText(text);
-  const candidates: { index: number; value: ReminderMinutes }[] = [];
-
-  for (const match of normalized.matchAll(NUMERIC_REMINDER_PATTERN)) {
-    const value = Number(match[1]);
-    if ([0, 5, 10, 15, 30, 60].includes(value)) {
-      candidates.push({ index: match.index ?? 0, value: value as ReminderMinutes });
-    }
-  }
-  for (const match of normalized.matchAll(ON_TIME_REMINDER_PATTERN)) {
-    candidates.push({ index: match.index ?? 0, value: 0 });
-  }
-
-  return candidates.sort((first, second) => first.index - second.index).at(-1)
-    ?.value ?? 15;
-}
-
-function stripReminderClauses(text: string): string {
-  return replaceVietnameseMatches(
-    replaceVietnameseMatches(text, NUMERIC_REMINDER_PATTERN),
-    ON_TIME_REMINDER_PATTERN,
-  );
-}
 
 function parsePriority(text: string): TaskPriority {
   const normalized = normalizeVietnameseText(text);
@@ -84,9 +53,7 @@ function cleanTaskTitle(segment: string, parsedTimeText?: string): string {
     '',
   );
   if (parsedTimeText) title = title.replace(parsedTimeText, ' ');
-  title = stripReminderClauses(title);
   title = replaceVietnameseMatches(title, PRIORITY_CLAUSE_PATTERN);
-  title = replaceVietnameseMatches(title, DURATION_CLAUSE_PATTERN);
   title = title.replace(
     /(?:vào\s+)?(?:buổi\s+)?(?:sáng|trưa|chiều|tối)(?:\s+nay)?/gi,
     ' ',
@@ -152,7 +119,6 @@ export function parseVietnameseScheduleText(
       title: t.title,
       date: t.date,
       startTime: '',
-      reminderMinutes: t.reminderMinutes ?? 15,
       priority: t.priority || 'none',
       source: 'auto_slotted',
       changeStatus: 'updated',
@@ -164,9 +130,6 @@ export function parseVietnameseScheduleText(
   const existingTaskUpdate = resolveExistingTaskUpdate(normalized, context);
   if (existingTaskUpdate !== null) return existingTaskUpdate;
 
-  // 1. Tìm reminder chung trên bản chuẩn hóa để nhận cả câu có/không dấu.
-  const globalReminder = parseReminder(normalized);
-
   // Loại bỏ câu mở đầu chung nếu có (ví dụ: "tạo giúp tôi 1 lịch trình 3 việc, ...", "lên lịch giúp tôi: ...")
   const strippedIntro = replaceVietnameseMatches(
     normalized,
@@ -174,8 +137,7 @@ export function parseVietnameseScheduleText(
     '',
   ).trim();
 
-  // Loại bỏ toàn bộ các mệnh đề nhắc nhở trước khi tách việc để không bị cắt nhầm thành task riêng
-  const cleanNormalized = stripReminderClauses(strippedIntro).trim();
+  const cleanNormalized = strippedIntro;
 
   // Tách văn bản thành các câu hoặc mệnh đề công việc
   // Dấu phân cách lớn: xuống dòng, dấu chấm phẩy, từ nối hành động ("sau đó", "tiếp theo", "xong rồi", "rồi")
@@ -192,14 +154,10 @@ export function parseVietnameseScheduleText(
       let currentPart = parts[0];
       for (let i = 1; i < parts.length; i++) {
         const p = parts[i];
-        const withoutDuration = replaceVietnameseMatches(
-          p,
-          DURATION_CLAUSE_PATTERN,
-        );
         const hasTime =
-          parseVietnameseTime(withoutDuration) !== null ||
+          parseVietnameseTime(p) !== null ||
           /\b(?:buoi\s*)?(?:sang|trua|chieu|toi)\b/.test(
-            normalizeVietnameseText(withoutDuration),
+            normalizeVietnameseText(p),
           );
 
         const normCurrent = normalizeVietnameseText(currentPart);
@@ -212,9 +170,7 @@ export function parseVietnameseScheduleText(
             normP,
           );
         const currentHasTime =
-          parseVietnameseTime(
-            replaceVietnameseMatches(currentPart, DURATION_CLAUSE_PATTERN),
-          ) !== null ||
+          parseVietnameseTime(currentPart) !== null ||
           /\b(?:buoi\s*)?(?:sang|trua|chieu|toi)\b/.test(normCurrent);
 
         if (
@@ -306,7 +262,6 @@ export function parseVietnameseScheduleText(
         title,
         date,
         startTime,
-        reminderMinutes: globalReminder,
         priority,
         source: 'direct_request',
         batchGroupId,
@@ -336,9 +291,7 @@ export function separateTimedConjunctions(text: string): string {
         normPart,
       );
 
-    const hasOwnTime = parseVietnameseTime(
-      replaceVietnameseMatches(part, DURATION_CLAUSE_PATTERN),
-    ) !== null;
+    const hasOwnTime = parseVietnameseTime(part) !== null;
     const previousHasTime = parseVietnameseTime(result) !== null;
     const hasOwnBatch = isAiBatchIntent(part);
     const previousHasBatch = isAiBatchIntent(result);
@@ -397,20 +350,7 @@ export function refineVietnameseSchedule(
     }
   }
 
-  // 2. Trường hợp: Đổi nhắc trước cho tất cả (ví dụ: "cho tất cả nhắc 15 phút")
-  const reminderAllMatch = norm.match(
-    /(?:tat ca|het)\s+(?:nhac|bao)\s*(?:truoc\s*)?(\d+)/,
-  );
-  if (reminderAllMatch) {
-    const val = Number(reminderAllMatch[1]) as ReminderMinutes;
-    updated = updated.map((t) => ({
-      ...t,
-      reminderMinutes: val,
-      changeStatus: 'updated',
-    }));
-  }
-
-  // 3. Trường hợp: Đổi giờ của một công việc cụ thể
+  // 2. Trường hợp: Đổi giờ của một công việc cụ thể
   // (ví dụ: "dời báo cáo sang 10h nhé")
   for (let i = 0; i < updated.length; i++) {
     const task = updated[i];
@@ -433,7 +373,7 @@ export function refineVietnameseSchedule(
     }
   }
 
-  // 4. Trường hợp: Thêm một công việc mới (ví dụ: "thêm gym buổi sáng")
+  // 3. Trường hợp: Thêm một công việc mới (ví dụ: "thêm gym buổi sáng")
   if (/\bthem\b/.test(norm)) {
     const addMatch = replaceVietnameseMatches(
       originalInstruction,

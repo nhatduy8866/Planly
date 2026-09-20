@@ -13,7 +13,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết 
 - Tạo hàng loạt theo thứ trong tuần, ngày trong tháng hoặc danh sách ngày cụ thể; có thể sửa cả nhóm hoặc tách riêng một công việc.
 - Chọn màu, mức ưu tiên và sắp xếp theo giờ bắt đầu, ưu tiên hoặc tên.
 - Khi tạo mới, giờ bắt đầu mặc định được làm tròn lên mốc 30 phút gần nhất.
-- Nhắc đúng giờ khi tạo thủ công; Planly AI hỗ trợ yêu cầu nhắc trước 5, 10, 15, 30 hoặc 60 phút.
+- Thông báo hoặc báo thức vào đúng giờ bắt đầu công việc.
 - Chọn giữa thông báo thường (mặc định) và báo thức toàn màn hình; báo thức hỗ trợ bật/tắt rung, âm thanh và hình nền có sẵn hoặc tệp tùy chỉnh.
 - Xem nhanh công việc hôm nay bằng widget màn hình chính trên Android và iOS.
 - Tạo, cập nhật hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên qua văn bản hoặc giọng nói.

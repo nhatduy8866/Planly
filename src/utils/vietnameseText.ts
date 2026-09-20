@@ -12,7 +12,7 @@ export function normalizeVietnameseText(value: string): string {
 }
 
 export function isVietnameseTaskAttributeClause(value: string): boolean {
-  return /^(?:va\s+)?(?:(?:muc\s+)?uu\s+tien|thoi\s+luong|keo\s+dai|(?:nhac|bao)\s+(?:(?:cho\s+)?(?:toi|minh|em)\s+)?(?:truoc|dung\s+(?:gio|hen)|khi\s+den\s+gio))\b/.test(
+  return /^(?:va\s+)?(?:muc\s+)?uu\s+tien\b/.test(
     normalizeVietnameseText(value).trim(),
   );
 }

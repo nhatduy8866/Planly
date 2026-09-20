@@ -30,7 +30,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     id: 'task-1',
     order: 0,
-    reminderMinutes: null,
     startTime: '09:00',
     title: 'Họp nhóm',
     updatedAt: '2026-09-13T00:00:00.000Z',

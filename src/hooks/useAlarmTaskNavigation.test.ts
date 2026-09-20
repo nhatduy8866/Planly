@@ -55,7 +55,6 @@ describe('useAlarmTaskNavigation', () => {
         id: 'task-1',
         order: 0,
         priority: 'high',
-        reminderMinutes: 15,
         startTime: '10:00',
         title: 'Họp công ty',
         updatedAt: '2026-09-11T00:00:00.000Z',

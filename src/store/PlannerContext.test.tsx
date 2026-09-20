@@ -37,7 +37,6 @@ const task: Task = {
   description: '',
   date: '2026-09-10',
   startTime: '09:00',
-  reminderMinutes: null,
   completed: false,
   order: 0,
   priority: 'medium',

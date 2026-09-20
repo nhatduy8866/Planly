@@ -5,7 +5,6 @@ create table if not exists public.planly_tasks (
   description text,
   date date,
   start_time text,
-  reminder_minutes integer,
   color text,
   batch_id text,
   completed boolean,
@@ -30,10 +29,6 @@ create table if not exists public.planly_tasks (
   ),
   constraint planly_tasks_priority_check check (
     priority is null or priority in ('none', 'low', 'medium', 'high')
-  ),
-  constraint planly_tasks_reminder_check check (
-    reminder_minutes is null
-    or reminder_minutes between 0 and 10080
   ),
   constraint planly_tasks_start_time_check check (
     start_time is null or start_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'

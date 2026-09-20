@@ -1,14 +1,17 @@
-import type { AiDraftTask } from '../../types/ai';
+import type { AiDraftTask, AiSchedulingContext } from '../../types/ai';
 import {
   isVietnameseTaskAttributeClause,
   normalizeVietnameseText,
-  replaceVietnameseMatches,
 } from '../../utils/vietnameseText';
 import { getTaskBatchRangeIssue } from '../../utils/taskBatch';
-import { parseVietnameseTime } from './timeIntent';
 import { isAiBatchIntent } from './batchIntent';
 import { isValidDateKey } from './dateIntent';
-import { separateTimedConjunctions } from './nlpParser';
+import { isReorderIntent } from './scheduleIntent';
+import {
+  extractScheduleConstraints,
+  type AiScheduleAmbiguity,
+} from './scheduleRequestAnalysis';
+import { isTaskUpdateIntent } from './taskUpdateIntent';
 
 export type AiScheduleValidationCode =
   | 'attribute_only_task'
@@ -16,9 +19,11 @@ export type AiScheduleValidationCode =
   | 'duplicate_id'
   | 'duplicate_task'
   | 'empty_result'
+  | 'explicit_date_mismatch'
+  | 'invalid_date'
+  | 'invalid_start_time'
   | 'missing_existing_task'
   | 'priority_mismatch'
-  | 'reminder_mismatch'
   | 'start_time_mismatch'
   | 'task_count_mismatch'
   | 'unexpected_new_task';
@@ -29,40 +34,15 @@ export interface AiScheduleValidationIssue {
 }
 
 export interface AiScheduleValidationResult {
+  ambiguities: AiScheduleAmbiguity[];
+  ambiguityLevel: 'high' | 'low' | 'none';
   issues: AiScheduleValidationIssue[];
   valid: boolean;
 }
 
-const DURATION_PATTERN =
-  /(?:thoi\s+luong|keo\s+dai)\s*(?:la\s+)?\d+\s*(?:(?:h|gio)(?:\s*\d+\s*(?:p|phut))?|p|phut)/g;
-
-function expectedTaskCount(
-  prompt: string,
-  localDrafts: AiDraftTask[],
-): number | undefined {
-  const normalized = normalizeVietnameseText(prompt);
-  if (isAiBatchIntent(prompt) && localDrafts.length > 0) {
-    return logicalTaskCount(localDrafts);
-  }
-  const timedClauses = separateTimedConjunctions(prompt).split(';');
-  if (timedClauses.length > 1 && localDrafts.length > 1) {
-    return localDrafts.length;
-  }
-  const explicitCount = normalized.match(
-    /\b(\d{1,2})\s*(?:cong\s+viec|viec|tasks?)\b/,
-  );
-  if (explicitCount) {
-    const count = Number(explicitCount[1]);
-    if (count > 0 && count <= 20) return count;
-  }
-
-  const hasAttributeClause =
-    /(?:muc\s+)?uu\s+tien|thoi\s+luong|keo\s+dai|(?:nhac|bao)\s+(?:truoc|dung\s+(?:gio|hen))/.test(
-      normalized,
-    );
-  return hasAttributeClause && localDrafts.length > 0
-    ? localDrafts.length
-    : undefined;
+interface AiScheduleValidationOptions {
+  allowEmptyResult?: boolean;
+  validateExistingTargets?: boolean;
 }
 
 function batchGroups(drafts: AiDraftTask[]): Map<string, AiDraftTask[]> {
@@ -94,8 +74,7 @@ function hasInvalidBatch(drafts: AiDraftTask[]): boolean {
       group.some((draft) =>
         draft.title !== first.title ||
         draft.startTime !== first.startTime ||
-        draft.priority !== first.priority ||
-        draft.reminderMinutes !== first.reminderMinutes)
+        draft.priority !== first.priority)
     ) {
       return true;
     }
@@ -103,35 +82,47 @@ function hasInvalidBatch(drafts: AiDraftTask[]): boolean {
   return false;
 }
 
-function hasExplicitReminder(prompt: string): boolean {
-  return /\b(?:nhac|bao)\b/.test(normalizeVietnameseText(prompt));
+function ambiguityLevel(
+  ambiguities: AiScheduleAmbiguity[],
+): AiScheduleValidationResult['ambiguityLevel'] {
+  if (ambiguities.some((ambiguity) => ambiguity.severity === 'high')) {
+    return 'high';
+  }
+  return ambiguities.length > 0 ? 'low' : 'none';
 }
 
-function hasExplicitPriority(prompt: string): boolean {
-  return /\b(?:uu\s+tien|gap|khan\s+cap|quan\s+trong|khong\s+gap)\b/.test(
-    normalizeVietnameseText(prompt),
-  );
-}
-
-function hasExplicitStartTime(prompt: string): boolean {
-  const withoutDuration = replaceVietnameseMatches(prompt, DURATION_PATTERN);
-  return parseVietnameseTime(withoutDuration) !== null;
+function isValidStartTime(value: string): boolean {
+  if (value === '') return true;
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return false;
+  return Number(match[1]) <= 23 && Number(match[2]) <= 59;
 }
 
 export function validateAiScheduleResult(
   prompt: string,
   drafts: AiDraftTask[],
-  localDrafts: AiDraftTask[],
+  context: AiSchedulingContext,
+  options: AiScheduleValidationOptions = {},
 ): AiScheduleValidationResult {
+  const constraints = extractScheduleConstraints(prompt, context);
   const issues: AiScheduleValidationIssue[] = [];
-  if (!drafts.length && localDrafts.length > 0) {
+  const targetDate = constraints.date ?? context.targetDate;
+  const activeTargetTasks = (context.allTasks || context.existingTasks).filter(
+    (task) => task.date === targetDate && !task.completed,
+  );
+  const allowsEmptyResult =
+    options.allowEmptyResult === true ||
+    ((isReorderIntent(prompt) || isTaskUpdateIntent(prompt)) &&
+      activeTargetTasks.length === 0);
+
+  if (!drafts.length && !allowsEmptyResult) {
     issues.push({
       code: 'empty_result',
       message: 'The result did not contain any tasks.',
     });
   }
 
-  const expectedCount = expectedTaskCount(prompt, localDrafts);
+  const expectedCount = constraints.expectedTaskCount;
   const receivedCount = batchGroups(drafts).size > 0
     ? logicalTaskCount(drafts)
     : drafts.length;
@@ -155,6 +146,18 @@ export function validateAiScheduleResult(
   const ids = new Set<string>();
   const semanticTasks = new Set<string>();
   for (const draft of drafts) {
+    if (!isValidDateKey(draft.date)) {
+      issues.push({
+        code: 'invalid_date',
+        message: `Task "${draft.title}" has invalid date "${draft.date}".`,
+      });
+    }
+    if (!isValidStartTime(draft.startTime)) {
+      issues.push({
+        code: 'invalid_start_time',
+        message: `Task "${draft.title}" has invalid start time "${draft.startTime}".`,
+      });
+    }
     if (isVietnameseTaskAttributeClause(draft.title)) {
       issues.push({
         code: 'attribute_only_task',
@@ -184,52 +187,79 @@ export function validateAiScheduleResult(
     semanticTasks.add(semanticKey);
   }
 
-  if (logicalTaskCount(drafts) === 1 && logicalTaskCount(localDrafts) === 1) {
+  if (logicalTaskCount(drafts) === 1) {
     const [draft] = drafts;
-    const [local] = localDrafts;
-    if (
-      hasExplicitStartTime(prompt) &&
-      local.startTime &&
-      draft.startTime !== local.startTime
-    ) {
+    if (constraints.date && draft.date !== constraints.date) {
+      issues.push({
+        code: 'explicit_date_mismatch',
+        message: `The requested date resolves to ${constraints.date}, not ${draft.date}.`,
+      });
+    }
+    if (constraints.startTime && draft.startTime !== constraints.startTime) {
       issues.push({
         code: 'start_time_mismatch',
-        message: `The requested start time resolves to ${local.startTime}, not ${draft.startTime || 'an empty value'}. A duration must not be used as startTime.`,
+        message: `The explicit start time resolves to ${constraints.startTime}, not ${draft.startTime || 'an empty value'}.`,
       });
     }
-    if (
-      hasExplicitReminder(prompt) &&
-      draft.reminderMinutes !== local.reminderMinutes
-    ) {
-      issues.push({
-        code: 'reminder_mismatch',
-        message: `The reminder must be ${String(local.reminderMinutes)} minute(s), not ${String(draft.reminderMinutes)}.`,
-      });
-    }
-    if (hasExplicitPriority(prompt) && draft.priority !== local.priority) {
+    if (constraints.priority && draft.priority !== constraints.priority) {
       issues.push({
         code: 'priority_mismatch',
-        message: `The priority must be "${local.priority}", not "${draft.priority}".`,
+        message: `The explicit priority must be "${constraints.priority}", not "${draft.priority}".`,
       });
     }
   }
 
-  return { issues, valid: issues.length === 0 };
+  if (
+    options.validateExistingTargets !== false &&
+    (isReorderIntent(prompt) || isTaskUpdateIntent(prompt))
+  ) {
+    const knownIds = new Set(activeTargetTasks.map((task) => task.id));
+    for (const draft of drafts) {
+      if (!knownIds.has(draft.id)) {
+        issues.push({
+          code: 'unexpected_new_task',
+          message: `Task id "${draft.id}" does not match an existing task targeted by this request.`,
+        });
+      }
+    }
+
+    if (isReorderIntent(prompt)) {
+      const resultIds = new Set(drafts.map((draft) => draft.id));
+      for (const task of activeTargetTasks) {
+        if (!resultIds.has(task.id)) {
+          issues.push({
+            code: 'missing_existing_task',
+            message: `Existing task id "${task.id}" is missing from the reordered schedule.`,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    ambiguities: constraints.ambiguities,
+    ambiguityLevel: ambiguityLevel(constraints.ambiguities),
+    issues,
+    valid: issues.length === 0,
+  };
 }
 
 export function validateAiRefinementResult(
   instruction: string,
   currentDrafts: AiDraftTask[],
   drafts: AiDraftTask[],
-  localDrafts: AiDraftTask[],
+  context: AiSchedulingContext,
 ): AiScheduleValidationResult {
-  const base = validateAiScheduleResult(instruction, drafts, localDrafts);
-  const issues = [...base.issues];
   const normalizedInstruction = normalizeVietnameseText(instruction);
   const allowsNewTask = /\b(?:them|add)\b/.test(normalizedInstruction);
   const allowsRemoval = /\b(?:bo|xoa|huy|remove|delete|cancel)\b/.test(
     normalizedInstruction,
   );
+  const base = validateAiScheduleResult(instruction, drafts, context, {
+    allowEmptyResult: allowsRemoval,
+    validateExistingTargets: false,
+  });
+  const issues = [...base.issues];
   const currentIds = new Set(currentDrafts.map((draft) => draft.id));
   const resultIds = new Set(drafts.map((draft) => draft.id));
 
@@ -255,5 +285,5 @@ export function validateAiRefinementResult(
     }
   }
 
-  return { issues, valid: issues.length === 0 };
+  return { ...base, issues, valid: issues.length === 0 };
 }

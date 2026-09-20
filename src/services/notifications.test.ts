@@ -80,7 +80,6 @@ function makeFutureTask(): Task {
     description: '',
     id: 'task-1',
     order: 0,
-    reminderMinutes: 15,
     startTime: '14:00',
     title: 'Đá bóng',
     updatedAt: '2099-01-01T00:00:00.000Z',

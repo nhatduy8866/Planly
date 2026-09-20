@@ -572,15 +572,6 @@ export function ScheduleScreen() {
                   ? 'schedule.emptyTitle'
                   : 'schedule.upcomingEmptyTitle',
             )}
-            description={
-              taskGroups.all.length === 0
-                ? undefined
-                : t(
-                    taskView === 'past'
-                      ? 'schedule.pastEmptyDescription'
-                      : 'schedule.upcomingEmptyDescription',
-                  )
-            }
             primaryActionLabel={
               taskView !== 'past' ? t('schedule.aiAction') : undefined
             }

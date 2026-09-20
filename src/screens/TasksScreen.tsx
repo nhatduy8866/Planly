@@ -226,9 +226,6 @@ export function TasksScreen() {
           <EmptyState
             icon="task-alt"
             title={t(query ? 'tasks.noResultsTitle' : 'tasks.emptyTitle')}
-            description={
-              t(query ? 'tasks.noResultsDescription' : 'tasks.emptyDescription')
-            }
             actionLabel={query ? undefined : t('schedule.addTask')}
             onAction={query ? undefined : aiScheduler.openActionSheet}
           />

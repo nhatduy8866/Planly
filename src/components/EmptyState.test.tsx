@@ -27,14 +27,13 @@ describe('EmptyState', () => {
     jest.useRealTimers();
   });
 
-  it('renders title and description properly', () => {
+  it('renders a title without requiring a description', () => {
     let tree: renderer.ReactTestRenderer | undefined;
     act(() => {
       tree = renderer.create(
         <EmptyState
           icon="event-available"
           title="Không có công việc"
-          description="Hãy thêm một công việc mới để bắt đầu."
         />,
       );
     });
@@ -42,7 +41,6 @@ describe('EmptyState', () => {
     expect(tree).toBeDefined();
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain('Không có công việc');
-    expect(str).toContain('Hãy thêm một công việc mới để bắt đầu.');
 
     act(() => {
       tree!.unmount();

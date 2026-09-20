@@ -140,6 +140,24 @@ describe('plannerReducer', () => {
     expect(result.tasks[0].id).toBe('task-2');
   });
 
+  it('deletes multiple tasks by id in one action', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'batch-1' }),
+        task({ id: 'unrelated' }),
+        task({ id: 'batch-2' }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'delete_tasks',
+      payload: { ids: ['batch-1', 'batch-2'] },
+    });
+
+    expect(result.tasks.map((item) => item.id)).toEqual(['unrelated']);
+  });
+
   it('handles move_task safely when initial order values are duplicated', () => {
     const state = {
       ...initialPlannerState,

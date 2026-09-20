@@ -28,6 +28,7 @@ export type PlannerAction =
       payload: { savedIds: string[]; previousTasks: Task[] };
     }
   | { type: 'delete_task'; payload: { id: string } }
+  | { type: 'delete_tasks'; payload: { ids: string[] } }
   | { type: 'toggle_task'; payload: { id: string } }
   | { type: 'move_task'; payload: { id: string; direction: -1 | 1 } }
   | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' | 'priority' } };
@@ -125,6 +126,14 @@ export function plannerReducer(
         ...state,
         tasks: state.tasks.filter((task) => task.id !== action.payload.id),
       };
+    case 'delete_tasks': {
+      if (!action.payload.ids.length) return state;
+      const deletedIds = new Set(action.payload.ids);
+      return {
+        ...state,
+        tasks: state.tasks.filter((task) => !deletedIds.has(task.id)),
+      };
+    }
     case 'toggle_task':
       return {
         ...state,

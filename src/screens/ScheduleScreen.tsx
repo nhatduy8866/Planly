@@ -172,6 +172,7 @@ export function ScheduleScreen() {
   >(() => new Set());
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const [deleteBatch, setDeleteBatch] = useState(false);
   const [highlightedTaskId, setHighlightedTaskId] = useState<string>();
   const latestTasksRef = useRef(tasks);
   const pendingCompletionsRef = useRef<Map<string, PendingCompletion>>(new Map());
@@ -319,6 +320,7 @@ export function ScheduleScreen() {
   }, []);
 
   const confirmDelete = useCallback((task: Task) => {
+    setDeleteBatch(false);
     setDeletingTask(task);
   }, []);
 
@@ -570,13 +572,6 @@ export function ScheduleScreen() {
                   ? 'schedule.emptyTitle'
                   : 'schedule.upcomingEmptyTitle',
             )}
-            description={t(
-              taskView === 'past'
-                ? 'schedule.pastEmptyDescription'
-                : taskView === 'all'
-                  ? 'schedule.emptyDescription'
-                  : 'schedule.upcomingEmptyDescription',
-            )}
             primaryActionLabel={
               taskView !== 'past' ? t('schedule.aiAction') : undefined
             }
@@ -631,15 +626,27 @@ export function ScheduleScreen() {
         visible={Boolean(deletingTask)}
         title={t('schedule.deleteTitle')}
         message={t('schedule.deleteMessage', { title: deletingTask?.title ?? '' })}
+        optionChecked={deleteBatch}
+        optionDescription={
+          deletingTask?.batchId ? t('task.deleteBatchDescription') : undefined
+        }
+        optionLabel={
+          deletingTask?.batchId ? t('task.deleteBatch') : undefined
+        }
+        onOptionChange={setDeleteBatch}
         onConfirm={() => {
           if (deletingTask) {
             animateTaskListTransition();
-            void deleteTask(deletingTask);
+            void deleteTask(deletingTask, deleteBatch);
             setDeletingTask(undefined);
+            setDeleteBatch(false);
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         }}
-        onCancel={() => setDeletingTask(undefined)}
+        onCancel={() => {
+          setDeletingTask(undefined);
+          setDeleteBatch(false);
+        }}
       />
     </View>
   );

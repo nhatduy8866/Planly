@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../auth/AuthContext';
+import { useTaskActions } from '../hooks/useTaskActions';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
   ALARM_BACKGROUND_PRESETS,
@@ -59,6 +60,7 @@ import type {
   ReminderDeliveryMode,
 } from '../types';
 import { AccountSyncModal } from './AccountSyncModal';
+import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
 
 type SettingsPicker = 'background' | 'delivery' | 'sound' | 'vibration';
@@ -104,6 +106,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
   const { configured: syncConfigured, user } = useAuth();
   const { status: syncStatus } = useCloudSync();
+  const { deleteAllTasks } = useTaskActions();
   const {
     alarmBackground,
     alarmBackgroundPreset = DEFAULT_ALARM_BACKGROUND_PRESET,
@@ -125,6 +128,9 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const previewPlayer = useAudioPlayer(null);
   const previewStatus = useAudioPlayerStatus(previewPlayer);
   const [accountSyncVisible, setAccountSyncVisible] = useState(false);
+  const [deleteAllConfirmStep, setDeleteAllConfirmStep] = useState<0 | 1 | 2>(
+    0,
+  );
   const [activePicker, setActivePicker] = useState<SettingsPicker | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<{
     label: string;
@@ -316,6 +322,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     closePicker();
     setAccountSyncVisible(false);
     setBackgroundPreview(null);
+    setDeleteAllConfirmStep(0);
     onClose();
   }
 
@@ -604,6 +611,32 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   })
                 : null}
 
+              <Pressable
+                accessibilityLabel={t('settings.deleteAllTasks')}
+                accessibilityRole="button"
+                onPress={() => setDeleteAllConfirmStep(1)}
+                style={({ pressed }) => [
+                  styles.settingRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.dangerSettingIcon}>
+                  <MaterialIcons
+                    name="delete-forever"
+                    size={21}
+                    color={colors.danger}
+                  />
+                </View>
+                <Text style={styles.dangerSettingLabel}>
+                  {t('settings.deleteAllTasks')}
+                </Text>
+                <MaterialIcons
+                  name="chevron-right"
+                  size={22}
+                  color={colors.danger}
+                />
+              </Pressable>
+
               {alarmMediaError ? (
                 <View style={styles.mediaError}>
                   <MaterialIcons
@@ -622,6 +655,37 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       <AccountSyncModal
         onClose={() => setAccountSyncVisible(false)}
         visible={accountSyncVisible}
+      />
+
+      <ConfirmModal
+        visible={deleteAllConfirmStep !== 0}
+        title={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalTitle'
+            : 'settings.deleteAllTasksTitle',
+        )}
+        message={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalMessage'
+            : 'settings.deleteAllTasksMessage',
+        )}
+        confirmText={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalAction'
+            : 'settings.deleteAllTasksContinue',
+        )}
+        onConfirm={() => {
+          if (deleteAllConfirmStep === 1) {
+            setDeleteAllConfirmStep(2);
+            return;
+          }
+          setDeleteAllConfirmStep(0);
+          void deleteAllTasks();
+          void Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          );
+        }}
+        onCancel={() => setDeleteAllConfirmStep(0)}
       />
 
       <Modal
@@ -850,6 +914,20 @@ const createStyles = (colors: ThemeColors) =>
       height: 38,
       justifyContent: 'center',
       width: 38,
+    },
+    dangerSettingIcon: {
+      alignItems: 'center',
+      backgroundColor: colors.dangerSoft,
+      borderRadius: 10,
+      height: 38,
+      justifyContent: 'center',
+      width: 38,
+    },
+    dangerSettingLabel: {
+      color: colors.danger,
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '800',
     },
     settingLabel: {
       color: colors.text,

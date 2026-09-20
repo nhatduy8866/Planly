@@ -3,6 +3,7 @@ import React from 'react';
 import { AppState, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
+import type { Task } from '../types';
 import { AppMenu } from './AppMenu';
 
 const mockSetAlarmBackground = jest.fn();
@@ -10,6 +11,36 @@ const mockSetAlarmBackgroundPreset = jest.fn();
 const mockSetAlarmSound = jest.fn();
 const mockSetAlarmSoundPreset = jest.fn();
 const mockSetAlarmVibrationEnabled = jest.fn();
+const mockPlannerDispatch = jest.fn();
+const mockCancelTaskReminder = jest.fn(
+  async (_notificationId?: string) => undefined,
+);
+const mockPlannerTasks: Task[] = [
+  {
+    id: 'task-1',
+    title: 'Task 1',
+    description: '',
+    date: '2026-09-20',
+    startTime: '09:00',
+    notificationId: 'notification-1',
+    completed: false,
+    order: 0,
+    createdAt: '2026-09-20T00:00:00.000Z',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+  },
+  {
+    id: 'task-2',
+    title: 'Task 2',
+    description: '',
+    date: '2026-09-21',
+    startTime: '10:00',
+    notificationId: 'notification-2',
+    completed: false,
+    order: 0,
+    createdAt: '2026-09-20T00:00:00.000Z',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+  },
+];
 const mockPreviewPlayer = {
   loop: false,
   pause: jest.fn(),
@@ -24,7 +55,14 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 jest.mock('expo-haptics', () => ({
+  NotificationFeedbackType: { Success: 'success' },
+  notificationAsync: jest.fn(async () => undefined),
   selectionAsync: jest.fn(async () => undefined),
+}));
+
+jest.mock('../store/PlannerContext', () => ({
+  usePlannerDispatch: () => mockPlannerDispatch,
+  usePlannerTasks: () => mockPlannerTasks,
 }));
 
 jest.mock('expo-audio', () => ({
@@ -118,12 +156,15 @@ jest.mock('../services/alarms', () => ({
 }));
 
 jest.mock('../services/notifications', () => ({
+  cancelTaskReminder: (notificationId?: string) =>
+    mockCancelTaskReminder(notificationId),
   getNotificationPermission: jest.fn(async () => ({
     canAskAgain: true,
     state: 'granted',
   })),
   openNotificationSettings: jest.fn(),
   requestNotificationPermission: jest.fn(),
+  scheduleTaskReminder: jest.fn(async () => undefined),
 }));
 
 describe('AppMenu settings', () => {
@@ -293,5 +334,64 @@ describe('AppMenu settings', () => {
     });
     expect(mockSetAlarmBackground).toHaveBeenCalledWith(null);
     expect(mockSetAlarmBackgroundPreset).toHaveBeenCalledWith('aurora');
+  });
+
+  it('requires two confirmations before deleting every task', async () => {
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({
+      remove: jest.fn(),
+    });
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openSettings' })
+        .props.onPress();
+    });
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'settings.deleteAllTasks' })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findAllByType(Text).some(
+        (node) => node.props.children === 'settings.deleteAllTasksTitle',
+      ),
+    ).toBe(true);
+    expect(mockPlannerDispatch).not.toHaveBeenCalled();
+
+    act(() => {
+      tree?.root
+        .findByProps({
+          accessibilityLabel: 'settings.deleteAllTasksContinue',
+        })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findAllByType(Text).some(
+        (node) => node.props.children === 'settings.deleteAllTasksFinalTitle',
+      ),
+    ).toBe(true);
+    expect(mockPlannerDispatch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      tree?.root
+        .findByProps({
+          accessibilityLabel: 'settings.deleteAllTasksFinalAction',
+        })
+        .props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockPlannerDispatch).toHaveBeenCalledWith({
+      type: 'delete_tasks',
+      payload: { ids: ['task-1', 'task-2'] },
+    });
+    expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
   });
 });

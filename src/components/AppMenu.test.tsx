@@ -11,6 +11,7 @@ const mockSetAlarmBackgroundPreset = jest.fn();
 const mockSetAlarmSound = jest.fn();
 const mockSetAlarmSoundPreset = jest.fn();
 const mockSetAlarmVibrationEnabled = jest.fn();
+const mockSetCalendarMode = jest.fn();
 const mockPlannerDispatch = jest.fn();
 const mockCancelTaskReminder = jest.fn(
   async (_notificationId?: string) => undefined,
@@ -63,6 +64,13 @@ jest.mock('expo-haptics', () => ({
 jest.mock('../store/PlannerContext', () => ({
   usePlannerDispatch: () => mockPlannerDispatch,
   usePlannerTasks: () => mockPlannerTasks,
+}));
+
+jest.mock('../navigation/CalendarNavigationContext', () => ({
+  useCalendarNavigation: () => ({
+    mode: 'week',
+    setMode: mockSetCalendarMode,
+  }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -175,6 +183,23 @@ describe('AppMenu settings', () => {
     tree = undefined;
     jest.restoreAllMocks();
     jest.clearAllMocks();
+  });
+
+  it('switches the calendar between week and month views', () => {
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    const calendarViewSwitch = tree?.root.findByProps({
+      accessibilityLabel: 'menu.calendarView',
+    });
+    expect(calendarViewSwitch?.props.value).toBe(false);
+
+    act(() => calendarViewSwitch?.props.onValueChange(true));
+
+    expect(mockSetCalendarMode).toHaveBeenCalledWith('month');
   });
 
   it('opens the user guide and can replay onboarding', () => {

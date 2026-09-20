@@ -252,9 +252,6 @@ export function TasksScreen() {
             <Text style={styles.groupTitle}>
               {formatLongDate(section.date, locale)}
             </Text>
-            {section.date < todayKey() ? (
-              <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
-            ) : null}
           </View>
         )}
         sections={groupedTasks}
@@ -374,14 +371,4 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 22,
   },
   groupTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: '800' },
-  overdue: {
-    backgroundColor: colors.dangerSoft,
-    borderRadius: 10,
-    color: colors.danger,
-    fontSize: 10,
-    fontWeight: '800',
-    overflow: 'hidden',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
 });

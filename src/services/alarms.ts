@@ -138,8 +138,6 @@ export async function scheduleTaskAlarm(
   metadata: Record<string, string>,
   preferences: AlarmSchedulePreferences = { vibrate: true },
 ): Promise<string | undefined> {
-  if (task.reminderMinutes === null) return undefined;
-
   const triggerDate = taskDateTime(task.date, task.startTime);
   if (triggerDate.getTime() <= Date.now()) return undefined;
 

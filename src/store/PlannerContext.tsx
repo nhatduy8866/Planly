@@ -37,7 +37,6 @@ function normalizeStoredTask(task: Task): Task {
     description: task.description,
     date: task.date,
     startTime: task.startTime,
-    reminderMinutes: task.reminderMinutes,
     notificationId: task.notificationId,
     batchId: task.batchId,
     completed: task.completed,

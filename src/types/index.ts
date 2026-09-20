@@ -1,7 +1,5 @@
 export type CalendarMode = 'week' | 'month';
 
-export type ReminderMinutes = number | null;
-
 export type ReminderDeliveryMode = 'notification' | 'alarm';
 
 export type AlarmSoundPresetId =
@@ -39,7 +37,6 @@ export interface Task {
   description: string;
   date: string;
   startTime: string;
-  reminderMinutes: ReminderMinutes;
   color?: string;
   notificationId?: string;
   batchId?: string;

@@ -1,4 +1,4 @@
-import type { ReminderMinutes, Task, TaskPriority } from './index';
+import type { Task, TaskPriority } from './index';
 
 /**
  * Các trạng thái của luồng Planly AI trước khi lưu vào lịch.
@@ -22,7 +22,6 @@ export interface AiDraftTask {
   description?: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:mm hoặc rỗng nếu chưa có giờ
-  reminderMinutes: ReminderMinutes;
   priority: TaskPriority;
   color?: string;
   source: 'direct_request' | 'auto_slotted' | 'conflict_resolved';

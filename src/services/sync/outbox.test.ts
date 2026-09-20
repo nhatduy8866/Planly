@@ -30,7 +30,6 @@ const task: Task = {
   description: '',
   id: 'task-1',
   order: 0,
-  reminderMinutes: null,
   startTime: '09:00',
   title: 'Task',
   updatedAt: '2026-09-13T01:00:00.000Z',

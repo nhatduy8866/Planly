@@ -145,16 +145,6 @@ export function AiDraftPreviewView({
                       : formatLongDate(task.date || primaryDate, locale).split(',')[0]}
                   </Text>
                 </View>
-                {task.reminderMinutes !== null ? (
-                  <View style={styles.metaItem}>
-                    <MaterialIcons name="notifications" size={14} color={colors.warning} />
-                    <Text style={styles.metaText}>
-                      {task.reminderMinutes === 0
-                        ? t('task.reminderOnTime')
-                        : t('ai.reminderBefore', { count: task.reminderMinutes })}
-                    </Text>
-                  </View>
-                ) : null}
                 {task.batchGroupId ? (
                   <View style={styles.metaItem}>
                     <MaterialIcons name="repeat" size={14} color={colors.primary} />

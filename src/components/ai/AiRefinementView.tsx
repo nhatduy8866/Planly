@@ -27,7 +27,6 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
   const [instruction, setInstruction] = useState('');
   const refinementChips = [
     { id: 'move', icon: 'access-time', text: t('ai.refineMove') },
-    { id: 'remind', icon: 'notifications-none', text: t('ai.refineRemind') },
     { id: 'remove', icon: 'delete-outline', text: t('ai.refineRemove') },
     { id: 'add', icon: 'auto-awesome', text: t('ai.refineAdd') },
   ];

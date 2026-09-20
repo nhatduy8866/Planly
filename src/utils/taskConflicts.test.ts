@@ -14,7 +14,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-09',
     startTime: '09:00',
-    reminderMinutes: 15,
     completed: false,
     order: 0,
     priority: 'medium',

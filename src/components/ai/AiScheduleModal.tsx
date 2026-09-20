@@ -39,7 +39,6 @@ function toEditableTask(draft: AiDraftTask, order: number): Task {
     description: draft.description ?? '',
     date: draft.date,
     startTime: draft.startTime || '09:00',
-    reminderMinutes: draft.reminderMinutes,
     completed: false,
     order,
     priority: draft.priority,
@@ -94,7 +93,6 @@ export function AiScheduleModal({
       description: values.description,
       date: values.date,
       startTime: values.startTime,
-      reminderMinutes: values.reminderMinutes,
       priority: values.priority,
       color: values.color,
     });

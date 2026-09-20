@@ -21,7 +21,7 @@ import { usePreferences } from '../preferences/PreferencesContext';
 import { CARD_COLOR_PRESETS, type ThemeColors } from '../theme/colors';
 import { scaleFontSize } from '../theme/typography';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { ReminderMinutes, Task, TaskPriority } from '../types';
+import type { Task, TaskPriority } from '../types';
 import {
   addDays,
   formatCompactDate,
@@ -45,7 +45,6 @@ export interface TaskFormValues {
   description: string;
   date: string;
   startTime: string;
-  reminderMinutes: ReminderMinutes;
   color?: string;
   priority: TaskPriority;
   batchDates?: string[];
@@ -281,7 +280,6 @@ export function TaskFormModal({
         description: description.trim(),
         date,
         startTime,
-        reminderMinutes: 0,
         color,
         priority,
         batchDates: !task && batchEnabled ? batchDates : undefined,

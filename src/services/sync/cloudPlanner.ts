@@ -19,7 +19,6 @@ interface TaskRow {
   id: string;
   order_index: number | null;
   priority: string | null;
-  reminder_minutes: number | null;
   start_time: string | null;
   title: string | null;
   updated_at: string;
@@ -31,7 +30,6 @@ const TASK_COLUMNS = [
   'description',
   'date',
   'start_time',
-  'reminder_minutes',
   'color',
   'batch_id',
   'completed',
@@ -84,7 +82,6 @@ function taskFromRow(row: TaskRow): RemoteRecord<SyncedTask> {
             id: row.id,
             order: row.order_index!,
             priority: isTaskPriority(row.priority) ? row.priority : undefined,
-            reminderMinutes: row.reminder_minutes,
             startTime: row.start_time!,
             title: row.title!,
             updatedAt: normalizeTimestamp(row.updated_at),
@@ -122,7 +119,6 @@ function taskMutationRow(mutation: SyncMutation, userId: string) {
       id: mutation.id,
       order_index: null,
       priority: null,
-      reminder_minutes: null,
       start_time: null,
       title: null,
       updated_at: mutation.changedAt,
@@ -141,7 +137,6 @@ function taskMutationRow(mutation: SyncMutation, userId: string) {
     id: mutation.record.id,
     order_index: mutation.record.order,
     priority: mutation.record.priority ?? null,
-    reminder_minutes: mutation.record.reminderMinutes,
     start_time: mutation.record.startTime,
     title: mutation.record.title,
     updated_at: mutation.changedAt,

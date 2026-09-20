@@ -12,7 +12,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    reminderMinutes: null,
     completed: false,
     order: 0,
     createdAt: '2026-09-08T00:00:00.000Z',
@@ -30,7 +29,6 @@ function makeUnscheduledDraft(
     title,
     date: '2026-09-08',
     startTime: '',
-    reminderMinutes: 15,
     priority,
     source: 'direct_request',
   };

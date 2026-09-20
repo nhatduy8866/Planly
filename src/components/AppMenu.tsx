@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -14,6 +15,7 @@ interface AppMenuProps {
 }
 
 export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
+  const { mode, setMode } = useCalendarNavigation();
   const {
     colorfulAccents,
     colors,
@@ -39,6 +41,33 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
     <>
       {visible ? (
         <View style={styles.dropdown}>
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons
+                name={mode === 'month' ? 'calendar-month' : 'view-week'}
+                size={20}
+                color={colors.primaryDark}
+              />
+            </View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('menu.calendarView')}</Text>
+              <Text style={styles.preferenceValue}>
+                {t(mode === 'month' ? 'calendar.month' : 'calendar.week')}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('menu.calendarView')}
+              accessibilityRole="switch"
+              onValueChange={(monthViewEnabled) => {
+                setMode(monthViewEnabled ? 'month' : 'week');
+                void Haptics.selectionAsync();
+              }}
+              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              value={mode === 'month'}
+            />
+          </View>
+
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceIcon}>
               <MaterialIcons

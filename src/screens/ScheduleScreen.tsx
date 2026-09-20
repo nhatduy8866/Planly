@@ -154,7 +154,7 @@ export function ScheduleScreen() {
   const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
-  const { mode, registerTodayHandler, setMode } = useCalendarNavigation();
+  const { mode, registerTodayHandler } = useCalendarNavigation();
   const { registerTaskHandler } = useTaskNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [cursor, setCursor] = useState(() => new Date());
@@ -405,33 +405,6 @@ export function ScheduleScreen() {
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.calendarModeToggle}>
-          {(['week', 'month'] as const).map((item) => {
-            const active = mode === item;
-            return (
-              <Pressable
-                key={item}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                onPress={() => {
-                  setMode(item);
-                  void Haptics.selectionAsync();
-                }}
-                style={[styles.calendarModeItem, active && styles.calendarModeItemActive]}
-              >
-                <Text
-                  style={[
-                    styles.calendarModeText,
-                    active && styles.calendarModeTextActive,
-                  ]}
-                >
-                  {t(item === 'week' ? 'calendar.week' : 'calendar.month')}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         <View style={styles.calendarCard}>
           <View
             style={[
@@ -655,36 +628,12 @@ export function ScheduleScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16 },
-  calendarModeToggle: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 13,
-    flexDirection: 'row',
-    marginTop: 16,
-    padding: 3,
-  },
-  calendarModeItem: {
-    alignItems: 'center',
-    borderRadius: 10,
-    flex: 1,
-    paddingVertical: 9,
-  },
-  calendarModeItemActive: {
-    backgroundColor: colors.surface,
-  },
-  calendarModeText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  calendarModeTextActive: {
-    color: colors.primaryDark,
-  },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
-    marginTop: 10,
+    marginTop: 16,
     padding: 12,
   },
   calendarHeader: {

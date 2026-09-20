@@ -7,7 +7,9 @@ import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { OnboardingModal } from './OnboardingModal';
 import { SettingsModal } from './SettingsModal';
+import { UserGuideModal } from './UserGuideModal';
 
 interface AppMenuProps {
   onRequestClose: () => void;
@@ -29,7 +31,15 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
     toggleTheme,
   } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+
+  function openGuide() {
+    onRequestClose();
+    setGuideVisible(true);
+    void Haptics.selectionAsync();
+  }
 
   function openSettings() {
     onRequestClose();
@@ -167,6 +177,23 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
           <View style={styles.divider} />
 
           <Pressable
+            accessibilityLabel={t('menu.openGuide')}
+            accessibilityRole="button"
+            onPress={openGuide}
+            style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
+          >
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons
+                name="help-outline"
+                size={20}
+                color={colors.primaryDark}
+              />
+            </View>
+            <Text style={styles.settingsText}>{t('guide.title')}</Text>
+            <MaterialIcons name="chevron-right" size={22} color={colors.textMuted} />
+          </Pressable>
+
+          <Pressable
             accessibilityLabel={t('menu.openSettings')}
             accessibilityRole="button"
             onPress={openSettings}
@@ -187,6 +214,20 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
           onClose={() => setSettingsVisible(false)}
         />
       ) : null}
+
+      <UserGuideModal
+        visible={guideVisible}
+        onClose={() => setGuideVisible(false)}
+        onReplayOnboarding={() => {
+          setGuideVisible(false);
+          setOnboardingVisible(true);
+        }}
+      />
+
+      <OnboardingModal
+        visible={onboardingVisible}
+        onFinish={() => setOnboardingVisible(false)}
+      />
     </>
   );
 }

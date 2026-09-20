@@ -37,6 +37,7 @@ interface StoredPreferences {
   alarmSound: AlarmFilePreference | null;
   alarmSoundPreset: AlarmSoundPresetId;
   alarmVibrationEnabled: boolean;
+  hasSeenOnboarding: boolean;
   theme: ThemeMode;
   language: Language;
   colorfulAccents: boolean;
@@ -48,6 +49,7 @@ interface PreferencesContextValue extends StoredPreferences {
   colors: ThemeColors;
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
+  setHasSeenOnboarding: (seen: boolean) => void;
   setColorfulAccents: (enabled: boolean) => void;
   setAlarmBackground: (background: AlarmFilePreference | null) => void;
   setAlarmBackgroundPreset: (preset: AlarmBackgroundPresetId) => void;
@@ -125,6 +127,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('vi');
   const [colorfulAccents, setColorfulAccents] = useState(true);
   const [showTaskBadges, setShowTaskBadges] = useState(true);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
   const [reminderDeliveryMode, setReminderDeliveryMode] =
     useState<ReminderDeliveryMode>('notification');
   const [hydrated, setHydrated] = useState(false);
@@ -160,6 +163,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (typeof parsed.showTaskBadges === 'boolean') {
           setShowTaskBadges(parsed.showTaskBadges);
         }
+        if (typeof parsed.hasSeenOnboarding === 'boolean') {
+          setHasSeenOnboarding(parsed.hasSeenOnboarding);
+        }
         if (isReminderDeliveryMode(parsed.reminderDeliveryMode)) {
           setReminderDeliveryMode(parsed.reminderDeliveryMode);
         }
@@ -187,6 +193,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         alarmSoundPreset,
         alarmVibrationEnabled,
         colorfulAccents,
+        hasSeenOnboarding,
         language,
         reminderDeliveryMode,
         showTaskBadges,
@@ -200,6 +207,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     alarmSoundPreset,
     alarmVibrationEnabled,
     colorfulAccents,
+    hasSeenOnboarding,
     hydrated,
     language,
     reminderDeliveryMode,
@@ -221,6 +229,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       alarmVibrationEnabled,
       colorfulAccents,
       colors: themes[theme],
+      hasSeenOnboarding,
       hydrated,
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
@@ -231,6 +240,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setAlarmSound,
       setAlarmSoundPreset,
       setAlarmVibrationEnabled,
+      setHasSeenOnboarding,
       setLanguage,
       setReminderDeliveryMode,
       setShowTaskBadges,
@@ -248,6 +258,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       alarmSoundPreset,
       alarmVibrationEnabled,
       colorfulAccents,
+      hasSeenOnboarding,
       hydrated,
       language,
       reminderDeliveryMode,

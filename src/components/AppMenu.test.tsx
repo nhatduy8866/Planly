@@ -177,6 +177,36 @@ describe('AppMenu settings', () => {
     jest.clearAllMocks();
   });
 
+  it('opens the user guide and can replay onboarding', () => {
+    const onRequestClose = jest.fn();
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={onRequestClose} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openGuide' })
+        .props.onPress();
+    });
+
+    expect(onRequestClose).toHaveBeenCalled();
+    expect(
+      tree?.root.findByProps({ accessibilityLabel: 'guide.replayOnboarding' }),
+    ).toBeDefined();
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'guide.replayOnboarding' })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findByProps({ accessibilityLabel: 'onboarding.skip' }),
+    ).toBeDefined();
+  });
+
   it('shows alarm customization without duplicating hamburger preferences', () => {
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({
       remove: jest.fn(),

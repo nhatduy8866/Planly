@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../auth/AuthContext';
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
+import { OnboardingModal } from '../components/OnboardingModal';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
@@ -42,9 +43,11 @@ function AppShell() {
     alarmSoundPreset,
     alarmVibrationEnabled,
     colors,
+    hasSeenOnboarding,
     hydrated: preferencesHydrated,
     language,
     reminderDeliveryMode,
+    setHasSeenOnboarding,
     theme,
   } = usePreferences();
   const { requestTask } = useTaskNavigation();
@@ -95,6 +98,10 @@ function AppShell() {
           <Slot />
         </View>
       </View>
+      <OnboardingModal
+        visible={!hasSeenOnboarding}
+        onFinish={() => setHasSeenOnboarding(true)}
+      />
       <AlarmRingingModal
         backgroundSource={getAlarmBackgroundSource(
           alarmBackgroundPreset,

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import React from 'react';
-import { Animated, ImageBackground, Text } from 'react-native';
+import { Dimensions, ImageBackground, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 import { AlarmRingingModal, type AlarmModalTaskData } from './AlarmRingingModal';
@@ -11,10 +11,6 @@ const mockAlarmPlayer = {
   play: jest.fn(),
   volume: 1,
 };
-
-jest.mock('@expo/vector-icons', () => ({
-  MaterialIcons: 'MaterialIcons',
-}));
 
 jest.mock('expo-audio', () => ({
   setAudioModeAsync: jest.fn(async () => undefined),
@@ -40,15 +36,8 @@ jest.mock('../preferences/PreferencesContext', () => ({
       textMuted: '#94A3B8',
     },
     locale: 'vi-VN',
-    t: (key: string, params?: Record<string, string | number>) => {
-      if (key === 'alarmModal.badge') return 'BÁO THỨC';
-      if (key === 'alarmModal.dismiss') return 'Tắt báo thức';
-      if (key === 'alarmModal.viewTask') return 'Xem công việc';
-      if (key === 'alarmModal.startTime') return `Bắt đầu lúc ${params?.time}`;
-      if (key === 'taskForm.priorityHigh') return 'Cao';
-      if (key === 'taskForm.priorityMedium') return 'Vừa';
-      if (key === 'taskForm.priorityLow') return 'Thấp';
-      if (key === 'taskForm.priorityNone') return 'Không';
+    t: (key: string) => {
+      if (key === 'alarmModal.confirm') return 'Xác nhận';
       return key;
     },
   }),
@@ -68,11 +57,6 @@ describe('AlarmRingingModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(Animated, 'loop').mockReturnValue({
-      reset: jest.fn(),
-      start: jest.fn(),
-      stop: jest.fn(),
-    } as any);
   });
 
   afterEach(() => {
@@ -88,7 +72,6 @@ describe('AlarmRingingModal', () => {
           visible={false}
           task={mockTaskData}
           onDismiss={jest.fn()}
-          onViewTask={jest.fn()}
         />,
       );
     });
@@ -96,14 +79,13 @@ describe('AlarmRingingModal', () => {
     expect(tree?.toJSON()).toBeNull();
   });
 
-  it('renders task details including title, description, time and priority badge when visible', () => {
+  it('renders task details without start time or priority labels when visible', () => {
     act(() => {
       tree = renderer.create(
         <AlarmRingingModal
           visible={true}
           task={mockTaskData}
           onDismiss={jest.fn()}
-          onViewTask={jest.fn()}
         />,
       );
     });
@@ -116,10 +98,12 @@ describe('AlarmRingingModal', () => {
 
     expect(textContents).toContain('Chạy bộ buổi sáng');
     expect(textContents).toContain('Chạy 5km công viên');
-    expect(textContents).toContain('Bắt đầu lúc 06:00');
-    expect(textContents).toContain('Cao');
-    expect(textContents).toContain('Tắt báo thức');
-    expect(textContents).toContain('Xem công việc');
+    expect(textContents).toContain('06:00');
+    expect(textContents).toContain('Xác nhận');
+    expect(textContents).not.toContain('Bắt đầu lúc 06:00');
+    expect(textContents).not.toContain('Cao');
+    expect(textContents).not.toContain('BÁO THỨC');
+    expect(textContents).not.toContain('Xem công việc');
   });
 
   it('renders the selected custom background behind the alarm content', () => {
@@ -132,7 +116,6 @@ describe('AlarmRingingModal', () => {
           visible={true}
           task={mockTaskData}
           onDismiss={jest.fn()}
-          onViewTask={jest.fn()}
         />,
       );
     });
@@ -150,7 +133,6 @@ describe('AlarmRingingModal', () => {
           visible={true}
           task={mockTaskData}
           onDismiss={jest.fn()}
-          onViewTask={jest.fn()}
         />,
       );
       await Promise.resolve();
@@ -160,9 +142,8 @@ describe('AlarmRingingModal', () => {
     expect(mockAlarmPlayer.play).toHaveBeenCalled();
   });
 
-  it('triggers onDismiss when Stop button is pressed', () => {
+  it('triggers onDismiss when the confirmation button is pressed', () => {
     const onDismiss = jest.fn();
-    const onViewTask = jest.fn();
 
     act(() => {
       tree = renderer.create(
@@ -170,13 +151,12 @@ describe('AlarmRingingModal', () => {
           visible={true}
           task={mockTaskData}
           onDismiss={onDismiss}
-          onViewTask={onViewTask}
         />,
       );
     });
 
     const dismissBtn = tree?.root.findByProps({
-      accessibilityLabel: 'Tắt báo thức',
+      accessibilityLabel: 'Xác nhận',
     });
     expect(dismissBtn).toBeDefined();
 
@@ -185,34 +165,32 @@ describe('AlarmRingingModal', () => {
     });
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
-    expect(onViewTask).not.toHaveBeenCalled();
   });
 
-  it('triggers onViewTask when View Task button is pressed', () => {
-    const onDismiss = jest.fn();
-    const onViewTask = jest.fn();
-
+  it('uses the task priority color and enlarged confirmation size', () => {
     act(() => {
       tree = renderer.create(
         <AlarmRingingModal
           visible={true}
           task={mockTaskData}
-          onDismiss={onDismiss}
-          onViewTask={onViewTask}
+          onDismiss={jest.fn()}
         />,
       );
     });
 
-    const viewTaskBtn = tree?.root.findByProps({
-      accessibilityLabel: 'Xem công việc',
+    const confirmButton = tree?.root.findByProps({
+      accessibilityLabel: 'Xác nhận',
     });
-    expect(viewTaskBtn).toBeDefined();
+    const expectedSize = Math.min(Dimensions.get('window').width / 2, 216);
 
-    act(() => {
-      viewTaskBtn?.props.onPress();
-    });
-
-    expect(onViewTask).toHaveBeenCalledTimes(1);
-    expect(onDismiss).not.toHaveBeenCalled();
+    expect(confirmButton?.props.style({ pressed: false })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: '#EF4444',
+          height: expectedSize,
+          width: expectedSize,
+        }),
+      ]),
+    );
   });
 });

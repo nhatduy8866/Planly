@@ -221,5 +221,28 @@ export function useTaskActions() {
     [alarmPreferences, dispatch, language, reminderDeliveryMode],
   );
 
-  return { deleteAllTasks, deleteTask, duplicateTask, saveTask, toggleTask };
+  const completeTask = useCallback(
+    async (source: Task) => {
+      if (source.completed) return;
+
+      const task: Task = {
+        ...source,
+        completed: true,
+        notificationId: undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await cancelTaskReminder(source.notificationId);
+      dispatch({ type: 'upsert_task', payload: task });
+    },
+    [dispatch],
+  );
+
+  return {
+    completeTask,
+    deleteAllTasks,
+    deleteTask,
+    duplicateTask,
+    saveTask,
+    toggleTask,
+  };
 }

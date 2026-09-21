@@ -23,9 +23,16 @@ import {
 const CHANNEL_ID = 'planly-reminders-v2';
 const CHANNEL_COLOR = '#4F46E5';
 export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
-const TASK_REMINDER_SCHEMA_VERSION = 3;
+export const TASK_COMPLETE_ACTION_IDENTIFIER = 'planly_complete_task';
+export const ALARM_PREALERT_REMINDER_ROLE = 'alarmPrealert';
+const TASK_REMINDER_CATEGORY_IDENTIFIER = 'planly_task_reminder';
+const TASK_REMINDER_SCHEMA_VERSION = 4;
+const ALARM_PREALERT_MINUTES = 15;
+const ALARM_PREALERT_ID_PREFIX = 'alarm-prealert:';
 let configuredAndroidChannelLanguage: Language | undefined;
 let androidChannelSetupPromise: Promise<void> | undefined;
+let configuredNotificationCategoryLanguage: Language | undefined;
+let notificationCategorySetupPromise: Promise<void> | undefined;
 let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
 
 export type NotificationPermissionState =
@@ -141,6 +148,50 @@ async function ensureAndroidChannel(language: Language): Promise<void> {
   await setupPromise;
 }
 
+export function getAlarmPrealertDate(task: Task): Date | undefined {
+  const alarmDate = getTaskReminderDate(task);
+  return alarmDate
+    ? new Date(alarmDate.getTime() - ALARM_PREALERT_MINUTES * 60 * 1_000)
+    : undefined;
+}
+
+async function ensureTaskReminderCategory(language: Language): Promise<void> {
+  if (configuredNotificationCategoryLanguage === language) return;
+
+  if (notificationCategorySetupPromise) {
+    await notificationCategorySetupPromise;
+    if (configuredNotificationCategoryLanguage === language) return;
+  }
+
+  const setupPromise = Notifications.setNotificationCategoryAsync(
+    TASK_REMINDER_CATEGORY_IDENTIFIER,
+    [
+      {
+        identifier: TASK_COMPLETE_ACTION_IDENTIFIER,
+        buttonTitle: language === 'vi' ? 'Hoàn thành' : 'Complete',
+        options: { opensAppToForeground: true },
+      },
+    ],
+  )
+    .then(() => {
+      configuredNotificationCategoryLanguage = language;
+    })
+    .finally(() => {
+      if (notificationCategorySetupPromise === setupPromise) {
+        notificationCategorySetupPromise = undefined;
+      }
+    });
+  notificationCategorySetupPromise = setupPromise;
+  await setupPromise;
+}
+
+async function ensureNotificationSetup(language: Language): Promise<void> {
+  await Promise.all([
+    ensureAndroidChannel(language),
+    ensureTaskReminderCategory(language),
+  ]);
+}
+
 async function readOrRequestPermission(): Promise<
   NotificationPermissionSummary
 > {
@@ -167,7 +218,7 @@ export async function initializeNotifications(
   if (Platform.OS === 'web') return unsupportedPermission();
 
   // Android 13 only shows the notification permission prompt after a channel exists.
-  await ensureAndroidChannel(language);
+  await ensureNotificationSetup(language);
   return summarizePermission(await Notifications.getPermissionsAsync());
 }
 
@@ -175,7 +226,7 @@ export async function getNotificationPermission(
   language: Language = 'vi',
 ): Promise<NotificationPermissionSummary> {
   if (Platform.OS === 'web') return unsupportedPermission();
-  await ensureAndroidChannel(language);
+  await ensureNotificationSetup(language);
   return summarizePermission(await Notifications.getPermissionsAsync());
 }
 
@@ -184,7 +235,7 @@ export async function requestNotificationPermission(
 ): Promise<NotificationPermissionSummary> {
   if (Platform.OS === 'web') return unsupportedPermission();
 
-  await ensureAndroidChannel(language);
+  await ensureNotificationSetup(language);
   if (permissionRequestPromise) return permissionRequestPromise;
 
   const requestPromise = readOrRequestPermission().finally(() => {
@@ -219,6 +270,7 @@ export async function getTaskReminderReadiness(
     alarmPermission.canScheduleExactAlarms &&
     (Platform.OS !== 'android' ||
       (alarmPermission.canPostNotifications &&
+        alarmPermission.canUseFullScreenIntent &&
         notificationPermission.state === 'granted'));
 
   return {
@@ -236,16 +288,22 @@ export async function getAllScheduledTaskReminders(): Promise<
     Notifications.getAllScheduledNotificationsAsync(),
     getScheduledTaskAlarms(),
   ]);
-  const notifications = notificationRequests.map((request) => {
-    const data = request.content.data;
-    return {
-      identifier: request.identifier,
-      reminderKey:
-        typeof data?.reminderKey === 'string' ? data.reminderKey : undefined,
-      source: typeof data?.source === 'string' ? data.source : undefined,
-      taskId: typeof data?.taskId === 'string' ? data.taskId : undefined,
-    };
-  });
+  const notifications: ScheduledTaskReminder[] = notificationRequests.map(
+    (request) => {
+      const data = request.content.data;
+      return {
+        identifier: request.identifier,
+        reminderRole:
+          data?.reminderRole === ALARM_PREALERT_REMINDER_ROLE
+            ? ALARM_PREALERT_REMINDER_ROLE
+            : 'primary',
+        reminderKey:
+          typeof data?.reminderKey === 'string' ? data.reminderKey : undefined,
+        source: typeof data?.source === 'string' ? data.source : undefined,
+        taskId: typeof data?.taskId === 'string' ? data.taskId : undefined,
+      };
+    },
+  );
   return [...notifications, ...alarms];
 }
 
@@ -253,13 +311,23 @@ export async function cancelTaskReminder(reminderId?: string): Promise<void> {
   if (Platform.OS === 'web' || !reminderId) return;
   try {
     if (isAlarmReminderId(reminderId)) {
-      await cancelTaskAlarm(reminderId);
+      await Promise.all([
+        cancelTaskAlarm(reminderId),
+        Notifications.cancelScheduledNotificationAsync(
+          getAlarmPrealertNotificationId(reminderId),
+        ),
+      ]);
     } else {
       await Notifications.cancelScheduledNotificationAsync(reminderId);
     }
   } catch {
     // Reminder may already have fired or been removed by the OS.
   }
+}
+
+export function getAlarmPrealertNotificationId(alarmReminderId: string): string {
+  const nativeId = alarmReminderId.replace(/^alarm:/, '');
+  return `${ALARM_PREALERT_ID_PREFIX}${nativeId}`;
 }
 
 async function scheduleTaskNotification(
@@ -279,7 +347,9 @@ async function scheduleTaskNotification(
       content: {
         title: language === 'vi' ? 'Đến giờ rồi' : 'It’s time',
         body: `${task.startTime} · ${task.title}`,
+        categoryIdentifier: TASK_REMINDER_CATEGORY_IDENTIFIER,
         data: {
+          reminderRole: 'primary',
           reminderKey: getTaskReminderKey(task, language, 'notification'),
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
@@ -299,6 +369,52 @@ async function scheduleTaskNotification(
   }
 }
 
+async function scheduleAlarmPrealertNotification(
+  task: Task,
+  language: Language,
+  alarmReminderId: string,
+  reminderKey: string,
+): Promise<string | undefined> {
+  if (Platform.OS === 'web') return undefined;
+
+  const alarmDate = getTaskReminderDate(task);
+  const prealertDate = getAlarmPrealertDate(task);
+  const now = Date.now();
+  if (!alarmDate || !prealertDate || alarmDate.getTime() <= now) {
+    return undefined;
+  }
+  const triggerDate =
+    prealertDate.getTime() > now ? prealertDate : new Date(now + 1_000);
+
+  const identifier = getAlarmPrealertNotificationId(alarmReminderId);
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title: language === 'vi' ? 'Sắp đến giờ' : 'Coming up',
+      body:
+        language === 'vi'
+          ? `Còn 15 phút · ${task.startTime} · ${task.title}`
+          : `In 15 minutes · ${task.startTime} · ${task.title}`,
+      categoryIdentifier: TASK_REMINDER_CATEGORY_IDENTIFIER,
+      data: {
+        reminderRole: ALARM_PREALERT_REMINDER_ROLE,
+        reminderKey,
+        source: TASK_REMINDER_SOURCE,
+        taskId: task.id,
+      },
+      ...(Platform.OS === 'ios' && !isExpoGoRuntime()
+        ? { sound: 'default' as const }
+        : {}),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerDate,
+      channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
+    },
+  });
+  return identifier;
+}
+
 export async function scheduleTaskReminder(
   task: Task,
   language: Language = 'vi',
@@ -309,21 +425,40 @@ export async function scheduleTaskReminder(
     const readiness = await getTaskReminderReadiness(preferredMode, language);
     if (readiness.deliveryMode === 'alarm' && readiness.canSchedule) {
       try {
-        return await scheduleTaskAlarm(
+        const reminderKey = getTaskReminderKey(
+          task,
+          language,
+          'alarm',
+          alarmPreferences,
+        );
+        const alarmReminderId = await scheduleTaskAlarm(
           task,
           language,
           {
-            reminderKey: getTaskReminderKey(
-              task,
-              language,
-              'alarm',
-              alarmPreferences,
-            ),
+            reminderKey,
             source: TASK_REMINDER_SOURCE,
             taskId: task.id,
           },
           alarmPreferences,
         );
+        if (!alarmReminderId) return undefined;
+
+        try {
+          await scheduleAlarmPrealertNotification(
+            task,
+            language,
+            alarmReminderId,
+            reminderKey,
+          );
+        } catch (error) {
+          if (__DEV__) {
+            console.warn(
+              '[Planly Alarm] Failed to schedule the 15-minute notification:',
+              error,
+            );
+          }
+        }
+        return alarmReminderId;
       } catch (error) {
         if (__DEV__) {
           console.warn('[Planly Alarm] Failed to schedule task alarm:', error);

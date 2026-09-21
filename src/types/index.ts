@@ -54,6 +54,7 @@ export interface PlannerState {
 
 export interface ScheduledTaskReminder {
   identifier: string;
+  reminderRole?: 'primary' | 'alarmPrealert';
   reminderKey?: string;
   source?: string;
   taskId?: string;

@@ -7,11 +7,13 @@ import type {
 } from '../types';
 import {
   cancelTaskReminder,
+  getAlarmPrealertDate,
   getAllScheduledTaskReminders,
   getTaskReminderDate,
   getTaskReminderKey,
   getTaskReminderReadiness,
   scheduleTaskReminder,
+  ALARM_PREALERT_REMINDER_ROLE,
   TASK_REMINDER_SOURCE,
   type TaskReminderReadiness,
 } from './notifications';
@@ -78,6 +80,10 @@ function isCurrentReminder(
   );
 }
 
+function isAlarmPrealert(request: ScheduledTaskReminder): boolean {
+  return request.reminderRole === ALARM_PREALERT_REMINDER_ROLE;
+}
+
 function isEligibleForReminder(task: Task, now: number): boolean {
   const reminderDate = getTaskReminderDate(task);
   return !task.completed && reminderDate !== undefined && reminderDate.getTime() > now;
@@ -135,22 +141,51 @@ export async function reconcileTaskReminders(
       continue;
     }
 
-    const currentRequests = requests.filter((request) =>
-      isCurrentReminder(
-        request,
-        task,
-        language,
-        readiness.deliveryMode,
-        alarmPreferences,
-      ),
+    const currentRequests = requests.filter(
+      (request) =>
+        !isAlarmPrealert(request) &&
+        isCurrentReminder(
+          request,
+          task,
+          language,
+          readiness.deliveryMode,
+          alarmPreferences,
+        ),
     );
-    const keptRequest =
+    const matchingPrimaryRequest =
       currentRequests.find(
         (request) => request.identifier === task.notificationId,
       ) ?? currentRequests[0];
+    const keptPrealert =
+      readiness.deliveryMode === 'alarm' && matchingPrimaryRequest
+        ? requests.find(
+            (request) =>
+              isAlarmPrealert(request) &&
+              isCurrentReminder(
+                request,
+                task,
+                language,
+                readiness.deliveryMode,
+                alarmPreferences,
+              ),
+          )
+        : undefined;
+    const expectedPrealertDate = getAlarmPrealertDate(task);
+    const needsMissingPrealertRepair =
+      readiness.deliveryMode === 'alarm' &&
+      matchingPrimaryRequest !== undefined &&
+      keptPrealert === undefined &&
+      expectedPrealertDate !== undefined &&
+      expectedPrealertDate.getTime() > dependencies.now();
+    const keptRequest = needsMissingPrealertRepair
+      ? undefined
+      : matchingPrimaryRequest;
 
     for (const request of requests) {
-      if (request.identifier !== keptRequest?.identifier) {
+      if (
+        request.identifier !== keptRequest?.identifier &&
+        (!keptRequest || request.identifier !== keptPrealert?.identifier)
+      ) {
         await cancel(request.identifier);
       }
     }

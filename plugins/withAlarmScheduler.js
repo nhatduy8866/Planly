@@ -82,8 +82,10 @@ function withAlarmScheduler(config, props = {}) {
     );
     try {
       const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(manifest);
-      mainActivity.$['android:showWhenLocked'] = 'true';
-      mainActivity.$['android:turnScreenOn'] = 'true';
+      // Keep the regular app behind Android's keyguard. Alarm presentation is
+      // handled by AlarmSchedulerRingActivity, which owns its lock-screen flags.
+      delete mainActivity.$['android:showWhenLocked'];
+      delete mainActivity.$['android:turnScreenOn'];
     } catch {
       // ignore if main activity not resolved
     }

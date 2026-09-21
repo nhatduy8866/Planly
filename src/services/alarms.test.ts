@@ -133,7 +133,7 @@ describe('native task alarms', () => {
         android: expect.objectContaining({
           alertActionMode: 'openAppOnly',
           fullScreen: true,
-          fullScreenTarget: 'app',
+          fullScreenTarget: 'native',
           launchUri: 'planly://alarm?taskId=task-1',
           maxRingDurationSeconds: 300,
           metadata: expectedMetadata,

@@ -30,7 +30,8 @@ jest.mock('../utils/expoRuntime', () => ({
 }));
 
 jest.mock('expo-notifications', () => ({
-  AndroidImportance: { HIGH: 6 },
+  AndroidImportance: { MAX: 7 },
+  AndroidNotificationPriority: { MAX: 'max' },
   AndroidNotificationVisibility: { PUBLIC: 1 },
   IosAuthorizationStatus: { PROVISIONAL: 3 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
@@ -112,7 +113,7 @@ describe('notification foundation', () => {
     });
   });
 
-  it('creates the high-importance Android channel before reading permission', async () => {
+  it('creates the maximum-importance Android channel before reading permission', async () => {
     getPermissionsAsync.mockResolvedValue(permission('undetermined', true));
 
     await expect(initializeNotifications('vi')).resolves.toEqual({
@@ -121,10 +122,10 @@ describe('notification foundation', () => {
     });
 
     expect(setNotificationChannelAsync).toHaveBeenCalledWith(
-      'planly-reminders-v2',
+      'planly-reminders-v3',
       expect.objectContaining({
         enableVibrate: true,
-        importance: 6,
+        importance: 7,
         lockscreenVisibility: 1,
       }),
     );
@@ -190,8 +191,9 @@ describe('notification foundation', () => {
             source: 'planly-task-reminder',
             taskId: 'task-1',
           }),
+          priority: 'max',
         }),
-        trigger: expect.objectContaining({ channelId: 'planly-reminders-v2' }),
+        trigger: expect.objectContaining({ channelId: 'planly-reminders-v3' }),
       }),
     );
     expect(scheduleNotificationAsync.mock.calls[0]?.[0].content).not.toHaveProperty(

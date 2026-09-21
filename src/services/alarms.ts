@@ -174,7 +174,7 @@ export async function scheduleTaskAlarm(
 
   const alarm = await scheduler.scheduleAlarmAsync({
     android: {
-      alertActionMode: 'openAppOnly',
+      alertActionMode: 'default',
       alertBody,
       fullScreen: true,
       fullScreenTarget: 'native',

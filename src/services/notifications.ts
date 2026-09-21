@@ -20,10 +20,10 @@ import {
 
 // Version the channel when changing sound/importance because Android keeps those
 // settings immutable after a channel is created on an installed device.
-const CHANNEL_ID = 'planly-reminders-v2';
+const CHANNEL_ID = 'planly-reminders-v3';
 const CHANNEL_COLOR = '#4F46E5';
 export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
-const TASK_REMINDER_SCHEMA_VERSION = 3;
+const TASK_REMINDER_SCHEMA_VERSION = 4;
 let configuredAndroidChannelLanguage: Language | undefined;
 let androidChannelSetupPromise: Promise<void> | undefined;
 let permissionRequestPromise: Promise<NotificationPermissionSummary> | undefined;
@@ -81,6 +81,7 @@ if (Platform.OS !== 'web') {
       shouldSetBadge: false,
       shouldShowBanner: true,
       shouldShowList: true,
+      priority: Notifications.AndroidNotificationPriority.MAX,
     }),
   });
 }
@@ -123,7 +124,7 @@ async function ensureAndroidChannel(language: Language): Promise<void> {
     enableLights: true,
     enableVibrate: true,
     name: language === 'vi' ? 'Nhắc lịch Planly' : 'Planly reminders',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.MAX,
     lightColor: CHANNEL_COLOR,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     showBadge: false,
@@ -284,6 +285,9 @@ async function scheduleTaskNotification(
           source: TASK_REMINDER_SOURCE,
           taskId: task.id,
         },
+        ...(Platform.OS === 'android'
+          ? { priority: Notifications.AndroidNotificationPriority.MAX }
+          : {}),
         ...(Platform.OS === 'ios' && !isExpoGoRuntime()
           ? { sound: 'default' as const }
           : {}),

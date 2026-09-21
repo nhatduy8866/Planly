@@ -59,7 +59,7 @@ function AppShell() {
     alarmVibrationEnabled,
   );
 
-  const { activeAlarm, dismissAlarm, viewTask } = useAlarmTaskNavigation(
+  const { activeAlarm, dismissAlarm } = useAlarmTaskNavigation(
     requestTask,
     appReady,
     tasks,
@@ -115,7 +115,6 @@ function AppShell() {
         visible={Boolean(activeAlarm)}
         task={activeAlarm?.task}
         onDismiss={dismissAlarm}
-        onViewTask={viewTask}
       />
     </>
   );

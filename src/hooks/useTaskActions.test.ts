@@ -269,6 +269,22 @@ describe('useTaskActions batch editing', () => {
     expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
   });
 
+  it('marks a task complete and cancels its alarm reminder', async () => {
+    await act(async () => {
+      await hook.completeTask(mockPlannerState.tasks[0]);
+    });
+
+    expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'upsert_task',
+      payload: expect.objectContaining({
+        id: 'task-1',
+        completed: true,
+        notificationId: undefined,
+      }),
+    });
+  });
+
   it('blocks creating a task at an occupied time before scheduling a reminder', async () => {
     await act(async () => {
       await expect(hook.saveTask(formValues())).rejects.toBeInstanceOf(

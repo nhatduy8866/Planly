@@ -199,6 +199,18 @@ describe('native task alarms', () => {
     });
   });
 
+  it('does not schedule an Android alarm without full-screen intent access', async () => {
+    scheduler.getPermissionsAsync.mockResolvedValue({
+      ...permission(),
+      canUseFullScreenIntent: false,
+    });
+
+    await expect(
+      scheduleTaskAlarm(futureTask(), 'vi', { taskId: 'task-1' }),
+    ).resolves.toBeUndefined();
+    expect(scheduler.scheduleAlarmAsync).not.toHaveBeenCalled();
+  });
+
   it('maps scheduled metadata and cancels the prefixed native alarm ID', async () => {
     scheduler.getScheduledAlarmsAsync.mockResolvedValue([
       {

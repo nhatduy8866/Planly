@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { StatusBar } from 'expo-status-bar';
 import {
   ImageBackground,
   type ImageSourcePropType,
@@ -17,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { TaskPriority } from '../types';
+import type { AlarmBackgroundAppearance, TaskPriority } from '../types';
 
 export interface AlarmModalTaskData {
   id: string;
@@ -29,6 +30,8 @@ export interface AlarmModalTaskData {
 }
 
 interface AlarmRingingModalProps {
+  backgroundAppearance?: AlarmBackgroundAppearance;
+  backgroundColor?: string;
   backgroundSource?: ImageSourcePropType;
   soundSource?: number | string;
   vibrate?: boolean;
@@ -56,6 +59,8 @@ function formatCurrentDate(locale: string): string {
 }
 
 export const AlarmRingingModal = memo(function AlarmRingingModal({
+  backgroundAppearance = 'dark',
+  backgroundColor,
   backgroundSource,
   soundSource,
   vibrate = true,
@@ -129,6 +134,8 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
   const cardAccent = task?.color || colors.primary;
   const confirmButtonSize = Math.min(windowWidth / 2, 216);
   const priority = task?.priority ?? 'none';
+  const isLightBackground = backgroundAppearance === 'light';
+  const primaryContentColor = isLightBackground ? '#172033' : '#FFFFFF';
 
   const priorityColors: Record<TaskPriority, string> = {
     high: colors.priorityHigh || '#EF4444',
@@ -146,25 +153,42 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
       transparent={false}
       visible={visible}
     >
+      <StatusBar style={isLightBackground ? 'dark' : 'light'} />
       <ImageBackground
         resizeMode="cover"
         source={backgroundSource}
-        style={styles.container}
+        style={[
+          styles.container,
+          backgroundColor ? { backgroundColor } : undefined,
+        ]}
       >
         <View
           style={[
             styles.contentContainer,
-            backgroundSource ? styles.backgroundOverlay : undefined,
-          {
-            paddingBottom: Math.max(insets.bottom, 24),
-            paddingTop: Math.max(insets.top, 32),
-          },
+            backgroundSource
+              ? isLightBackground
+                ? styles.lightBackgroundOverlay
+                : styles.darkBackgroundOverlay
+              : undefined,
+            {
+              paddingBottom: Math.max(insets.bottom, 24),
+              paddingTop: Math.max(insets.top, 32),
+            },
           ]}
         >
         {/* Đồng hồ lớn */}
         <View style={styles.clockSection}>
-          <Text style={styles.clockText}>{alarmTime}</Text>
-          <Text style={styles.dateText}>{currentDate}</Text>
+          <Text style={[styles.clockText, { color: primaryContentColor }]}>
+            {alarmTime}
+          </Text>
+          <Text
+            style={[
+              styles.dateText,
+              isLightBackground && styles.lightDateText,
+            ]}
+          >
+            {currentDate}
+          </Text>
         </View>
 
         {/* Thẻ Task Card chi tiết */}
@@ -172,6 +196,7 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
           <View
             style={[
               styles.taskCard,
+              isLightBackground && styles.lightTaskCard,
               {
                 borderColor: cardAccent,
                 borderLeftColor: cardAccent,
@@ -186,14 +211,29 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
               contentContainerStyle={styles.cardScrollContent}
             >
               {/* Tiêu đề Task */}
-              <Text style={styles.taskTitle}>
+              <Text
+                style={[
+                  styles.taskTitle,
+                  isLightBackground && styles.lightTaskTitle,
+                ]}
+              >
                 {task?.title || t('settings.reminderTypeAlarm')}
               </Text>
 
               {/* Mô tả Task */}
               {task?.description ? (
-                <View style={styles.descriptionBox}>
-                  <Text style={styles.descriptionText}>
+                <View
+                  style={[
+                    styles.descriptionBox,
+                    isLightBackground && styles.lightDescriptionBox,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.descriptionText,
+                      isLightBackground && styles.lightDescriptionText,
+                    ]}
+                  >
                     {task.description}
                   </Text>
                 </View>
@@ -241,8 +281,11 @@ const createStyles = () =>
       justifyContent: 'space-evenly',
       paddingHorizontal: 24,
     },
-    backgroundOverlay: {
+    darkBackgroundOverlay: {
       backgroundColor: 'rgba(9, 13, 22, 0.68)',
+    },
+    lightBackgroundOverlay: {
+      backgroundColor: 'rgba(255, 252, 247, 0.38)',
     },
     clockSection: {
       alignItems: 'center',
@@ -260,6 +303,9 @@ const createStyles = () =>
       marginTop: 4,
       textTransform: 'capitalize',
     },
+    lightDateText: {
+      color: 'rgba(23, 32, 51, 0.72)',
+    },
     cardContainer: {
       alignItems: 'center',
       flexShrink: 1,
@@ -275,6 +321,9 @@ const createStyles = () =>
       overflow: 'hidden',
       position: 'relative',
       width: '100%',
+    },
+    lightTaskCard: {
+      backgroundColor: 'rgba(255, 255, 255, 0.68)',
     },
     cardAccentBar: {
       height: 4,
@@ -297,15 +346,24 @@ const createStyles = () =>
       marginBottom: 12,
       textAlign: 'center',
     },
+    lightTaskTitle: {
+      color: '#172033',
+    },
     descriptionBox: {
       backgroundColor: 'rgba(0, 0, 0, 0.28)',
       borderRadius: 14,
       padding: 14,
     },
+    lightDescriptionBox: {
+      backgroundColor: 'rgba(23, 32, 51, 0.07)',
+    },
     descriptionText: {
       color: 'rgba(255, 255, 255, 0.85)',
       fontSize: 14,
       lineHeight: 22,
+    },
+    lightDescriptionText: {
+      color: 'rgba(23, 32, 51, 0.82)',
     },
     actionsSection: {
       alignItems: 'center',

@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 import type {
+  AlarmBackgroundAppearance,
   AlarmBackgroundPresetId,
   AlarmFilePreference,
   AlarmSchedulePreferences,
@@ -45,29 +46,53 @@ export const ALARM_SOUND_PRESETS = [
 
 export const ALARM_BACKGROUND_PRESETS = [
   {
+    appearance: 'dark',
+    color: undefined,
     id: 'dawn',
     labelKey: 'settings.alarmBackgroundDawn',
     source: require('../../assets/alarm/backgrounds/dawn.png'),
   },
   {
+    appearance: 'dark',
+    color: undefined,
     id: 'aurora',
     labelKey: 'settings.alarmBackgroundAurora',
     source: require('../../assets/alarm/backgrounds/aurora.png'),
   },
   {
+    appearance: 'dark',
+    color: undefined,
     id: 'forest',
     labelKey: 'settings.alarmBackgroundForest',
     source: require('../../assets/alarm/backgrounds/forest.png'),
   },
   {
+    appearance: 'dark',
+    color: undefined,
     id: 'ocean',
     labelKey: 'settings.alarmBackgroundOcean',
     source: require('../../assets/alarm/backgrounds/ocean.png'),
   },
   {
+    appearance: 'dark',
+    color: undefined,
     id: 'cosmos',
     labelKey: 'settings.alarmBackgroundCosmos',
     source: require('../../assets/alarm/backgrounds/cosmos.png'),
+  },
+  {
+    appearance: 'dark',
+    color: '#182136',
+    id: 'gentleDark',
+    labelKey: 'settings.alarmBackgroundGentleDark',
+    source: undefined,
+  },
+  {
+    appearance: 'light',
+    color: '#F3EDE4',
+    id: 'gentleLight',
+    labelKey: 'settings.alarmBackgroundGentleLight',
+    source: undefined,
   },
 ] as const;
 
@@ -95,10 +120,28 @@ export function getAlarmSoundSource(
 export function getAlarmBackgroundSource(
   presetId: AlarmBackgroundPresetId,
   customBackground: AlarmFilePreference | null,
-): ImageSourcePropType {
+): ImageSourcePropType | undefined {
   return customBackground
     ? { uri: customBackground.uri }
     : getAlarmBackgroundPreset(presetId).source;
+}
+
+export function getAlarmBackgroundColor(
+  presetId: AlarmBackgroundPresetId,
+  customBackground: AlarmFilePreference | null,
+): string | undefined {
+  return customBackground
+    ? undefined
+    : getAlarmBackgroundPreset(presetId).color;
+}
+
+export function getAlarmBackgroundAppearance(
+  presetId: AlarmBackgroundPresetId,
+  customBackground: AlarmFilePreference | null,
+): AlarmBackgroundAppearance {
+  return customBackground
+    ? 'dark'
+    : getAlarmBackgroundPreset(presetId).appearance;
 }
 
 export function getAlarmSchedulePreferences(

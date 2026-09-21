@@ -9,7 +9,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
   Image,
-  ImageBackground,
   type ImageSourcePropType,
   Modal,
   Platform,
@@ -71,7 +70,11 @@ interface PickerOption {
   label: string;
   onPress: () => void;
   preview?:
-    | { kind: 'background'; source: ImageSourcePropType }
+    | {
+        color?: string;
+        kind: 'background';
+        source?: ImageSourcePropType;
+      }
     | { key: string; kind: 'sound'; source: number | string };
   selected?: boolean;
 }
@@ -132,8 +135,9 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   );
   const [activePicker, setActivePicker] = useState<SettingsPicker | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<{
+    color?: string;
     label: string;
-    source: ImageSourcePropType;
+    source?: ImageSourcePropType;
   } | null>(null);
   const [previewingSoundKey, setPreviewingSoundKey] = useState<string | null>(
     null,
@@ -440,6 +444,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
         label: t(preset.labelKey),
         onPress: () => selectAlarmBackgroundPreset(preset.id),
         preview: {
+          color: preset.color,
           kind: 'background' as const,
           source: preset.source,
         },
@@ -734,10 +739,19 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   ]}
                 >
                   {option.preview?.kind === 'background' ? (
-                    <Image
-                      source={option.preview.source}
-                      style={styles.backgroundThumbnail}
-                    />
+                    option.preview.source ? (
+                      <Image
+                        source={option.preview.source}
+                        style={styles.backgroundThumbnail}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.backgroundThumbnail,
+                          { backgroundColor: option.preview.color },
+                        ]}
+                      />
+                    )
                   ) : (
                     <MaterialIcons
                       name={option.icon}
@@ -779,6 +793,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                           );
                         } else if (option.preview?.kind === 'background') {
                           setBackgroundPreview({
+                            color: option.preview.color,
                             label: option.label,
                             source: option.preview.source,
                           });
@@ -826,11 +841,19 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       >
         <View style={styles.backgroundPreviewBackdrop}>
           {backgroundPreview ? (
-            <ImageBackground
-              resizeMode="cover"
-              source={backgroundPreview.source}
-              style={styles.backgroundPreviewImage}
+            <View
+              style={[
+                styles.backgroundPreviewImage,
+                { backgroundColor: backgroundPreview.color ?? '#090D16' },
+              ]}
             >
+              {backgroundPreview.source ? (
+                <Image
+                  resizeMode="cover"
+                  source={backgroundPreview.source}
+                  style={styles.backgroundPreviewImageAsset}
+                />
+              ) : null}
               <View
                 style={[
                   styles.backgroundPreviewOverlay,
@@ -848,7 +871,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   onPress={() => setBackgroundPreview(null)}
                 />
               </View>
-            </ImageBackground>
+            </View>
           ) : null}
         </View>
       </Modal>
@@ -1015,7 +1038,9 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '800',
     },
     backgroundThumbnail: {
+      borderColor: colors.border,
       borderRadius: 9,
+      borderWidth: 1,
       height: 40,
       width: 40,
     },
@@ -1031,6 +1056,13 @@ const createStyles = (colors: ThemeColors) =>
     },
     backgroundPreviewImage: {
       flex: 1,
+    },
+    backgroundPreviewImageAsset: {
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
     },
     backgroundPreviewOverlay: {
       alignItems: 'center',

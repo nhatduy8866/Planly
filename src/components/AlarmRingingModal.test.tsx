@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import React from 'react';
-import { Dimensions, ImageBackground, Text } from 'react-native';
+import {
+  Dimensions,
+  ImageBackground,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 import { AlarmRingingModal, type AlarmModalTaskData } from './AlarmRingingModal';
@@ -123,6 +128,24 @@ describe('AlarmRingingModal', () => {
     expect(tree?.root.findByType(ImageBackground).props.source).toEqual({
       uri: 'file:///planly-alarm-media/background.jpg',
     });
+  });
+
+  it('uses dark foreground content for the gentle light alarm screen', () => {
+    act(() => {
+      tree = renderer.create(
+        <AlarmRingingModal
+          backgroundAppearance="light"
+          visible={true}
+          task={mockTaskData}
+          onDismiss={jest.fn()}
+        />,
+      );
+    });
+
+    const title = tree?.root
+      .findAllByType(Text)
+      .find((node) => node.props.children === mockTaskData.title);
+    expect(StyleSheet.flatten(title?.props.style).color).toBe('#172033');
   });
 
   it('continues the selected sound from the app-owned alarm screen', async () => {

@@ -19,6 +19,8 @@ import {
 } from '../navigation/TaskNavigationContext';
 import { initializeNotifications } from '../services/notifications';
 import {
+  getAlarmBackgroundAppearance,
+  getAlarmBackgroundColor,
   getAlarmBackgroundSource,
   getAlarmSchedulePreferences,
   getAlarmSoundSource,
@@ -114,7 +116,15 @@ function AppShell() {
         onFinish={() => setHasSeenOnboarding(true)}
       />
       <AlarmRingingModal
+        backgroundAppearance={getAlarmBackgroundAppearance(
+          alarmBackgroundPreset,
+          alarmBackground,
+        )}
         backgroundSource={getAlarmBackgroundSource(
+          alarmBackgroundPreset,
+          alarmBackground,
+        )}
+        backgroundColor={getAlarmBackgroundColor(
           alarmBackgroundPreset,
           alarmBackground,
         )}

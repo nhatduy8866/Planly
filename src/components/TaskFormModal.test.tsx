@@ -71,19 +71,20 @@ describe('TaskFormModal recurring group edits', () => {
         />,
       );
     });
+    const rendered = tree!;
 
     expect(
-      tree.root.findAllByProps({ accessibilityLabel: 'taskForm.batchEdit' }),
+      rendered.root.findAllByProps({ accessibilityLabel: 'taskForm.batchEdit' }),
     ).toHaveLength(0);
 
-    const formSaveButton = tree.root.findByProps({
+    const formSaveButton = rendered.root.findByProps({
       accessibilityLabel: 'common.save',
     });
     await act(async () => {
       formSaveButton.props.onPress();
     });
 
-    const groupOption = tree.root.findByProps({
+    const groupOption = rendered.root.findByProps({
       accessibilityLabel: 'taskForm.batchEdit',
     });
     expect(groupOption.props.accessibilityState).toEqual({ checked: false });
@@ -91,11 +92,11 @@ describe('TaskFormModal recurring group edits', () => {
 
     act(() => groupOption.props.onPress());
     expect(
-      tree.root.findByProps({ accessibilityLabel: 'taskForm.batchEdit' }).props
+      rendered.root.findByProps({ accessibilityLabel: 'taskForm.batchEdit' }).props
         .accessibilityState,
     ).toEqual({ checked: true });
 
-    const confirmSaveButton = tree.root
+    const confirmSaveButton = rendered.root
       .findAllByProps({ accessibilityLabel: 'common.save' })
       .filter((node) => typeof node.props.onPress === 'function')
       .at(-1);

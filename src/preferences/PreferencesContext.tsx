@@ -99,7 +99,9 @@ function isAlarmBackgroundPresetId(
     value === 'aurora' ||
     value === 'forest' ||
     value === 'ocean' ||
-    value === 'cosmos'
+    value === 'cosmos' ||
+    value === 'gentleDark' ||
+    value === 'gentleLight'
   );
 }
 

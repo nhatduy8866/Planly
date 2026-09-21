@@ -359,6 +359,8 @@ describe('AppMenu settings', () => {
       'settings.alarmBackgroundForest',
       'settings.alarmBackgroundOcean',
       'settings.alarmBackgroundCosmos',
+      'settings.alarmBackgroundGentleDark',
+      'settings.alarmBackgroundGentleLight',
       'settings.alarmBackgroundUpload',
     ]);
 

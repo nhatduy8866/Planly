@@ -14,7 +14,11 @@ export type AlarmBackgroundPresetId =
   | 'aurora'
   | 'forest'
   | 'ocean'
-  | 'cosmos';
+  | 'cosmos'
+  | 'gentleDark'
+  | 'gentleLight';
+
+export type AlarmBackgroundAppearance = 'dark' | 'light';
 
 export interface AlarmFilePreference {
   name: string;

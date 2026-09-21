@@ -175,10 +175,10 @@ export async function scheduleTaskAlarm(
 
   const alarm = await scheduler.scheduleAlarmAsync({
     android: {
-      alertActionMode: 'openAppOnly',
+      alertActionMode: 'default',
       alertBody,
       fullScreen: true,
-      fullScreenTarget: 'app',
+      fullScreenTarget: 'native',
       launchUri: `planly://alarm?taskId=${encodeURIComponent(task.id)}`,
       maxRingDurationSeconds: ALARM_MAX_RING_DURATION_SECONDS,
       metadata: alarmMetadataPayload,

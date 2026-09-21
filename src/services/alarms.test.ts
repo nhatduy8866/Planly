@@ -131,9 +131,9 @@ describe('native task alarms', () => {
     expect(scheduler.scheduleAlarmAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         android: expect.objectContaining({
-          alertActionMode: 'openAppOnly',
+          alertActionMode: 'default',
           fullScreen: true,
-          fullScreenTarget: 'app',
+          fullScreenTarget: 'native',
           launchUri: 'planly://alarm?taskId=task-1',
           maxRingDurationSeconds: 300,
           metadata: expectedMetadata,

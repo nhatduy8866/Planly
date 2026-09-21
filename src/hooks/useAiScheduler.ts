@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import { getAlarmSchedulePreferences } from '../services/alarmPresets';
@@ -156,7 +155,6 @@ export function useAiScheduler(
   const submitPrompt = useCallback(
     async (text: string) => {
       if (!text.trim()) return;
-      void Haptics.selectionAsync();
 
       setInfoMessage(null);
       setStep('analyzing');
@@ -222,7 +220,6 @@ export function useAiScheduler(
 
   // Người dùng đồng ý tự động sắp xếp giờ cho các việc chưa có giờ (Màn 8 -> 9 hoặc 5)
   const handleAcceptAutoSlotting = useCallback(() => {
-    void Haptics.selectionAsync();
     const slotted = autoSlotTasks(draftTasks, context.existingTasks, context.targetDate);
     const unscheduledCount = slotted.filter((draft) => !draft.startTime).length;
 
@@ -246,7 +243,6 @@ export function useAiScheduler(
 
   // Người dùng từ chối tự xếp giờ, giữ nguyên (Màn 8 -> 5)
   const handleDeclineAutoSlotting = useCallback(() => {
-    void Haptics.selectionAsync();
     setStep('draft_preview');
   }, []);
 
@@ -264,7 +260,6 @@ export function useAiScheduler(
 
   // Áp dụng giải quyết xung đột (Màn 9 -> 5)
   const handleApplyConflictResolution = useCallback(() => {
-    void Haptics.selectionAsync();
     const updatedDrafts = draftTasks.map((draft) => {
       const conflict = conflicts.find((c) => c.draftTaskId === draft.id);
       if (!conflict) return draft;
@@ -326,7 +321,6 @@ export function useAiScheduler(
   const submitRefinement = useCallback(
     async (instruction: string) => {
       if (!instruction.trim()) return;
-      void Haptics.selectionAsync();
 
       setStep('analyzing');
       setAnalyzingStep(1);
@@ -488,7 +482,6 @@ export function useAiScheduler(
     }, SAVE_FEEDBACK_DURATION_MS);
     highlightTasks(tasksWithReminders.map((task) => task.id));
 
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     close();
   }, [
     alarmPreferences,

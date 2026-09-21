@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
@@ -63,7 +62,6 @@ export function AiInputView({
   }
 
   function handleQuickPrompt(promptText: string) {
-    void Haptics.selectionAsync();
     setText(promptText);
   }
 

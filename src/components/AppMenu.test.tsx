@@ -55,12 +55,6 @@ jest.mock('@expo/vector-icons', () => ({
   MaterialIcons: 'MaterialIcons',
 }));
 
-jest.mock('expo-haptics', () => ({
-  NotificationFeedbackType: { Success: 'success' },
-  notificationAsync: jest.fn(async () => undefined),
-  selectionAsync: jest.fn(async () => undefined),
-}));
-
 jest.mock('../store/PlannerContext', () => ({
   usePlannerDispatch: () => mockPlannerDispatch,
   usePlannerTasks: () => mockPlannerTasks,

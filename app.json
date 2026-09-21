@@ -18,6 +18,7 @@
       "translucent": false
     },
     "ios": {
+      "bundleIdentifier": "com.planly.app",
       "supportsTablet": true
     },
     "android": {
@@ -39,7 +40,7 @@
         "expo-notifications",
         {
           "color": "#4F46E5",
-          "defaultChannel": "planly-reminders-v2",
+          "defaultChannel": "planly-reminders-v3",
           "icon": "./assets/android-icon-monochrome.png"
         }
       ],
@@ -67,7 +68,43 @@
       "expo-font",
       "expo-router",
       "expo-status-bar",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "PlanlyToday",
+              "displayName": "Planly Hôm nay",
+              "description": "Xem nhanh các công việc hôm nay.",
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium"
+              ],
+              "contentMarginsDisabled": true,
+              "android": null
+            }
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "PlanlyToday",
+              "label": "Planly Hôm nay",
+              "description": "Xem nhanh các công việc hôm nay.",
+              "minWidth": "250dp",
+              "minHeight": "60dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

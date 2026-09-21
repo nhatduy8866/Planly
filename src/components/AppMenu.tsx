@@ -1,12 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { OnboardingModal } from './OnboardingModal';
 import { SettingsModal } from './SettingsModal';
+import { UserGuideModal } from './UserGuideModal';
 
 interface AppMenuProps {
   onRequestClose: () => void;
@@ -14,6 +16,7 @@ interface AppMenuProps {
 }
 
 export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
+  const { mode, setMode } = useCalendarNavigation();
   const {
     colorfulAccents,
     colors,
@@ -27,18 +30,50 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
     toggleTheme,
   } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+
+  function openGuide() {
+    onRequestClose();
+    setGuideVisible(true);
+  }
 
   function openSettings() {
     onRequestClose();
     setSettingsVisible(true);
-    void Haptics.selectionAsync();
   }
 
   return (
     <>
       {visible ? (
         <View style={styles.dropdown}>
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons
+                name={mode === 'month' ? 'calendar-month' : 'view-week'}
+                size={20}
+                color={colors.primaryDark}
+              />
+            </View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('menu.calendarView')}</Text>
+              <Text style={styles.preferenceValue}>
+                {t(mode === 'month' ? 'calendar.month' : 'calendar.week')}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('menu.calendarView')}
+              accessibilityRole="switch"
+              onValueChange={(monthViewEnabled) => {
+                setMode(monthViewEnabled ? 'month' : 'week');
+              }}
+              thumbColor={colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              value={mode === 'month'}
+            />
+          </View>
+
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceIcon}>
               <MaterialIcons
@@ -58,7 +93,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={() => {
                 toggleTheme();
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -81,7 +115,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={() => {
                 toggleLanguage();
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.primary, true: colors.primary }}
@@ -104,7 +137,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={(enabled) => {
                 setColorfulAccents(enabled);
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -127,7 +159,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={(enabled) => {
                 setShowTaskBadges(enabled);
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -136,6 +167,23 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
           </View>
 
           <View style={styles.divider} />
+
+          <Pressable
+            accessibilityLabel={t('menu.openGuide')}
+            accessibilityRole="button"
+            onPress={openGuide}
+            style={({ pressed }) => [styles.settingsRow, pressed && styles.pressed]}
+          >
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons
+                name="help-outline"
+                size={20}
+                color={colors.primaryDark}
+              />
+            </View>
+            <Text style={styles.settingsText}>{t('guide.title')}</Text>
+            <MaterialIcons name="chevron-right" size={22} color={colors.textMuted} />
+          </Pressable>
 
           <Pressable
             accessibilityLabel={t('menu.openSettings')}
@@ -152,9 +200,25 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
         </View>
       ) : null}
 
-      <SettingsModal
-        visible={settingsVisible}
-        onClose={() => setSettingsVisible(false)}
+      {settingsVisible ? (
+        <SettingsModal
+          visible
+          onClose={() => setSettingsVisible(false)}
+        />
+      ) : null}
+
+      <UserGuideModal
+        visible={guideVisible}
+        onClose={() => setGuideVisible(false)}
+        onReplayOnboarding={() => {
+          setGuideVisible(false);
+          setOnboardingVisible(true);
+        }}
+      />
+
+      <OnboardingModal
+        visible={onboardingVisible}
+        onFinish={() => setOnboardingVisible(false)}
       />
     </>
   );

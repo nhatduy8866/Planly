@@ -3,6 +3,7 @@ import React from 'react';
 import { AppState, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
+import type { Task } from '../types';
 import { AppMenu } from './AppMenu';
 
 const mockSetAlarmBackground = jest.fn();
@@ -10,6 +11,37 @@ const mockSetAlarmBackgroundPreset = jest.fn();
 const mockSetAlarmSound = jest.fn();
 const mockSetAlarmSoundPreset = jest.fn();
 const mockSetAlarmVibrationEnabled = jest.fn();
+const mockSetCalendarMode = jest.fn();
+const mockPlannerDispatch = jest.fn();
+const mockCancelTaskReminder = jest.fn(
+  async (_notificationId?: string) => undefined,
+);
+const mockPlannerTasks: Task[] = [
+  {
+    id: 'task-1',
+    title: 'Task 1',
+    description: '',
+    date: '2026-09-20',
+    startTime: '09:00',
+    notificationId: 'notification-1',
+    completed: false,
+    order: 0,
+    createdAt: '2026-09-20T00:00:00.000Z',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+  },
+  {
+    id: 'task-2',
+    title: 'Task 2',
+    description: '',
+    date: '2026-09-21',
+    startTime: '10:00',
+    notificationId: 'notification-2',
+    completed: false,
+    order: 0,
+    createdAt: '2026-09-20T00:00:00.000Z',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+  },
+];
 const mockPreviewPlayer = {
   loop: false,
   pause: jest.fn(),
@@ -23,8 +55,16 @@ jest.mock('@expo/vector-icons', () => ({
   MaterialIcons: 'MaterialIcons',
 }));
 
-jest.mock('expo-haptics', () => ({
-  selectionAsync: jest.fn(async () => undefined),
+jest.mock('../store/PlannerContext', () => ({
+  usePlannerDispatch: () => mockPlannerDispatch,
+  usePlannerTasks: () => mockPlannerTasks,
+}));
+
+jest.mock('../navigation/CalendarNavigationContext', () => ({
+  useCalendarNavigation: () => ({
+    mode: 'week',
+    setMode: mockSetCalendarMode,
+  }),
 }));
 
 jest.mock('expo-audio', () => ({
@@ -35,6 +75,26 @@ jest.mock('expo-audio', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+}));
+
+jest.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({
+    configured: false,
+    hydrated: true,
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    signUp: jest.fn(),
+    user: null,
+  }),
+}));
+
+jest.mock('../sync/CloudSyncContext', () => ({
+  useCloudSync: () => ({
+    lastSyncedAt: null,
+    pendingCount: 0,
+    status: 'disabled',
+    syncNow: jest.fn(),
+  }),
 }));
 
 jest.mock('../preferences/PreferencesContext', () => ({
@@ -98,12 +158,15 @@ jest.mock('../services/alarms', () => ({
 }));
 
 jest.mock('../services/notifications', () => ({
+  cancelTaskReminder: (notificationId?: string) =>
+    mockCancelTaskReminder(notificationId),
   getNotificationPermission: jest.fn(async () => ({
     canAskAgain: true,
     state: 'granted',
   })),
   openNotificationSettings: jest.fn(),
   requestNotificationPermission: jest.fn(),
+  scheduleTaskReminder: jest.fn(async () => undefined),
 }));
 
 describe('AppMenu settings', () => {
@@ -114,6 +177,53 @@ describe('AppMenu settings', () => {
     tree = undefined;
     jest.restoreAllMocks();
     jest.clearAllMocks();
+  });
+
+  it('switches the calendar between week and month views', () => {
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    const calendarViewSwitch = tree?.root.findByProps({
+      accessibilityLabel: 'menu.calendarView',
+    });
+    expect(calendarViewSwitch?.props.value).toBe(false);
+
+    act(() => calendarViewSwitch?.props.onValueChange(true));
+
+    expect(mockSetCalendarMode).toHaveBeenCalledWith('month');
+  });
+
+  it('opens the user guide and can replay onboarding', () => {
+    const onRequestClose = jest.fn();
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={onRequestClose} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openGuide' })
+        .props.onPress();
+    });
+
+    expect(onRequestClose).toHaveBeenCalled();
+    expect(
+      tree?.root.findByProps({ accessibilityLabel: 'guide.replayOnboarding' }),
+    ).toBeDefined();
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'guide.replayOnboarding' })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findByProps({ accessibilityLabel: 'onboarding.skip' }),
+    ).toBeDefined();
   });
 
   it('shows alarm customization without duplicating hamburger preferences', () => {
@@ -275,5 +385,64 @@ describe('AppMenu settings', () => {
     });
     expect(mockSetAlarmBackground).toHaveBeenCalledWith(null);
     expect(mockSetAlarmBackgroundPreset).toHaveBeenCalledWith('aurora');
+  });
+
+  it('requires two confirmations before deleting every task', async () => {
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({
+      remove: jest.fn(),
+    });
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openSettings' })
+        .props.onPress();
+    });
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'settings.deleteAllTasks' })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findAllByType(Text).some(
+        (node) => node.props.children === 'settings.deleteAllTasksTitle',
+      ),
+    ).toBe(true);
+    expect(mockPlannerDispatch).not.toHaveBeenCalled();
+
+    act(() => {
+      tree?.root
+        .findByProps({
+          accessibilityLabel: 'settings.deleteAllTasksContinue',
+        })
+        .props.onPress();
+    });
+
+    expect(
+      tree?.root.findAllByType(Text).some(
+        (node) => node.props.children === 'settings.deleteAllTasksFinalTitle',
+      ),
+    ).toBe(true);
+    expect(mockPlannerDispatch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      tree?.root
+        .findByProps({
+          accessibilityLabel: 'settings.deleteAllTasksFinalAction',
+        })
+        .props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(mockPlannerDispatch).toHaveBeenCalledWith({
+      type: 'delete_tasks',
+      payload: { ids: ['task-1', 'task-2'] },
+    });
+    expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
   });
 });

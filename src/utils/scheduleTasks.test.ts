@@ -14,7 +14,6 @@ function createTask(id: string, overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-08',
     startTime: '10:00',
-    reminderMinutes: null,
     completed: false,
     order: 0,
     createdAt: `2026-09-08T00:00:0${id.length}.000Z`,

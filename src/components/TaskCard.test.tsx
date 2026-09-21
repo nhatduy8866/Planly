@@ -44,7 +44,6 @@ const mockTask: Task = {
   description: 'Thảo luận kế hoạch sprint mới',
   date: '2026-09-09',
   startTime: '09:00',
-  reminderMinutes: 15,
   completed: false,
   priority: 'high',
   order: 1,

@@ -2,7 +2,6 @@ import DateTimePicker, {
   type DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -19,13 +18,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import { CARD_COLOR_PRESETS, type ThemeColors } from '../theme/colors';
+import { scaleFontSize } from '../theme/typography';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import type { ReminderMinutes, Task, TaskPriority } from '../types';
+import type { Task, TaskPriority } from '../types';
 import {
   addDays,
   formatCompactDate,
   fromDateKey,
   getWeekdayShort,
+  roundTimeUpToHalfHour,
   taskDateTime,
   toDateKey,
 } from '../utils/date';
@@ -36,6 +37,7 @@ import {
   MAX_BATCH_RANGE_DAYS,
 } from '../utils/taskBatch';
 import { TaskTimeConflictError } from '../utils/taskConflicts';
+import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
 
 export interface TaskFormValues {
@@ -43,7 +45,6 @@ export interface TaskFormValues {
   description: string;
   date: string;
   startTime: string;
-  reminderMinutes: ReminderMinutes;
   color?: string;
   priority: TaskPriority;
   batchDates?: string[];
@@ -96,7 +97,9 @@ export function TaskFormModal({
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
   const [date, setDate] = useState(initialDate);
-  const [startTime, setStartTime] = useState(task?.startTime ?? '09:00');
+  const [startTime, setStartTime] = useState(
+    () => task?.startTime ?? roundTimeUpToHalfHour(),
+  );
   const [color, setColor] = useState<string | undefined>(task?.color);
   const [priority, setPriority] = useState<TaskPriority>(
     task?.priority ?? 'none',
@@ -119,6 +122,7 @@ export function TaskFormModal({
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<TaskFormValues>();
 
   const weekdayOptions = useMemo(() => {
     const monday = new Date(2026, 8, 7);
@@ -225,14 +229,12 @@ export function TaskFormModal({
     setSpecificDates((current) =>
       [...current, specificDateDraft].sort(),
     );
-    void Haptics.selectionAsync();
   }
 
   function removeSpecificDate(targetDate: string) {
     setSpecificDates((current) =>
       current.filter((item) => item !== targetDate),
     );
-    void Haptics.selectionAsync();
   }
 
   function toggleBatch() {
@@ -246,43 +248,14 @@ export function TaskFormModal({
       setBatchEndDate(addCalendarMonths(date, 3));
     }
     setBatchEnabled(nextEnabled);
-    void Haptics.selectionAsync();
   }
 
-  async function handleSubmit() {
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError(t('taskForm.titleRequired'));
-      return;
-    }
-
-    if (
-      !task &&
-      batchEnabled &&
-      batchValidationKey
-    ) {
-      setAdvancedOpen(true);
-      setError(
-        t(batchValidationKey),
-      );
-      return;
-    }
-
+  async function submitValues(values: TaskFormValues) {
     setSaving(true);
     setError('');
     let saved = false;
     try {
-      await onSubmit({
-        title: trimmedTitle,
-        description: description.trim(),
-        date,
-        startTime,
-        reminderMinutes: 0,
-        color,
-        priority,
-        batchDates: !task && batchEnabled ? batchDates : undefined,
-        applyToBatch: task?.batchId ? applyToBatch : undefined,
-      });
+      await onSubmit(values);
       saved = true;
     } catch (submitError) {
       if (submitError instanceof TaskTimeConflictError) {
@@ -305,6 +278,50 @@ export function TaskFormModal({
       setPicker(null);
       onClose();
     }
+  }
+
+  async function handleSubmit() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError(t('taskForm.titleRequired'));
+      return;
+    }
+
+    if (!task && batchEnabled && batchValidationKey) {
+      setAdvancedOpen(true);
+      setError(t(batchValidationKey));
+      return;
+    }
+
+    const values: TaskFormValues = {
+      title: trimmedTitle,
+      description: description.trim(),
+      date,
+      startTime,
+      color,
+      priority,
+      batchDates: !task && batchEnabled ? batchDates : undefined,
+    };
+
+    if (task?.batchId) {
+      setApplyToBatch(false);
+      setPendingSubmit(values);
+      return;
+    }
+
+    await submitValues(values);
+  }
+
+  function confirmBatchSubmit() {
+    if (!pendingSubmit) return;
+    const values = pendingSubmit;
+    setPendingSubmit(undefined);
+    void submitValues({ ...values, applyToBatch });
+  }
+
+  function cancelBatchSubmit() {
+    setPendingSubmit(undefined);
+    setApplyToBatch(false);
   }
 
   const pickerValue =
@@ -359,6 +376,7 @@ export function TaskFormModal({
                 {t(task ? 'taskForm.editTitle' : 'taskForm.newTitle')}
               </Text>
               <Pressable
+                accessibilityLabel={t('common.save')}
                 accessibilityRole="button"
                 disabled={saving}
                 onPress={() => void handleSubmit()}
@@ -409,7 +427,7 @@ export function TaskFormModal({
                           color: colors.text,
                           cursor: 'pointer',
                           fontFamily: 'inherit',
-                          fontSize: 14,
+                          fontSize: scaleFontSize(14),
                           fontWeight: '600',
                           outline: 'none',
                           width: '100%',
@@ -457,7 +475,7 @@ export function TaskFormModal({
                           color: colors.text,
                           cursor: 'pointer',
                           fontFamily: 'inherit',
-                          fontSize: 14,
+                          fontSize: scaleFontSize(14),
                           fontWeight: '600',
                           outline: 'none',
                           width: '100%',
@@ -552,7 +570,6 @@ export function TaskFormModal({
                           key={item.value}
                           onPress={() => {
                             setPriority(item.value);
-                            void Haptics.selectionAsync();
                           }}
                           style={({ pressed }) => [
                             styles.priorityChip,
@@ -600,7 +617,6 @@ export function TaskFormModal({
                     <Pressable
                       onPress={() => {
                         setColor(undefined);
-                        void Haptics.selectionAsync();
                       }}
                       style={({ pressed }) => [
                         styles.colorChip,
@@ -632,7 +648,6 @@ export function TaskFormModal({
                           accessibilityLabel={presetColor}
                           onPress={() => {
                             setColor(presetColor);
-                            void Haptics.selectionAsync();
                           }}
                           style={({ pressed }) => [
                             styles.colorCircle,
@@ -653,49 +668,7 @@ export function TaskFormModal({
                     })}
                   </ScrollView>
 
-                  {task?.batchId ? (
-                    <View style={styles.batchSection}>
-                      <Pressable
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: applyToBatch }}
-                        onPress={() => {
-                          setApplyToBatch((current) => !current);
-                          void Haptics.selectionAsync();
-                        }}
-                        style={({ pressed }) => [
-                          styles.batchToggle,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={styles.batchTitleRow}>
-                          <MaterialIcons
-                            name="repeat"
-                            size={20}
-                            color={colors.primary}
-                          />
-                          <View style={styles.batchTitleWrap}>
-                            <Text style={styles.batchTitle}>
-                              {t('taskForm.batchEdit')}
-                            </Text>
-                            <Text style={styles.batchDescription}>
-                              {t('taskForm.batchEditDescription')}
-                            </Text>
-                          </View>
-                        </View>
-                        <MaterialIcons
-                          name={
-                            applyToBatch
-                              ? 'check-box'
-                              : 'check-box-outline-blank'
-                          }
-                          size={24}
-                          color={
-                            applyToBatch ? colors.primary : colors.textMuted
-                          }
-                        />
-                      </Pressable>
-                    </View>
-                  ) : !task ? (
+                  {!task ? (
                     <View style={styles.batchSection}>
                       <Pressable
                         accessibilityRole="checkbox"
@@ -747,7 +720,6 @@ export function TaskFormModal({
                                   key={mode}
                                   onPress={() => {
                                     setBatchMode(mode);
-                                    void Haptics.selectionAsync();
                                   }}
                                   style={[
                                     styles.segment,
@@ -883,7 +855,7 @@ export function TaskFormModal({
                                         color: colors.text,
                                         cursor: 'pointer',
                                         fontFamily: 'inherit',
-                                        fontSize: 14,
+                                        fontSize: scaleFontSize(14),
                                         fontWeight: '600',
                                         outline: 'none',
                                         width: '100%',
@@ -1009,7 +981,7 @@ export function TaskFormModal({
                                       color: colors.text,
                                       cursor: 'pointer',
                                       fontFamily: 'inherit',
-                                      fontSize: 14,
+                                      fontSize: scaleFontSize(14),
                                       fontWeight: '600',
                                       outline: 'none',
                                       width: '100%',
@@ -1117,6 +1089,21 @@ export function TaskFormModal({
           </View>
         </Modal>
       ) : null}
+
+      <ConfirmModal
+        visible={Boolean(pendingSubmit)}
+        title={t('taskForm.batchEditConfirmTitle')}
+        message={t('taskForm.batchEditConfirmMessage')}
+        confirmText={t('common.save')}
+        optionChecked={applyToBatch}
+        optionDescription={t('taskForm.batchEditDescription')}
+        optionLabel={t('taskForm.batchEdit')}
+        onOptionChange={setApplyToBatch}
+        onConfirm={confirmBatchSubmit}
+        onCancel={cancelBatchSubmit}
+        tone="primary"
+        icon="repeat"
+      />
     </Modal>
   );
 }

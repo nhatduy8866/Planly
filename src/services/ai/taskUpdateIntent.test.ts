@@ -14,7 +14,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-07',
     startTime: '02:00',
-    reminderMinutes: 15,
     priority: 'medium',
     completed: false,
     order: 1,
@@ -50,7 +49,6 @@ describe('taskUpdateIntent', () => {
       id: 'football-task',
       title: 'Lịch đá bóng',
       startTime: '14:00',
-      reminderMinutes: 15,
       priority: 'medium',
       changeStatus: 'updated',
     });

@@ -3,10 +3,15 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
+import { TASK_COMPLETE_ACTION_IDENTIFIER } from '../services/notifications';
+
 function taskIdFromResponse(
   response: Notifications.NotificationResponse,
 ): string | undefined {
-  if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
+  if (
+    response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER &&
+    response.actionIdentifier !== TASK_COMPLETE_ACTION_IDENTIFIER
+  ) {
     return undefined;
   }
 
@@ -17,6 +22,7 @@ function taskIdFromResponse(
 export function useNotificationTaskNavigation(
   requestTask: (taskId: string) => void,
   ready: boolean,
+  completeTask?: (taskId: string) => void | Promise<void>,
 ): void {
   const router = useRouter();
   const handledNotificationIdsRef = useRef(new Set<string>());
@@ -27,20 +33,27 @@ export function useNotificationTaskNavigation(
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    const processResponse = (response: Notifications.NotificationResponse) => {
+    const processResponse = async (
+      response: Notifications.NotificationResponse,
+    ) => {
       const notificationId = response.notification.request.identifier;
-      if (handledNotificationIdsRef.current.has(notificationId)) return;
+      const responseKey = `${notificationId}:${response.actionIdentifier}`;
+      if (handledNotificationIdsRef.current.has(responseKey)) return;
 
       const taskId = taskIdFromResponse(response);
       if (!taskId) return;
 
-      handledNotificationIdsRef.current.add(notificationId);
-      requestTask(taskId);
-      router.navigate('/');
+      handledNotificationIdsRef.current.add(responseKey);
       try {
+        if (response.actionIdentifier === TASK_COMPLETE_ACTION_IDENTIFIER) {
+          await completeTask?.(taskId);
+        } else {
+          requestTask(taskId);
+          router.navigate('/');
+        }
         Notifications.clearLastNotificationResponse();
       } catch {
-        // Navigation already succeeded; stale-response cleanup is best effort.
+        // A later reconciliation can retry reminder cleanup if needed.
       }
     };
 
@@ -49,7 +62,7 @@ export function useNotificationTaskNavigation(
         pendingResponseRef.current = response;
         return;
       }
-      processResponse(response);
+      void processResponse(response);
     };
 
     const subscription =
@@ -57,11 +70,11 @@ export function useNotificationTaskNavigation(
     if (ready && pendingResponseRef.current) {
       const pendingResponse = pendingResponseRef.current;
       pendingResponseRef.current = null;
-      processResponse(pendingResponse);
+      void processResponse(pendingResponse);
     }
     const coldStartResponse = Notifications.getLastNotificationResponse();
     if (coldStartResponse) handleResponse(coldStartResponse);
 
     return () => subscription.remove();
-  }, [ready, requestTask, router]);
+  }, [completeTask, ready, requestTask, router]);
 }

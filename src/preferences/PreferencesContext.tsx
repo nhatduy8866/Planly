@@ -23,6 +23,7 @@ import {
   type ThemeColors,
   type ThemeMode,
 } from '../theme/colors';
+import { PREFERENCES_STORAGE_KEY } from '../storage/keys';
 import type {
   AlarmBackgroundPresetId,
   AlarmFilePreference,
@@ -30,14 +31,13 @@ import type {
   ReminderDeliveryMode,
 } from '../types';
 
-const STORAGE_KEY = '@planly/preferences/v1';
-
 interface StoredPreferences {
   alarmBackground: AlarmFilePreference | null;
   alarmBackgroundPreset: AlarmBackgroundPresetId;
   alarmSound: AlarmFilePreference | null;
   alarmSoundPreset: AlarmSoundPresetId;
   alarmVibrationEnabled: boolean;
+  hasSeenOnboarding: boolean;
   theme: ThemeMode;
   language: Language;
   colorfulAccents: boolean;
@@ -49,6 +49,7 @@ interface PreferencesContextValue extends StoredPreferences {
   colors: ThemeColors;
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
+  setHasSeenOnboarding: (seen: boolean) => void;
   setColorfulAccents: (enabled: boolean) => void;
   setAlarmBackground: (background: AlarmFilePreference | null) => void;
   setAlarmBackgroundPreset: (preset: AlarmBackgroundPresetId) => void;
@@ -128,6 +129,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('vi');
   const [colorfulAccents, setColorfulAccents] = useState(true);
   const [showTaskBadges, setShowTaskBadges] = useState(true);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
   const [reminderDeliveryMode, setReminderDeliveryMode] =
     useState<ReminderDeliveryMode>('notification');
   const [hydrated, setHydrated] = useState(false);
@@ -137,7 +139,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     async function hydrate() {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<StoredPreferences>) : {};
         if (!active) return;
         if (isAlarmFilePreference(parsed.alarmBackground)) {
@@ -163,6 +165,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (typeof parsed.showTaskBadges === 'boolean') {
           setShowTaskBadges(parsed.showTaskBadges);
         }
+        if (typeof parsed.hasSeenOnboarding === 'boolean') {
+          setHasSeenOnboarding(parsed.hasSeenOnboarding);
+        }
         if (isReminderDeliveryMode(parsed.reminderDeliveryMode)) {
           setReminderDeliveryMode(parsed.reminderDeliveryMode);
         }
@@ -182,7 +187,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     void AsyncStorage.setItem(
-      STORAGE_KEY,
+      PREFERENCES_STORAGE_KEY,
       JSON.stringify({
         alarmBackground,
         alarmBackgroundPreset,
@@ -190,6 +195,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         alarmSoundPreset,
         alarmVibrationEnabled,
         colorfulAccents,
+        hasSeenOnboarding,
         language,
         reminderDeliveryMode,
         showTaskBadges,
@@ -203,6 +209,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     alarmSoundPreset,
     alarmVibrationEnabled,
     colorfulAccents,
+    hasSeenOnboarding,
     hydrated,
     language,
     reminderDeliveryMode,
@@ -224,6 +231,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       alarmVibrationEnabled,
       colorfulAccents,
       colors: themes[theme],
+      hasSeenOnboarding,
       hydrated,
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
@@ -234,6 +242,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setAlarmSound,
       setAlarmSoundPreset,
       setAlarmVibrationEnabled,
+      setHasSeenOnboarding,
       setLanguage,
       setReminderDeliveryMode,
       setShowTaskBadges,
@@ -251,6 +260,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       alarmSoundPreset,
       alarmVibrationEnabled,
       colorfulAccents,
+      hasSeenOnboarding,
       hydrated,
       language,
       reminderDeliveryMode,

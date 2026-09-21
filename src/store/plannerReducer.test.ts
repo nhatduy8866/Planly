@@ -10,7 +10,6 @@ function task(overrides: Partial<Task>): Task {
     description: '',
     date: '2026-09-05',
     startTime: '09:00',
-    reminderMinutes: null,
     completed: false,
     order: 0,
     createdAt: '2026-09-05T00:00:00.000Z',
@@ -20,26 +19,16 @@ function task(overrides: Partial<Task>): Task {
 }
 
 describe('plannerReducer', () => {
-  it('hydrates persisted tasks and notes', () => {
+  it('hydrates persisted tasks', () => {
     const result = plannerReducer(initialPlannerState, {
       type: 'hydrate',
       payload: {
         tasks: [task({})],
-        notes: [
-          {
-            id: 'note-1',
-            title: 'Ý tưởng',
-            content: 'Nội dung',
-            createdAt: '2026-09-05T00:00:00.000Z',
-            updatedAt: '2026-09-05T00:00:00.000Z',
-          },
-        ],
       },
     });
 
     expect(result.hydrated).toBe(true);
     expect(result.tasks).toHaveLength(1);
-    expect(result.notes).toHaveLength(1);
   });
 
   it('sorts a day by start time', () => {
@@ -149,6 +138,24 @@ describe('plannerReducer', () => {
 
     expect(result.tasks).toHaveLength(1);
     expect(result.tasks[0].id).toBe('task-2');
+  });
+
+  it('deletes multiple tasks by id in one action', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [
+        task({ id: 'batch-1' }),
+        task({ id: 'unrelated' }),
+        task({ id: 'batch-2' }),
+      ],
+    };
+    const result = plannerReducer(state, {
+      type: 'delete_tasks',
+      payload: { ids: ['batch-1', 'batch-2'] },
+    });
+
+    expect(result.tasks.map((item) => item.id)).toEqual(['unrelated']);
   });
 
   it('handles move_task safely when initial order values are duplicated', () => {

@@ -1,6 +1,6 @@
 # Planly
 
-Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp lịch biểu, danh sách công việc và ghi chú trong một giao diện tối giản. Project hiện là một MVP local-first xây dựng bằng React Native, Expo và TypeScript.
+Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết hợp lịch biểu và danh sách công việc trong một giao diện tối giản. Ứng dụng được xây dựng bằng React Native, Expo và TypeScript theo hướng local-first.
 
 ## Tính năng hiện có
 
@@ -8,29 +8,32 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android, kết hợp l�
 
 - Chuyển đổi lịch tuần và lịch tháng trên cùng màn hình.
 - Di chuyển giữa các tuần/tháng, quay nhanh về hôm nay.
-- Hiển thị ngày có công việc và danh sách công việc của ngày đang chọn.
-- Tạo, chỉnh sửa, hoàn thành, nhân bản và xóa công việc.
-- Đổi thứ tự công việc trong ngày bằng tay hoặc tự sắp theo giờ bắt đầu.
-- Đặt nhắc việc đúng giờ hoặc trước 5, 15, 30, 60 phút.
-- Chọn giữa thông báo thường (mặc định) và báo thức toàn màn hình có chuông, rung trong phần Cài đặt.
-- Tạo hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên.
+- Hiển thị ngày có công việc; lọc danh sách của ngày đang chọn theo nhóm sắp diễn ra, đã qua hoặc tất cả.
+- Tạo, chỉnh sửa, hoàn thành và xóa công việc.
+- Tạo hàng loạt theo thứ trong tuần, ngày trong tháng hoặc danh sách ngày cụ thể; có thể sửa cả nhóm hoặc tách riêng một công việc.
+- Chọn màu, mức ưu tiên và sắp xếp theo giờ bắt đầu, ưu tiên hoặc tên.
+- Khi tạo mới, giờ bắt đầu mặc định được làm tròn lên mốc 30 phút gần nhất.
+- Thông báo hoặc báo thức vào đúng giờ bắt đầu công việc.
+- Chọn giữa thông báo thường (mặc định) và báo thức toàn màn hình; báo thức hỗ trợ bật/tắt rung, âm thanh và hình nền có sẵn hoặc tệp tùy chỉnh.
+- Xem nhanh công việc hôm nay bằng widget màn hình chính trên Android và iOS.
+- Tạo, cập nhật hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên qua văn bản hoặc giọng nói.
 - Tự chọn giờ bắt đầu chưa được sử dụng, phát hiện trùng giờ và đề xuất giờ thay thế.
 - Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
 
 ### Công việc
 
 - Xem công việc theo ngày.
-- Lọc theo trạng thái cần làm, tất cả hoặc đã hoàn thành.
+- Lọc theo trạng thái sắp diễn ra, đã qua hoặc tất cả.
 - Tìm kiếm theo tên và mô tả.
+- Sắp xếp theo thời gian, mức ưu tiên, tên hoặc ngày tạo.
 
-### Ghi chú
+### Cá nhân hóa và đồng bộ
 
-- Tạo, chỉnh sửa và xóa ghi chú.
-- Tìm kiếm theo tiêu đề và nội dung.
+- Chuyển đổi giao diện sáng/tối và ngôn ngữ Việt/Anh.
+- Bật/tắt màu nhấn và badge số lượng công việc trên lịch.
+- Đăng ký hoặc đăng nhập bằng email để sao lưu, khôi phục và đồng bộ công việc qua Supabase.
 
-Dữ liệu task và note được lưu cục bộ trên thiết bị bằng AsyncStorage, không cần tài khoản hoặc backend.
-
-> Nhập giọng nói hiện mới là luồng demo, chưa tích hợp Speech-to-Text thật.
+Dữ liệu công việc luôn được lưu cục bộ bằng AsyncStorage để ứng dụng tiếp tục hoạt động khi mất mạng. Khi Supabase được cấu hình và người dùng đăng nhập, Planly tự động đồng bộ dữ liệu giữa các thiết bị.
 
 ## Công nghệ
 
@@ -40,8 +43,11 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 - React 19
 - TypeScript
 - AsyncStorage
+- Supabase Auth và PostgreSQL
 - Expo Notifications
+- Expo Audio và Expo File System
 - React Native Alarm Scheduler
+- Expo Widgets và React Native Android Widget
 - Jest và ESLint
 
 ## Yêu cầu môi trường
@@ -51,6 +57,7 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 - Một trong các lựa chọn chạy Android:
   - Điện thoại Android cài Expo Go; hoặc
   - Android Studio, Android SDK và máy ảo Android.
+- macOS và Xcode nếu cần build widget iOS.
 
 ## Cài đặt
 
@@ -58,6 +65,33 @@ Dữ liệu task và note được lưu cục bộ trên thiết bị bằng Asy
 npm install
 npm start
 ```
+
+### Cấu hình biến môi trường
+
+Tạo `.env` từ `.env.example`. Các tích hợp dưới đây đều là tùy chọn; Planly vẫn chạy local-first khi chưa cấu hình.
+
+Để bật Gemini cho lập lịch nâng cao và chuyển giọng nói thành văn bản, điền:
+
+```bash
+EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+Nếu không có key, nhập lịch bằng văn bản vẫn dùng bộ phân tích NLP offline; nhập bằng giọng nói cần Gemini.
+
+Để bật sao lưu và đồng bộ qua Supabase:
+
+1. Tạo một project Supabase.
+2. Chạy migration trong `supabase/migrations` bằng Supabase CLI hoặc SQL Editor.
+3. Điền các biến sau vào `.env`:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+```
+
+4. Khởi động lại Metro, mở **Cài đặt → Sao lưu và đồng bộ**, sau đó tạo tài khoản hoặc đăng nhập.
+
+Chỉ dữ liệu công việc được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
 
 Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu hình Android SDK và đang chạy emulator:
 
@@ -79,6 +113,12 @@ npm run android:dev -- --clear
 
 Thông báo thường là chế độ mặc định và hoạt động trong Expo Go. Chế độ Báo thức sử dụng module native để mở màn hình báo thức, sau đó app tiếp quản chuông và rung trong tối đa 5 phút; chế độ này không lên lịch thêm thông báo thường. Alarm cần development build và không hoạt động trong Expo Go. Sau khi đổi dependency, chuông đóng gói hoặc cấu hình Alarm, hãy chạy `npx expo prebuild --platform android` rồi `npm run android` trước khi kiểm thử.
 
+### Widget Hôm nay
+
+Widget hiển thị công việc sắp tới trong ngày theo giờ bắt đầu và tự thích ứng giao diện sáng/tối. Chạm vào vòng tròn để hoàn thành task ngay từ widget; trong 5 giây tiếp theo có thể chạm lại dấu tích để hoàn tác. Chạm vào phần còn lại để mở Planly. Dữ liệu được làm mới ngay khi task hoặc ngôn ngữ thay đổi; Android còn yêu cầu cập nhật định kỳ tối đa mỗi 30 phút, còn iOS nhận timeline cho 7 ngày tiếp theo.
+
+Widget sử dụng native extension nên không xuất hiện trong Expo Go. Sau khi cài dependency, hãy tạo development build bằng `npm run android` trên Android hoặc `npm run ios` trên macOS. Sau đó nhấn giữ màn hình chính, chọn **Widget**, tìm **Planly Hôm nay** và thêm vào màn hình.
+
 ## Kiểm tra chất lượng
 
 ```bash
@@ -94,24 +134,28 @@ npm run doctor
 Planly/
 ├── src/
 │   ├── app/                   # Route, layout và điều hướng tab bằng Expo Router
+│   ├── auth/                  # Phiên đăng nhập Supabase
 │   ├── components/            # Calendar, task card và các form modal
 │   ├── hooks/                 # Luồng CRUD task và đồng bộ reminder
-│   ├── screens/               # Lịch, công việc, ghi chú
-│   ├── services/              # Thông báo local và báo thức native
+│   ├── preferences/           # Giao diện, ngôn ngữ và tùy chọn nhắc việc
+│   ├── screens/               # Màn hình lịch và công việc
+│   ├── services/              # AI, giọng nói, thông báo, báo thức và dịch vụ cloud
+│   ├── storage/               # Khóa lưu trữ cục bộ
+│   ├── sync/                  # Điều phối đồng bộ local-first
 │   ├── store/                 # Context, reducer và persistence
 │   ├── theme/                 # Design tokens
 │   ├── types/                 # Kiểu dữ liệu dùng chung
-│   └── utils/                 # Xử lý ngày giờ và ID
+│   ├── utils/                 # Xử lý ngày giờ và ID
+│   └── widgets/               # Giao diện và đồng bộ widget Android/iOS
 ├── app.json                   # Cấu hình Expo/Android
 └── package.json
 ```
 
 ## Phạm vi tiếp theo
 
-- Tích hợp Speech-to-Text thật cho Planly AI.
-- Đồng bộ nhiều thiết bị và sao lưu tài khoản.
+- Bổ sung lịch sử khôi phục dữ liệu và quản lý phiên đăng nhập chi tiết hơn.
 - Task lặp lại và các quy tắc nhắc lịch nâng cao.
-- Widget Android và tích hợp lịch hệ thống.
+- Tích hợp lịch hệ thống và widget màn hình khóa.
 
 ## License
 

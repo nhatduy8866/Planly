@@ -1,0 +1,89 @@
+create table if not exists public.planly_tasks (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  id text not null,
+  title text,
+  description text,
+  date date,
+  start_time text,
+  color text,
+  batch_id text,
+  completed boolean,
+  order_index integer,
+  priority text,
+  created_at timestamptz,
+  updated_at timestamptz not null,
+  deleted_at timestamptz,
+  server_updated_at timestamptz not null default now(),
+  primary key (user_id, id),
+  constraint planly_tasks_live_data_check check (
+    deleted_at is not null
+    or (
+      title is not null
+      and description is not null
+      and date is not null
+      and start_time is not null
+      and completed is not null
+      and order_index is not null
+      and created_at is not null
+    )
+  ),
+  constraint planly_tasks_priority_check check (
+    priority is null or priority in ('none', 'low', 'medium', 'high')
+  ),
+  constraint planly_tasks_start_time_check check (
+    start_time is null or start_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+  )
+);
+
+create index if not exists planly_tasks_user_server_updated_idx
+  on public.planly_tasks (user_id, server_updated_at);
+
+create or replace function public.apply_planly_sync_timestamp()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' and new.updated_at < old.updated_at then
+    return old;
+  end if;
+
+  new.server_updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists planly_tasks_sync_timestamp on public.planly_tasks;
+create trigger planly_tasks_sync_timestamp
+before insert or update on public.planly_tasks
+for each row execute function public.apply_planly_sync_timestamp();
+
+alter table public.planly_tasks enable row level security;
+
+revoke all on public.planly_tasks from anon;
+grant select, insert, update, delete on public.planly_tasks to authenticated;
+
+drop policy if exists "Users can read their own Planly tasks" on public.planly_tasks;
+create policy "Users can read their own Planly tasks"
+on public.planly_tasks for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their own Planly tasks" on public.planly_tasks;
+create policy "Users can insert their own Planly tasks"
+on public.planly_tasks for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update their own Planly tasks" on public.planly_tasks;
+create policy "Users can update their own Planly tasks"
+on public.planly_tasks for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete their own Planly tasks" on public.planly_tasks;
+create policy "Users can delete their own Planly tasks"
+on public.planly_tasks for delete
+to authenticated
+using ((select auth.uid()) = user_id);

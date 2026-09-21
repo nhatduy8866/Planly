@@ -57,7 +57,6 @@ function futureTask(): Task {
     description: '',
     id: 'task-1',
     order: 0,
-    reminderMinutes: 15,
     startTime: '14:00',
     title: 'Đá bóng',
     updatedAt: '2099-01-01T00:00:00.000Z',
@@ -132,9 +131,9 @@ describe('native task alarms', () => {
     expect(scheduler.scheduleAlarmAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         android: expect.objectContaining({
-          alertActionMode: 'openAppOnly',
+          alertActionMode: 'default',
           fullScreen: true,
-          fullScreenTarget: 'app',
+          fullScreenTarget: 'native',
           launchUri: 'planly://alarm?taskId=task-1',
           maxRingDurationSeconds: 300,
           metadata: expectedMetadata,
@@ -198,6 +197,18 @@ describe('native task alarms', () => {
       canScheduleExactAlarms: false,
       state: 'denied',
     });
+  });
+
+  it('does not schedule an Android alarm without full-screen intent access', async () => {
+    scheduler.getPermissionsAsync.mockResolvedValue({
+      ...permission(),
+      canUseFullScreenIntent: false,
+    });
+
+    await expect(
+      scheduleTaskAlarm(futureTask(), 'vi', { taskId: 'task-1' }),
+    ).resolves.toBeUndefined();
+    expect(scheduler.scheduleAlarmAsync).not.toHaveBeenCalled();
   });
 
   it('maps scheduled metadata and cancels the prefixed native alarm ID', async () => {

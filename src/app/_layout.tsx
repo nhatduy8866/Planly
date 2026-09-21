@@ -1,14 +1,18 @@
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '../auth/AuthContext';
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
+import { OnboardingModal } from '../components/OnboardingModal';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
+import { useTodayWidgetSync } from '../hooks/useTodayWidgetSync';
+import { useTaskActions } from '../hooks/useTaskActions';
 import {
   TaskNavigationProvider,
   useTaskNavigation,
@@ -27,6 +31,7 @@ import {
   usePlannerHydrated,
   usePlannerTasks,
 } from '../store/PlannerContext';
+import { CloudSyncProvider } from '../sync/CloudSyncContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
@@ -41,11 +46,15 @@ function AppShell() {
     alarmSoundPreset,
     alarmVibrationEnabled,
     colors,
+    hasSeenOnboarding,
     hydrated: preferencesHydrated,
     language,
     reminderDeliveryMode,
+    setHasSeenOnboarding,
+    theme,
   } = usePreferences();
   const { requestTask } = useTaskNavigation();
+  const { completeTask } = useTaskActions();
   const styles = useThemedStyles(createStyles);
   const appReady = plannerHydrated && preferencesHydrated;
   const alarmPreferences = getAlarmSchedulePreferences(
@@ -54,12 +63,21 @@ function AppShell() {
     alarmVibrationEnabled,
   );
 
-  const { activeAlarm, dismissAlarm, viewTask } = useAlarmTaskNavigation(
+  const completeTaskById = useCallback(
+    async (taskId: string) => {
+      const task = tasks.find((item) => item.id === taskId);
+      if (task && !task.completed) await completeTask(task);
+    },
+    [completeTask, tasks],
+  );
+
+  const { activeAlarm, confirmAlarm } = useAlarmTaskNavigation(
     requestTask,
     appReady,
     tasks,
+    completeTaskById,
   );
-  useNotificationTaskNavigation(requestTask, appReady);
+  useNotificationTaskNavigation(requestTask, appReady, completeTaskById);
   useReminderReconciliation(
     tasks,
     language,
@@ -68,6 +86,7 @@ function AppShell() {
     appReady,
     dispatch,
   );
+  useTodayWidgetSync(tasks, language, theme, appReady);
 
   useEffect(() => {
     if (!preferencesHydrated) return;
@@ -92,6 +111,10 @@ function AppShell() {
           <Slot />
         </View>
       </View>
+      <OnboardingModal
+        visible={!hasSeenOnboarding}
+        onFinish={() => setHasSeenOnboarding(true)}
+      />
       <AlarmRingingModal
         backgroundAppearance={getAlarmBackgroundAppearance(
           alarmBackgroundPreset,
@@ -112,8 +135,7 @@ function AppShell() {
         vibrate={alarmVibrationEnabled}
         visible={Boolean(activeAlarm)}
         task={activeAlarm?.task}
-        onDismiss={dismissAlarm}
-        onViewTask={viewTask}
+        onDismiss={confirmAlarm}
       />
     </>
   );
@@ -122,13 +144,17 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <PreferencesProvider>
-        <TaskNavigationProvider>
-          <PlannerProvider>
-            <AppShell />
-          </PlannerProvider>
-        </TaskNavigationProvider>
-      </PreferencesProvider>
+      <AuthProvider>
+        <PreferencesProvider>
+          <TaskNavigationProvider>
+            <PlannerProvider>
+              <CloudSyncProvider>
+                <AppShell />
+              </CloudSyncProvider>
+            </PlannerProvider>
+          </TaskNavigationProvider>
+        </PreferencesProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

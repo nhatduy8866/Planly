@@ -45,7 +45,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
 
 #### 3. Khắc phục các lỗi hiển thị riêng trên iPhone (iOS)
 - **Lỗi 1 - Nút giờ bị rớt xuống góc dưới bên trái**:
-  - *Nguyên nhân*: Trên iOS, thư viện `DateTimePicker` mặc định render nút dạng inline compact tại vị trí component trong JSX (nằm ở cuối form sau mục Nhắc trước).
+  - *Nguyên nhân*: Trên iOS, thư viện `DateTimePicker` mặc định render nút dạng inline compact tại vị trí component trong JSX (nằm ở cuối form).
   - *Khắc phục*: Tách riêng luồng iOS thành một **Bottom Sheet chuẩn Apple**. Khi bấm Ngày hoặc Bắt đầu, một bảng Sheet sẽ trượt từ dưới lên kèm thanh tiêu đề và nút **"Xong"** để đóng lại. Hoàn toàn không còn nút xám bị rớt dưới đáy màn hình.
 - **Lỗi 2 - Chữ trắng trên nền trắng (bị chói sáng không thấy gì)**:
   - *Nguyên nhân*: Khi iPhone bật chế độ Dark Mode của iOS, `UIDatePicker` tự động render chữ màu TRẮNG, trong khi khung Sheet của app lại có nền TRẮNG.

@@ -11,13 +11,15 @@ import {
   AiScheduleClarificationError,
   findScheduleClarification,
 } from './scheduleClarification';
-import { isReorderIntent } from './scheduleIntent';
+import {
+  analyzeScheduleRequest,
+  type AiScheduleExecutionRoute,
+} from './scheduleRequestAnalysis';
 import {
   validateAiRefinementResult,
   validateAiScheduleResult,
   type AiScheduleValidationIssue,
 } from './scheduleResultValidator';
-import { isTaskUpdateIntent } from './taskUpdateIntent';
 import { resolveAiRecurrenceEndDate } from './batchIntent';
 
 /**
@@ -36,15 +38,6 @@ export interface AiSchedulingProvider {
   ): Promise<AiDraftTask[]>;
 }
 
-const VALID_REMINDERS: ReadonlySet<AiDraftTask['reminderMinutes']> = new Set([
-  null,
-  0,
-  5,
-  10,
-  15,
-  30,
-  60,
-]);
 const VALID_PRIORITIES: ReadonlySet<AiDraftTask['priority']> = new Set([
   'high',
   'medium',
@@ -71,10 +64,6 @@ const SCHEDULE_RESPONSE_SCHEMA = {
       date: { type: 'string', format: 'date' },
       startTime: { type: 'string' },
       priority: { type: 'string', enum: ['high', 'medium', 'low', 'none'] },
-      reminderMinutes: {
-        type: ['integer', 'null'],
-        enum: [null, 0, 5, 10, 15, 30, 60],
-      },
       recurrence: {
         type: ['object', 'null'],
         description:
@@ -133,7 +122,6 @@ const SCHEDULE_RESPONSE_SCHEMA = {
       'date',
       'startTime',
       'priority',
-      'reminderMinutes',
       'recurrence',
     ],
   },
@@ -150,10 +138,6 @@ const REFINEMENT_RESPONSE_SCHEMA = {
       date: { type: 'string', format: 'date' },
       startTime: { type: 'string' },
       priority: { type: 'string', enum: ['high', 'medium', 'low', 'none'] },
-      reminderMinutes: {
-        type: ['integer', 'null'],
-        enum: [null, 0, 5, 10, 15, 30, 60],
-      },
     },
     required: [
       'id',
@@ -162,7 +146,6 @@ const REFINEMENT_RESPONSE_SCHEMA = {
       'date',
       'startTime',
       'priority',
-      'reminderMinutes',
     ],
   },
 } as const;
@@ -170,6 +153,43 @@ const REFINEMENT_RESPONSE_SCHEMA = {
 interface RepairRequest {
   issues: AiScheduleValidationIssue[];
   previousDrafts: AiDraftTask[];
+}
+
+type GeminiScheduleModel = 'gemini-3.5-flash-lite' | 'gemini-3.8-flash';
+
+const GEMINI_FLASH_LITE_MODEL: GeminiScheduleModel = 'gemini-3.5-flash-lite';
+const GEMINI_FLASH_MODEL: GeminiScheduleModel = 'gemini-3.8-flash';
+
+function modelsForRoute(
+  route: Exclude<AiScheduleExecutionRoute, 'offline'>,
+  repair = false,
+): readonly GeminiScheduleModel[] {
+  if (repair) return [GEMINI_FLASH_MODEL];
+  return route === 'flash'
+    ? [GEMINI_FLASH_MODEL, GEMINI_FLASH_LITE_MODEL]
+    : [GEMINI_FLASH_LITE_MODEL, GEMINI_FLASH_MODEL];
+}
+
+function thinkingConfigForModel(model: GeminiScheduleModel) {
+  return {
+    thinkingLevel: model === GEMINI_FLASH_MODEL ? 'LOW' : 'MINIMAL',
+  } as const;
+}
+
+function hasMeaningfulDraftChanges(
+  currentDrafts: AiDraftTask[],
+  nextDrafts: AiDraftTask[],
+): boolean {
+  if (currentDrafts.length !== nextDrafts.length) return true;
+  const currentById = new Map(currentDrafts.map((draft) => [draft.id, draft]));
+  return nextDrafts.some((draft) => {
+    const current = currentById.get(draft.id);
+    return !current ||
+      current.title !== draft.title ||
+      current.date !== draft.date ||
+      current.startTime !== draft.startTime ||
+      current.priority !== draft.priority;
+  });
 }
 
 interface CloudDraftDefaults {
@@ -201,13 +221,6 @@ function normalizeStartTime(value: unknown): string {
   if (hours > 23 || minutes > 59) return '';
 
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-function normalizeReminder(value: unknown): AiDraftTask['reminderMinutes'] {
-  const reminder = value === null ? null : value;
-  return VALID_REMINDERS.has(reminder as AiDraftTask['reminderMinutes'])
-    ? (reminder as AiDraftTask['reminderMinutes'])
-    : 15;
 }
 
 function numberArray(
@@ -311,7 +324,6 @@ function normalizeCloudDraft(
     title: nonEmptyString(item.title) || defaults.title,
     date: isValidDateKey(item.date) ? item.date : defaults.date,
     startTime: normalizeStartTime(item.startTime),
-    reminderMinutes: normalizeReminder(item.reminderMinutes),
     priority:
       priority && VALID_PRIORITIES.has(priority as AiDraftTask['priority'])
         ? (priority as AiDraftTask['priority'])
@@ -351,49 +363,49 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const clarification = findScheduleClarification(prompt);
     if (clarification) throw clarification;
 
-    // Reorder phải giữ đúng ID task hiện có, nên dùng luồng deterministic thay vì
-    // phụ thuộc vào việc model có tuân thủ prompt hay không.
-    if (isReorderIntent(prompt) || isTaskUpdateIntent(prompt)) {
-      return parseVietnameseScheduleText(prompt, context);
-    }
-
     const localResult = parseVietnameseScheduleText(prompt, context);
+    const analysis = analyzeScheduleRequest(prompt, context, localResult);
     const key = this.getApiKey();
-    // Nếu có API key, gọi trực tiếp Gemini API
-    if (key) {
-      try {
-        const cloudResult = await this.callGeminiApi(prompt, context, key);
-        if (cloudResult) {
-          const validation = validateAiScheduleResult(
-            prompt,
-            cloudResult,
-            localResult,
-          );
-          if (validation.valid) return cloudResult;
+    if (analysis.route === 'offline' || !key) return localResult;
 
-          const repairedResult = await this.callGeminiApi(
-            prompt,
-            context,
-            key,
-            {
-              issues: validation.issues,
-              previousDrafts: cloudResult,
-            },
-          );
-          if (
-            repairedResult &&
-            validateAiScheduleResult(prompt, repairedResult, localResult).valid
-          ) {
-            return repairedResult;
-          }
+    const models = modelsForRoute(analysis.route);
+    try {
+      const cloudResult = await this.callGeminiApi(
+        prompt,
+        context,
+        key,
+        models,
+      );
+      if (cloudResult) {
+        const validation = validateAiScheduleResult(
+          prompt,
+          cloudResult,
+          context,
+        );
+        if (validation.valid) return cloudResult;
+
+        const repairedResult = await this.callGeminiApi(
+          prompt,
+          context,
+          key,
+          modelsForRoute(analysis.route, true),
+          {
+            issues: validation.issues,
+            previousDrafts: cloudResult,
+          },
+        );
+        if (
+          repairedResult &&
+          validateAiScheduleResult(prompt, repairedResult, context).valid
+        ) {
+          return repairedResult;
         }
-      } catch (err) {
-        if (err instanceof AiScheduleClarificationError) throw err;
-        console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
       }
+    } catch (err) {
+      if (err instanceof AiScheduleClarificationError) throw err;
+      console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
     }
 
-    // Luôn có bộ phân tích Offline NLP chất lượng cao sẵn sàng
     return localResult;
   }
 
@@ -407,49 +419,56 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
       instruction,
       context,
     );
+    const analysis = analyzeScheduleRequest(instruction, context, localResult);
+    const canUseOffline =
+      analysis.route === 'offline' &&
+      hasMeaningfulDraftChanges(currentDrafts, localResult);
+    const route = analysis.route === 'flash' ? 'flash' : 'flash_lite';
     const key = this.getApiKey();
-    if (key) {
-      try {
-        const cloudResult = await this.callGeminiRefineApi(
+    if (canUseOffline || !key) return localResult;
+
+    try {
+      const cloudResult = await this.callGeminiRefineApi(
+        currentDrafts,
+        instruction,
+        context,
+        key,
+        modelsForRoute(route),
+      );
+      if (cloudResult) {
+        const validation = validateAiRefinementResult(
+          instruction,
+          currentDrafts,
+          cloudResult,
+          context,
+        );
+        if (validation.valid) return cloudResult;
+
+        const repairedResult = await this.callGeminiRefineApi(
           currentDrafts,
           instruction,
           context,
           key,
+          modelsForRoute(route, true),
+          {
+            issues: validation.issues,
+            previousDrafts: cloudResult,
+          },
         );
-        if (cloudResult) {
-          const validation = validateAiRefinementResult(
+        if (
+          repairedResult &&
+          validateAiRefinementResult(
             instruction,
             currentDrafts,
-            cloudResult,
-            localResult,
-          );
-          if (validation.valid) return cloudResult;
-
-          const repairedResult = await this.callGeminiRefineApi(
-            currentDrafts,
-            instruction,
+            repairedResult,
             context,
-            key,
-            {
-              issues: validation.issues,
-              previousDrafts: cloudResult,
-            },
-          );
-          if (
-            repairedResult &&
-            validateAiRefinementResult(
-              instruction,
-              currentDrafts,
-              repairedResult,
-              localResult,
-            ).valid
-          ) {
-            return repairedResult;
-          }
+          ).valid
+        ) {
+          return repairedResult;
         }
-      } catch (err) {
-        console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
       }
+    } catch (err) {
+      console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
     }
     return localResult;
   }
@@ -458,9 +477,9 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     prompt: string,
     context: AiSchedulingContext,
     apiKey: string,
+    models: readonly GeminiScheduleModel[],
     repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
-    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
     const realToday = context.realToday || context.targetDate;
     const realTodayDayName = context.realTodayDayName || context.currentDayName;
 
@@ -495,7 +514,7 @@ Ngữ cảnh thời gian:
 Yêu cầu gốc của người dùng: "${prompt}"${repairInstruction}
 
 Quy tắc quan trọng:
-0. Người dùng có thể nhập tiếng Việt không dấu. Hãy hiểu các cụm như "tao lich", "muc uu tien vua", "thoi luong 1h30p", "nhac dung gio" tương đương với bản có dấu. Mệnh đề mô tả ưu tiên, thời lượng hoặc nhắc hẹn là thuộc tính của công việc đứng trước, không được tách chúng thành công việc mới. Hiện JSON chưa có trường thời lượng, vì vậy không đưa cụm thời lượng vào title và không diễn giải nó thành startTime.
+0. Người dùng có thể nhập tiếng Việt không dấu. Hãy hiểu các cụm như "tao lich" và "muc uu tien vua" tương đương với bản có dấu. Mệnh đề mô tả mức ưu tiên là thuộc tính của công việc đứng trước, không được tách thành công việc mới.
 1. NẾU YÊU CẦU LÀ SẮP XẾP LẠI CÁC VIỆC TRONG NGÀY (Reorder / Reschedule cả ngày):
    - Tuyệt đối KHÔNG tạo một công việc mới mang tên "Sắp xếp các công việc" hay "Sắp xếp lại các công việc".
    - Hãy lấy danh sách công việc HIỆN CÓ, tự động tính toán lại giờ bắt đầu (startTime) hợp lý, không bị trùng nhau và tối ưu theo thứ tự ưu tiên (ưu tiên cao xếp sáng, vừa xếp chiều, thấp xếp sau).
@@ -515,9 +534,8 @@ Quy tắc quan trọng:
      + Buổi chiều ("chiều", "buổi chiều"): gán "14:30" hoặc "15:00".
      + Buổi tối ("tối", "buổi tối" - lưu ý nhận diện lỗi gõ thiếu dấu "tôi" thành "tối" trong chuỗi: "sáng..., chiều..., tôi..."): gán "19:30" hoặc "20:00".
    - Chỉ để "" nếu hoàn toàn không có thông tin buổi hay giờ nào.
-5. "reminderMinutes": 0, 5, 10, 15, 30, hoặc 60 (mặc định 15 nếu không yêu cầu).
-6. "priority": "high", "medium", "low", hoặc "none".
-7. "recurrence": hãy diễn giải Ý NGHĨA lặp lại thành một quy tắc gọn, KHÔNG tự liệt kê từng ngày:
+5. "priority": "high", "medium", "low", hoặc "none".
+6. "recurrence": hãy diễn giải Ý NGHĨA lặp lại thành một quy tắc gọn, KHÔNG tự liệt kê từng ngày:
    - Không lặp: null.
    - frequency là daily, weekly hoặc monthly; interval mặc định 1. "Cứ N ngày" hoặc "cách nhật" là daily với interval tương ứng ("cách nhật" hoặc "cứ 2 ngày" là interval 2).
    - weekday dùng quy ước Chủ nhật=0, Thứ Hai=1, ... Thứ Bảy=6.
@@ -537,7 +555,6 @@ Trả về duy nhất mảng JSON hợp lệ:
     "date": "YYYY-MM-DD",
     "startTime": "HH:mm",
     "priority": "none",
-    "reminderMinutes": 15,
     "recurrence": null
   }
 ]`;
@@ -550,6 +567,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           generationConfig: {
             responseMimeType: 'application/json',
             responseJsonSchema: SCHEDULE_RESPONSE_SCHEMA,
+            thinkingConfig: thinkingConfigForModel(model),
           },
         };
 
@@ -650,9 +668,9 @@ Trả về duy nhất mảng JSON hợp lệ:
     instruction: string,
     context: AiSchedulingContext,
     apiKey: string,
+    models: readonly GeminiScheduleModel[],
     repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
-    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
     const repairInstruction = repair
       ? `\nKết quả trước cần được sửa: ${JSON.stringify(repair.previousDrafts)}\nCác lỗi validator phát hiện:\n${repair.issues.map((issue) => `- ${issue.code}: ${issue.message}`).join('\n')}\nHãy sửa toàn bộ lỗi và vẫn giữ đúng id của công việc cũ.`
       : '';
@@ -673,6 +691,7 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
           generationConfig: {
             responseMimeType: 'application/json',
             responseJsonSchema: REFINEMENT_RESPONSE_SCHEMA,
+            thinkingConfig: thinkingConfigForModel(model),
           },
         };
 

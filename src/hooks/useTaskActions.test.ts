@@ -7,6 +7,9 @@ import { TaskTimeConflictError } from '../utils/taskConflicts';
 import { useTaskActions } from './useTaskActions';
 
 const mockDispatch = jest.fn();
+const mockCancelTaskReminder = jest.fn<
+  (notificationId?: string) => Promise<void>
+>();
 let mockPlannerState: PlannerState;
 const mockReplaceTaskReminders = jest.fn<
   (
@@ -56,7 +59,8 @@ jest.mock('../services/reminderTransaction', () => ({
 }));
 
 jest.mock('../services/notifications', () => ({
-  cancelTaskReminder: jest.fn(async () => undefined),
+  cancelTaskReminder: (notificationId?: string) =>
+    mockCancelTaskReminder(notificationId),
   scheduleTaskReminder: (
     task: Task,
     language?: 'vi' | 'en',
@@ -88,7 +92,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-09',
     startTime: '09:00',
-    reminderMinutes: 15,
     notificationId: 'notification-1',
     batchId: 'batch-1',
     completed: false,
@@ -106,7 +109,6 @@ function formValues(overrides: Partial<TaskFormValues> = {}): TaskFormValues {
     description: '',
     date: '2026-09-09',
     startTime: '09:00',
-    reminderMinutes: 15,
     priority: 'medium',
     ...overrides,
   };
@@ -125,7 +127,6 @@ describe('useTaskActions batch editing', () => {
     jest.clearAllMocks();
     mockPlannerState = {
       hydrated: true,
-      notes: [],
       tasks: [
         makeTask(),
         makeTask({
@@ -137,6 +138,7 @@ describe('useTaskActions batch editing', () => {
     };
     mockReplaceTaskReminders.mockImplementation(async (tasks) => tasks);
     mockScheduleTaskReminder.mockResolvedValue(undefined);
+    mockCancelTaskReminder.mockResolvedValue(undefined);
 
     await act(async () => {
       renderer = create(createElement(Harness));
@@ -227,6 +229,60 @@ describe('useTaskActions batch editing', () => {
     ]);
     expect(new Set(action.payload.map((task) => task.batchId)).size).toBe(1);
     expect(mockScheduleTaskReminder).toHaveBeenCalledTimes(3);
+  });
+
+  it('deletes only the selected occurrence by default', async () => {
+    await act(async () => {
+      await hook.deleteTask(mockPlannerState.tasks[0]);
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'delete_task',
+      payload: { id: 'task-1' },
+    });
+    expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
+  });
+
+  it('deletes every occurrence and reminder when applying deletion to a batch', async () => {
+    await act(async () => {
+      await hook.deleteTask(mockPlannerState.tasks[0], true);
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'delete_tasks',
+      payload: { ids: ['task-1', 'task-2'] },
+    });
+    expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
+    expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
+    expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-2');
+  });
+
+  it('deletes all tasks and their reminders', async () => {
+    await act(async () => {
+      await hook.deleteAllTasks();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'delete_tasks',
+      payload: { ids: ['task-1', 'task-2'] },
+    });
+    expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks a task complete and cancels its alarm reminder', async () => {
+    await act(async () => {
+      await hook.completeTask(mockPlannerState.tasks[0]);
+    });
+
+    expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'upsert_task',
+      payload: expect.objectContaining({
+        id: 'task-1',
+        completed: true,
+        notificationId: undefined,
+      }),
+    });
   });
 
   it('blocks creating a task at an occupied time before scheduling a reminder', async () => {

@@ -7,8 +7,7 @@ Quy tắc bóc tách:
 1. Ngày diễn ra (date): định dạng YYYY-MM-DD. Luôn đối chiếu với ngày neo (targetDate) được cung cấp.
 2. Giờ bắt đầu (startTime): định dạng HH:mm (24h). Nếu người dùng không nhắc đến giờ, để chuỗi rỗng "".
 3. Mức độ ưu tiên (priority): "high" (gấp, quan trọng), "medium" (bình thường), "low" (nhẹ nhàng, rảnh thì làm), hoặc "none".
-4. Nhắc trước (reminderMinutes): 0, 5, 10, 15, 30, 60 hoặc null. Mặc định 15 phút.
-5. Tiêu đề (title): ngắn gọn, súc tích, viết hoa chữ cái đầu.
+4. Tiêu đề (title): ngắn gọn, súc tích, viết hoa chữ cái đầu.
 `;
 
 export function buildUserSchedulingPrompt(

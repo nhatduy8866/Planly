@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { usePreferences } from '../preferences/PreferencesContext';
@@ -11,6 +12,12 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
+  optionChecked?: boolean;
+  optionDescription?: string;
+  optionLabel?: string;
+  icon?: ComponentProps<typeof MaterialIcons>['name'];
+  tone?: 'danger' | 'primary';
+  onOptionChange?: (checked: boolean) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,11 +28,20 @@ export function ConfirmModal({
   message,
   confirmText,
   cancelText,
+  optionChecked = false,
+  optionDescription,
+  optionLabel,
+  tone = 'danger',
+  icon,
+  onOptionChange,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   const { colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const accentColor = tone === 'danger' ? colors.danger : colors.primary;
+  const accentSoftColor =
+    tone === 'danger' ? colors.dangerSoft : colors.primarySoft;
 
   return (
     <Modal
@@ -36,21 +52,69 @@ export function ConfirmModal({
     >
       <Pressable style={styles.backdrop} onPress={onCancel}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.iconCircle}>
-            <MaterialIcons name="delete-outline" size={24} color={colors.danger} />
+          <View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: accentSoftColor },
+            ]}
+          >
+            <MaterialIcons
+              name={icon ?? (tone === 'danger' ? 'delete-outline' : 'repeat')}
+              size={24}
+              color={accentColor}
+            />
           </View>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
+          {optionLabel && onOptionChange ? (
+            <Pressable
+              accessibilityLabel={optionLabel}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: optionChecked }}
+              onPress={() => onOptionChange(!optionChecked)}
+              style={({ pressed }) => [
+                styles.option,
+                { backgroundColor: accentSoftColor },
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.optionCopy}>
+                <Text style={[styles.optionLabel, { color: accentColor }]}>
+                  {optionLabel}
+                </Text>
+                {optionDescription ? (
+                  <Text style={styles.optionDescription}>
+                    {optionDescription}
+                  </Text>
+                ) : null}
+              </View>
+              <MaterialIcons
+                name={
+                  optionChecked ? 'check-box' : 'check-box-outline-blank'
+                }
+                size={24}
+                color={optionChecked ? accentColor : colors.textMuted}
+              />
+            </Pressable>
+          ) : null}
           <View style={styles.actions}>
             <Pressable
+              accessibilityLabel={cancelText ?? t('common.cancel')}
+              accessibilityRole="button"
               onPress={onCancel}
               style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed]}
             >
               <Text style={styles.cancelText}>{cancelText ?? t('common.cancel')}</Text>
             </Pressable>
             <Pressable
+              accessibilityLabel={confirmText ?? t('common.delete')}
+              accessibilityRole="button"
               onPress={onConfirm}
-              style={({ pressed }) => [styles.button, styles.confirmButton, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.button,
+                { backgroundColor: accentColor },
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.confirmText}>{confirmText ?? t('common.delete')}</Text>
             </Pressable>
@@ -81,7 +145,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   iconCircle: {
     alignItems: 'center',
-    backgroundColor: colors.dangerSoft,
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
@@ -100,6 +163,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 20,
     marginTop: 8,
     textAlign: 'center',
+  },
+  option: {
+    alignItems: 'center',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+    padding: 12,
+    width: '100%',
+  },
+  optionCopy: {
+    flex: 1,
+  },
+  optionLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  optionDescription: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
   },
   actions: {
     flexDirection: 'row',
@@ -120,9 +205,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
-  },
-  confirmButton: {
-    backgroundColor: colors.danger,
   },
   confirmText: {
     color: colors.white,

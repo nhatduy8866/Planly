@@ -8,6 +8,7 @@ import {
 import {
   Platform,
   Pressable,
+  ScrollView,
   SectionList,
   StyleSheet,
   Text,
@@ -68,6 +69,7 @@ export function TasksScreen() {
   const [formSession, setFormSession] = useState(0);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const [deleteBatch, setDeleteBatch] = useState(false);
   const aiTargetDate = todayKey();
   const aiScheduler = useAiScheduler(aiTargetDate);
   const filters: { key: TaskListFilter; label: string }[] = [
@@ -124,6 +126,7 @@ export function TasksScreen() {
   }, []);
 
   const handleDeleteTask = useCallback((task: Task) => {
+    setDeleteBatch(false);
     setDeletingTask(task);
   }, []);
 
@@ -164,28 +167,24 @@ export function TasksScreen() {
                 ) : null}
               </View>
               <Pressable
-                accessibilityLabel={t('tasks.addWithAi')}
+                accessibilityLabel={t('schedule.addTask')}
                 accessibilityRole="button"
-                onPress={aiScheduler.openDirectPrompt}
+                onPress={aiScheduler.openActionSheet}
                 style={({ pressed }) => [
-                  styles.aiButton,
+                  styles.addButton,
                   pressed && styles.actionPressed,
                 ]}
               >
-                <MaterialIcons
-                  name="auto-awesome"
-                  size={18}
-                  color={colors.primaryDark}
-                />
-                <Text style={styles.aiButtonText}>AI</Text>
-              </Pressable>
-              <Pressable onPress={openCreate} style={styles.addButton}>
                 <MaterialIcons name="add" size={21} color={colors.white} />
                 <Text style={styles.addText}>{t('common.add')}</Text>
               </Pressable>
             </View>
 
-            <View style={styles.filterRow}>
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.filterRow}
+              showsHorizontalScrollIndicator={false}
+            >
               <View style={styles.filters}>
                 {filters.map((item) => {
                   const active = filter === item.key;
@@ -212,6 +211,7 @@ export function TasksScreen() {
               </View>
 
               <SortDropdown<TaskSortKey>
+                buttonIcon={null}
                 direction={taskSort.direction}
                 options={sorts}
                 selectedKey={taskSort.key}
@@ -219,23 +219,15 @@ export function TasksScreen() {
                   setTaskSort((current) => nextTaskSortState(current, key));
                 }}
               />
-            </View>
+            </ScrollView>
           </>
         )}
         ListEmptyComponent={(
           <EmptyState
             icon="task-alt"
             title={t(query ? 'tasks.noResultsTitle' : 'tasks.emptyTitle')}
-            description={
-              t(query ? 'tasks.noResultsDescription' : 'tasks.emptyDescription')
-            }
-            primaryActionLabel={query ? undefined : t('tasks.addWithAi')}
-            primaryActionIcon={query ? undefined : 'auto-awesome'}
-            onPrimaryAction={
-              query ? undefined : aiScheduler.openDirectPrompt
-            }
             actionLabel={query ? undefined : t('schedule.addTask')}
-            onAction={query ? undefined : openCreate}
+            onAction={query ? undefined : aiScheduler.openActionSheet}
           />
         )}
         maxToRenderPerBatch={12}
@@ -260,9 +252,6 @@ export function TasksScreen() {
             <Text style={styles.groupTitle}>
               {formatLongDate(section.date, locale)}
             </Text>
-            {section.date < todayKey() ? (
-              <Text style={styles.overdue}>{t('tasks.overdue')}</Text>
-            ) : null}
           </View>
         )}
         sections={groupedTasks}
@@ -298,13 +287,25 @@ export function TasksScreen() {
         visible={Boolean(deletingTask)}
         title={t('schedule.deleteTitle')}
         message={t('tasks.deleteMessage', { title: deletingTask?.title ?? '' })}
+        optionChecked={deleteBatch}
+        optionDescription={
+          deletingTask?.batchId ? t('task.deleteBatchDescription') : undefined
+        }
+        optionLabel={
+          deletingTask?.batchId ? t('task.deleteBatch') : undefined
+        }
+        onOptionChange={setDeleteBatch}
         onConfirm={() => {
           if (deletingTask) {
-            void deleteTask(deletingTask);
+            void deleteTask(deletingTask, deleteBatch);
             setDeletingTask(undefined);
+            setDeleteBatch(false);
           }
         }}
-        onCancel={() => setDeletingTask(undefined)}
+        onCancel={() => {
+          setDeletingTask(undefined);
+          setDeleteBatch(false);
+        }}
       />
     </View>
   );
@@ -314,23 +315,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16, paddingTop: 14 },
   actionPressed: { opacity: 0.72 },
-  aiButton: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-    borderRadius: 13,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'center',
-    paddingHorizontal: 11,
-    paddingVertical: 10,
-  },
-  aiButtonText: {
-    color: colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '800',
-  },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
@@ -364,13 +348,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    justifyContent: 'space-between',
     marginTop: 13,
+    paddingRight: 1,
   },
   filters: {
-    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 6,
   },
   filter: {
@@ -389,14 +371,4 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 22,
   },
   groupTitle: { color: colors.text, flex: 1, fontSize: 15, fontWeight: '800' },
-  overdue: {
-    backgroundColor: colors.dangerSoft,
-    borderRadius: 10,
-    color: colors.danger,
-    fontSize: 10,
-    fontWeight: '800',
-    overflow: 'hidden',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
 });

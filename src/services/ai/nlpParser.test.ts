@@ -23,9 +23,7 @@ describe('nlpParser', () => {
 
   it.each([
     'tao lich 8h mua sach va but',
-    'tao lich 8h doc sach va thoi luong 1h30p',
-    'tao lich 8h doc sach va nhac truoc 30 phut',
-  ])('keeps title and attribute conjunctions together: %s', (prompt) => {
+  ])('keeps title conjunctions together: %s', (prompt) => {
     expect(parseVietnameseScheduleText(prompt, context)).toHaveLength(1);
   });
 
@@ -86,28 +84,25 @@ describe('nlpParser', () => {
 
   it('parses multi-task prompt from concept board accurately', () => {
     const prompt =
-      'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung. Nhắc trước 15 phút.';
+      'Mai 9h họp team, chiều 2h làm báo cáo, tối 8h học tiếng Trung.';
 
     const drafts = parseVietnameseScheduleText(prompt, context);
 
     expect(drafts).toHaveLength(3);
 
-    // Task 1: Họp team (09:00, reminder 15)
+    // Task 1: Họp team (09:00)
     expect(drafts[0].title).toContain('Họp team');
     expect(drafts[0].startTime).toBe('09:00');
-    expect(drafts[0].reminderMinutes).toBe(15);
     expect(drafts[0].date).toBe('2026-09-08'); // ngày mai
 
-    // Task 2: Làm báo cáo (14:00, reminder 15)
+    // Task 2: Làm báo cáo (14:00)
     expect(drafts[1].title).toContain('Báo cáo');
     expect(drafts[1].startTime).toBe('14:00');
-    expect(drafts[1].reminderMinutes).toBe(15);
     expect(drafts[1].date).toBe('2026-09-08');
 
-    // Task 3: Học tiếng Trung (20:00, reminder 15)
+    // Task 3: Học tiếng Trung (20:00)
     expect(drafts[2].title).toContain('Học tiếng Trung');
     expect(drafts[2].startTime).toBe('20:00');
-    expect(drafts[2].reminderMinutes).toBe(15);
     expect(drafts[2].date).toBe('2026-09-08');
   });
 
@@ -169,20 +164,18 @@ describe('nlpParser', () => {
     });
   });
 
-  it('correctly parses conversational appointment with reminder without splitting into two tasks', () => {
-    const prompt = 'Tôi muốn tạo 1 cuộc hẹn đi chơi vào lúc 4h chiều nay, nhắc tôi trước 30p nhé';
+  it('correctly parses a conversational appointment', () => {
+    const prompt = 'Tôi muốn tạo 1 cuộc hẹn đi chơi vào lúc 4h chiều nay';
     const drafts = parseVietnameseScheduleText(prompt, context);
 
     expect(drafts).toHaveLength(1);
     expect(drafts[0].title.toLowerCase()).toContain('đi chơi');
     expect(drafts[0].startTime).toBe('16:00');
-    expect(drafts[0].reminderMinutes).toBe(30);
     expect(drafts[0].date).toBe('2026-09-07');
   });
 
-  it('keeps unaccented task attributes attached to one task', () => {
-    const prompt =
-      'tao lich 2h toi da bong nhe, muc uu tien vua va thoi luong la 1h30p nhac dung hen nha';
+  it('keeps an unaccented priority attribute attached to one task', () => {
+    const prompt = 'tao lich 2h toi da bong nhe, muc uu tien vua';
 
     const drafts = parseVietnameseScheduleText(prompt, context);
 
@@ -191,22 +184,7 @@ describe('nlpParser', () => {
       title: 'Da bong',
       startTime: '02:00',
       priority: 'medium',
-      reminderMinutes: 0,
     });
-  });
-
-  it.each([
-    ['nhac toi truoc 30p nhe', 30],
-    ['bao dung gio nha', 0],
-  ])('understands an unaccented reminder clause: "%s"', (reminder, expected) => {
-    const drafts = parseVietnameseScheduleText(
-      `tao lich 9h hop nhom, ${reminder}`,
-      context,
-    );
-
-    expect(drafts).toHaveLength(1);
-    expect(drafts[0].reminderMinutes).toBe(expected);
-    expect(drafts[0].title).toBe('Hop nhom');
   });
 
   it('still separates an unaccented task whose action starts with "nhac"', () => {
@@ -254,7 +232,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-07',
           startTime: '08:00',
-          reminderMinutes: 15,
           completed: false,
           order: 0,
           createdAt: '',
@@ -266,7 +243,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-07',
           startTime: '19:00',
-          reminderMinutes: 15,
           completed: false,
           order: 1,
           createdAt: '',
@@ -317,7 +293,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-09',
           startTime: '09:00',
-          reminderMinutes: null,
           priority: 'low',
           completed: false,
           order: 0,
@@ -330,7 +305,6 @@ describe('nlpParser', () => {
           description: '',
           date: '2026-09-09',
           startTime: '16:00',
-          reminderMinutes: 15,
           priority: 'high',
           completed: false,
           order: 1,

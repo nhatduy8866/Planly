@@ -99,12 +99,6 @@ jest.mock('../services/reminderTransaction', () => ({
   ) => mockRollbackTaskReminders(savedTasks, previousTasks, options),
 }));
 
-jest.mock('expo-haptics', () => ({
-  NotificationFeedbackType: { Success: 'success' },
-  notificationAsync: jest.fn(async () => undefined),
-  selectionAsync: jest.fn(async () => undefined),
-}));
-
 interface TestRendererInstance {
   unmount(): void;
   update(element: ReturnType<typeof createElement>): void;
@@ -123,7 +117,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     description: '',
     date: '2026-09-08',
     startTime: '09:00',
-    reminderMinutes: null,
     completed: false,
     order: 0,
     createdAt: '2026-09-07T00:00:00.000Z',
@@ -138,7 +131,6 @@ function makeDraft(overrides: Partial<AiDraftTask> = {}): AiDraftTask {
     title: 'Việc AI',
     date: '2026-09-08',
     startTime: '09:00',
-    reminderMinutes: 15,
     priority: 'medium',
     source: 'direct_request',
     ...overrides,
@@ -176,7 +168,7 @@ describe('useAiScheduler', () => {
 
   beforeEach(async () => {
     jest.useFakeTimers();
-    mockPlannerState = { tasks: [], notes: [], hydrated: true };
+    mockPlannerState = { tasks: [], hydrated: true };
     mockDispatch.mockReset();
     mockParseScheduleRequest.mockReset();
     mockRefineSchedule.mockReset();
@@ -253,7 +245,6 @@ describe('useAiScheduler', () => {
         description: 'Tập thân trên',
         date: '2026-09-09',
         startTime: '16:30',
-        reminderMinutes: 30,
         priority: 'high',
       });
     });
@@ -269,7 +260,6 @@ describe('useAiScheduler', () => {
       description: 'Tập thân trên',
       date: '2026-09-09',
       startTime: '16:30',
-      reminderMinutes: 30,
       priority: 'high',
       changeStatus: 'updated',
     });

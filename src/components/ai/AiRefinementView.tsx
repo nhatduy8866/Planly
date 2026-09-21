@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
@@ -27,13 +26,11 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
   const [instruction, setInstruction] = useState('');
   const refinementChips = [
     { id: 'move', icon: 'access-time', text: t('ai.refineMove') },
-    { id: 'remind', icon: 'notifications-none', text: t('ai.refineRemind') },
     { id: 'remove', icon: 'delete-outline', text: t('ai.refineRemove') },
     { id: 'add', icon: 'auto-awesome', text: t('ai.refineAdd') },
   ];
 
   function handleSelectChip(chipText: string) {
-    void Haptics.selectionAsync();
     setInstruction(chipText);
   }
 

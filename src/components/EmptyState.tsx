@@ -18,7 +18,7 @@ type IconName = ComponentProps<typeof MaterialIcons>['name'];
 interface EmptyStateProps {
   icon: IconName;
   title: string;
-  description: string;
+  description?: string;
   actionLabel?: string;
   onAction?: () => void;
   primaryActionLabel?: string;
@@ -77,7 +77,9 @@ export function EmptyState({
         <MaterialIcons name={icon} size={36} color={colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      {description ? (
+        <Text style={styles.description}>{description}</Text>
+      ) : null}
 
       {primaryActionLabel && onPrimaryAction ? (
         <Pressable

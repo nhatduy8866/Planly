@@ -5,7 +5,6 @@ import {
   useAudioPlayer,
   useAudioPlayerStatus,
 } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
@@ -21,6 +20,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '../auth/AuthContext';
+import { useTaskActions } from '../hooks/useTaskActions';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
   ALARM_BACKGROUND_PRESETS,
@@ -49,12 +50,15 @@ import {
   type NotificationPermissionSummary,
 } from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
+import { useCloudSync } from '../sync/CloudSyncContext';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type {
   AlarmBackgroundPresetId,
   AlarmSoundPresetId,
   ReminderDeliveryMode,
 } from '../types';
+import { AccountSyncModal } from './AccountSyncModal';
+import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
 
 type SettingsPicker = 'background' | 'delivery' | 'sound' | 'vibration';
@@ -92,8 +96,19 @@ function configurePreviewPlayer(player: AudioPlayer): void {
   player.volume = 0.8;
 }
 
+function pausePreviewPlayer(player: AudioPlayer): void {
+  try {
+    player.pause();
+  } catch {
+    // Expo releases shared audio objects during unmount and Fast Refresh.
+  }
+}
+
 export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
+  const { configured: syncConfigured, user } = useAuth();
+  const { status: syncStatus } = useCloudSync();
+  const { deleteAllTasks } = useTaskActions();
   const {
     alarmBackground,
     alarmBackgroundPreset = DEFAULT_ALARM_BACKGROUND_PRESET,
@@ -114,6 +129,10 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const styles = useThemedStyles(createStyles);
   const previewPlayer = useAudioPlayer(null);
   const previewStatus = useAudioPlayerStatus(previewPlayer);
+  const [accountSyncVisible, setAccountSyncVisible] = useState(false);
+  const [deleteAllConfirmStep, setDeleteAllConfirmStep] = useState<0 | 1 | 2>(
+    0,
+  );
   const [activePicker, setActivePicker] = useState<SettingsPicker | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<{
     color?: string;
@@ -136,15 +155,8 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
   useEffect(() => {
     if (activePicker === 'sound') return;
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
   }, [activePicker, previewPlayer]);
-
-  useEffect(
-    () => () => {
-      previewPlayer.pause();
-    },
-    [previewPlayer],
-  );
 
   const refreshNotificationPermission = useCallback(async () => {
     try {
@@ -199,7 +211,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   }
 
   function closePicker() {
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
     setPreviewingSoundKey(null);
     setActivePicker(null);
   }
@@ -207,7 +219,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
     closePicker();
     setReminderDeliveryMode(mode);
-    void Haptics.selectionAsync();
     if (mode !== 'alarm' || alarmBusy) return;
 
     setAlarmBusy(true);
@@ -246,7 +257,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
         setAlarmBackground(file);
       }
       setActivePicker(kind);
-      void Haptics.selectionAsync();
     } catch (error) {
       setAlarmMediaError(
         t(
@@ -265,7 +275,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmSound(null);
     setAlarmSoundPreset(preset);
     setAlarmMediaError(null);
-    void Haptics.selectionAsync();
   }
 
   function selectAlarmBackgroundPreset(preset: AlarmBackgroundPresetId) {
@@ -273,7 +282,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmBackground(null);
     setAlarmBackgroundPreset(preset);
     setAlarmMediaError(null);
-    void Haptics.selectionAsync();
   }
 
   async function previewAlarmSound(
@@ -281,13 +289,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     source: number | string,
   ) {
     if (previewingSoundKey === key && previewStatus.playing) {
-      previewPlayer.pause();
+      pausePreviewPlayer(previewPlayer);
       await previewPlayer.seekTo(0);
       setPreviewingSoundKey(null);
       return;
     }
 
-    previewPlayer.pause();
+    pausePreviewPlayer(previewPlayer);
     previewPlayer.replace(source);
     configurePreviewPlayer(previewPlayer);
     setPreviewingSoundKey(key);
@@ -306,12 +314,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   function setVibration(enabled: boolean) {
     closePicker();
     setAlarmVibrationEnabled(enabled);
-    void Haptics.selectionAsync();
   }
 
   function closeSettings() {
     closePicker();
+    setAccountSyncVisible(false);
     setBackgroundPreview(null);
+    setDeleteAllConfirmStep(0);
     onClose();
   }
 
@@ -348,6 +357,19 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     alarmPermission?.available &&
     (!alarmPermission.canScheduleExactAlarms ||
       !alarmPermission.canUseFullScreenIntent);
+  const syncStatusLabel = !syncConfigured
+    ? t('sync.statusDisabled')
+    : !user
+      ? t('sync.statusSignedOut')
+      : t(
+          syncStatus === 'error'
+            ? 'sync.statusError'
+            : syncStatus === 'pending'
+              ? 'sync.statusPending'
+              : syncStatus === 'syncing'
+                ? 'sync.statusSyncing'
+                : 'sync.statusSynced',
+        );
 
   let pickerTitle = '';
   let pickerOptions: PickerOption[] = [];
@@ -521,6 +543,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
               showsVerticalScrollIndicator={false}
             >
               {renderSettingRow({
+                icon: user ? 'cloud-done' : 'cloud-sync',
+                label: t('sync.title'),
+                onPress: () => setAccountSyncVisible(true),
+                value: syncStatusLabel,
+              })}
+
+              {renderSettingRow({
                 icon:
                   reminderDeliveryMode === 'alarm' ? 'alarm' : 'notifications',
                 label: t('settings.reminderTypeTitle'),
@@ -581,6 +610,32 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                   })
                 : null}
 
+              <Pressable
+                accessibilityLabel={t('settings.deleteAllTasks')}
+                accessibilityRole="button"
+                onPress={() => setDeleteAllConfirmStep(1)}
+                style={({ pressed }) => [
+                  styles.settingRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.dangerSettingIcon}>
+                  <MaterialIcons
+                    name="delete-forever"
+                    size={21}
+                    color={colors.danger}
+                  />
+                </View>
+                <Text style={styles.dangerSettingLabel}>
+                  {t('settings.deleteAllTasks')}
+                </Text>
+                <MaterialIcons
+                  name="chevron-right"
+                  size={22}
+                  color={colors.danger}
+                />
+              </Pressable>
+
               {alarmMediaError ? (
                 <View style={styles.mediaError}>
                   <MaterialIcons
@@ -595,6 +650,39 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
           </View>
         </View>
       </Modal>
+
+      <AccountSyncModal
+        onClose={() => setAccountSyncVisible(false)}
+        visible={accountSyncVisible}
+      />
+
+      <ConfirmModal
+        visible={deleteAllConfirmStep !== 0}
+        title={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalTitle'
+            : 'settings.deleteAllTasksTitle',
+        )}
+        message={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalMessage'
+            : 'settings.deleteAllTasksMessage',
+        )}
+        confirmText={t(
+          deleteAllConfirmStep === 2
+            ? 'settings.deleteAllTasksFinalAction'
+            : 'settings.deleteAllTasksContinue',
+        )}
+        onConfirm={() => {
+          if (deleteAllConfirmStep === 1) {
+            setDeleteAllConfirmStep(2);
+            return;
+          }
+          setDeleteAllConfirmStep(0);
+          void deleteAllTasks();
+        }}
+        onCancel={() => setDeleteAllConfirmStep(0)}
+      />
 
       <Modal
         animationType="fade"
@@ -840,6 +928,20 @@ const createStyles = (colors: ThemeColors) =>
       height: 38,
       justifyContent: 'center',
       width: 38,
+    },
+    dangerSettingIcon: {
+      alignItems: 'center',
+      backgroundColor: colors.dangerSoft,
+      borderRadius: 10,
+      height: 38,
+      justifyContent: 'center',
+      width: 38,
+    },
+    dangerSettingLabel: {
+      color: colors.danger,
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '800',
     },
     settingLabel: {
       color: colors.text,

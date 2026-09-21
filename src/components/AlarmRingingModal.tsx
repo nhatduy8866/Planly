@@ -1,10 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react';
-import { MaterialIcons } from '@expo/vector-icons';
+import { memo, useEffect, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Animated,
-  Easing,
   ImageBackground,
   type ImageSourcePropType,
   Modal,
@@ -13,13 +10,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   Vibration,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
-import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { AlarmBackgroundAppearance, TaskPriority } from '../types';
 
@@ -41,7 +38,6 @@ interface AlarmRingingModalProps {
   visible: boolean;
   task?: AlarmModalTaskData | null;
   onDismiss: () => void;
-  onViewTask: () => void;
 }
 
 function formatCurrentTime(): string {
@@ -71,9 +67,9 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
   visible,
   task,
   onDismiss,
-  onViewTask,
 }: AlarmRingingModalProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const alarmPlayer = useAudioPlayer(soundSource ?? null, {
@@ -132,115 +128,22 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
     return () => clearInterval(timer);
   }, [locale, visible]);
 
-  // Hiệu ứng chuông lắc rung rinh khi đang reo
-  const bellSwing = useRef(new Animated.Value(0)).current;
-  const pulseScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!visible) {
-      bellSwing.setValue(0);
-      pulseScale.setValue(1);
-      return;
-    }
-
-    const bellAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bellSwing, {
-          duration: 100,
-          easing: Easing.linear,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bellSwing, {
-          duration: 200,
-          easing: Easing.linear,
-          toValue: -1,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bellSwing, {
-          duration: 100,
-          easing: Easing.linear,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-        Animated.delay(400),
-      ]),
-    );
-
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseScale, {
-          duration: 800,
-          easing: Easing.out(Easing.ease),
-          toValue: 1.06,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseScale, {
-          duration: 800,
-          easing: Easing.in(Easing.ease),
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    bellAnimation.start();
-    pulseAnimation.start();
-
-    return () => {
-      bellAnimation.stop();
-      pulseAnimation.stop();
-    };
-  }, [bellSwing, pulseScale, visible]);
-
   if (!visible) return null;
 
-  const bellRotation = bellSwing.interpolate({
-    inputRange: [-1, 1],
-    outputRange: ['-20deg', '20deg'],
-  });
-
+  const alarmTime = task?.startTime || currentTime;
   const cardAccent = task?.color || colors.primary;
+  const confirmButtonSize = Math.min(windowWidth / 2, 216);
   const priority = task?.priority ?? 'none';
   const isLightBackground = backgroundAppearance === 'light';
   const primaryContentColor = isLightBackground ? '#172033' : '#FFFFFF';
-  const alarmAccent = isLightBackground ? '#8A5A00' : '#FBBF24';
 
-  const priorityConfigs: Record<
-    TaskPriority,
-    {
-      label: string;
-      color: string;
-      bgColor: string;
-      icon?: keyof typeof MaterialIcons.glyphMap;
-    }
-  > = {
-    high: {
-      bgColor: 'rgba(239, 68, 68, 0.16)',
-      color: colors.priorityHigh || '#EF4444',
-      icon: 'error',
-      label: t('taskForm.priorityHigh'),
-    },
-    medium: {
-      bgColor: 'rgba(245, 158, 11, 0.16)',
-      color: colors.priorityMedium || '#F59E0B',
-      icon: 'drag-handle',
-      label: t('taskForm.priorityMedium'),
-    },
-    low: {
-      bgColor: 'rgba(59, 130, 246, 0.16)',
-      color: colors.priorityLow || '#3B82F6',
-      icon: 'arrow-downward',
-      label: t('taskForm.priorityLow'),
-    },
-    none: {
-      bgColor: 'rgba(156, 163, 175, 0.12)',
-      color: colors.textMuted || '#9CA3AF',
-      label: t('taskForm.priorityNone'),
-    },
+  const priorityColors: Record<TaskPriority, string> = {
+    high: colors.priorityHigh || '#EF4444',
+    medium: colors.priorityMedium || '#F59E0B',
+    low: colors.priorityLow || '#3B82F6',
+    none: colors.textMuted || '#9CA3AF',
   };
-
-  const currentPriority = priorityConfigs[priority];
+  const confirmButtonColor = priorityColors[priority];
 
   return (
     <Modal
@@ -273,29 +176,10 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
             },
           ]}
         >
-        {/* Header Huy hiệu BÁO THỨC */}
-        <View style={styles.topBar}>
-          <Animated.View
-            style={[
-              styles.ringingBadge,
-              isLightBackground && styles.lightRingingBadge,
-              { borderColor: alarmAccent },
-              { transform: [{ scale: pulseScale }] },
-            ]}
-          >
-            <Animated.View style={{ transform: [{ rotate: bellRotation }] }}>
-              <MaterialIcons name="alarm" size={20} color={alarmAccent} />
-            </Animated.View>
-            <Text style={[styles.ringingBadgeText, { color: alarmAccent }]}>
-              {t('alarmModal.badge')}
-            </Text>
-          </Animated.View>
-        </View>
-
         {/* Đồng hồ lớn */}
         <View style={styles.clockSection}>
           <Text style={[styles.clockText, { color: primaryContentColor }]}>
-            {currentTime}
+            {alarmTime}
           </Text>
           <Text
             style={[
@@ -326,51 +210,6 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.cardScrollContent}
             >
-              {/* Hàng Giờ thực hiện & Badge Ưu tiên */}
-              <View style={styles.taskMetaRow}>
-                <View
-                  style={[
-                    styles.timeTag,
-                    isLightBackground && styles.lightTimeTag,
-                  ]}
-                >
-                  <MaterialIcons name="schedule" size={16} color={cardAccent} />
-                  <Text style={[styles.timeTagText, { color: cardAccent }]}>
-                    {t('alarmModal.startTime', {
-                      time: task?.startTime ?? currentTime,
-                    })}
-                  </Text>
-                </View>
-
-                {priority !== 'none' ? (
-                  <View
-                    style={[
-                      styles.priorityBadge,
-                      {
-                        backgroundColor: currentPriority.bgColor,
-                        borderColor: currentPriority.color,
-                      },
-                    ]}
-                  >
-                    {currentPriority.icon ? (
-                      <MaterialIcons
-                        name={currentPriority.icon}
-                        size={14}
-                        color={currentPriority.color}
-                      />
-                    ) : null}
-                    <Text
-                      style={[
-                        styles.priorityBadgeText,
-                        { color: currentPriority.color },
-                      ]}
-                    >
-                      {currentPriority.label}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
               {/* Tiêu đề Task */}
               <Text
                 style={[
@@ -403,47 +242,25 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
           </View>
         </View>
 
-        {/* Cụm nút hành động dưới đáy */}
+        {/* Nút xác nhận */}
         <View style={styles.actionsSection}>
-          {/* Nút Xem công việc */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('alarmModal.viewTask')}
-            onPress={onViewTask}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              isLightBackground && styles.lightSecondaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <MaterialIcons
-              name="event-note"
-              size={22}
-              color={primaryContentColor}
-            />
-            <Text
-              style={[
-                styles.secondaryButtonText,
-                { color: primaryContentColor },
-              ]}
-            >
-              {t('alarmModal.viewTask')}
-            </Text>
-          </Pressable>
-
-          {/* Nút Tắt báo thức */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('alarmModal.dismiss')}
+            accessibilityLabel={t('alarmModal.confirm')}
             onPress={onDismiss}
             style={({ pressed }) => [
-              styles.dismissButton,
+              styles.confirmButton,
+              {
+                backgroundColor: confirmButtonColor,
+                height: confirmButtonSize,
+                shadowColor: confirmButtonColor,
+                width: confirmButtonSize,
+              },
               pressed && styles.buttonPressed,
             ]}
           >
-            <MaterialIcons name="alarm-off" size={24} color="#FFFFFF" />
-            <Text style={styles.dismissButtonText}>
-              {t('alarmModal.dismiss')}
+            <Text style={styles.confirmButtonText}>
+              {t('alarmModal.confirm')}
             </Text>
           </Pressable>
         </View>
@@ -453,7 +270,7 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
   );
 });
 
-const createStyles = (colors: ThemeColors) =>
+const createStyles = () =>
   StyleSheet.create({
     container: {
       backgroundColor: '#090D16',
@@ -461,7 +278,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     contentContainer: {
       flex: 1,
-      justifyContent: 'space-between',
+      justifyContent: 'space-evenly',
       paddingHorizontal: 24,
     },
     darkBackgroundOverlay: {
@@ -470,32 +287,8 @@ const createStyles = (colors: ThemeColors) =>
     lightBackgroundOverlay: {
       backgroundColor: 'rgba(255, 252, 247, 0.38)',
     },
-    topBar: {
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    ringingBadge: {
-      alignItems: 'center',
-      backgroundColor: 'rgba(251, 191, 36, 0.18)',
-      borderColor: '#FBBF24',
-      borderRadius: 999,
-      borderWidth: 1,
-      flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    ringingBadgeText: {
-      fontSize: 13,
-      fontWeight: '800',
-      letterSpacing: 1.2,
-    },
-    lightRingingBadge: {
-      backgroundColor: 'rgba(255, 255, 255, 0.52)',
-    },
     clockSection: {
       alignItems: 'center',
-      marginVertical: 16,
     },
     clockText: {
       color: '#FFFFFF',
@@ -514,18 +307,20 @@ const createStyles = (colors: ThemeColors) =>
       color: 'rgba(23, 32, 51, 0.72)',
     },
     cardContainer: {
-      flex: 1,
+      alignItems: 'center',
+      flexShrink: 1,
       justifyContent: 'center',
-      marginVertical: 8,
+      width: '100%',
     },
     taskCard: {
       backgroundColor: 'rgba(255, 255, 255, 0.07)',
       borderColor: 'rgba(255, 255, 255, 0.15)',
       borderRadius: 24,
       borderWidth: 2,
-      maxHeight: 340,
+      maxHeight: 300,
       overflow: 'hidden',
       position: 'relative',
+      width: '100%',
     },
     lightTaskCard: {
       backgroundColor: 'rgba(255, 255, 255, 0.68)',
@@ -538,52 +333,18 @@ const createStyles = (colors: ThemeColors) =>
       top: 0,
     },
     cardScrollContent: {
+      justifyContent: 'flex-start',
       padding: 24,
       paddingTop: 26,
     },
-    taskMetaRow: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-      justifyContent: 'space-between',
-      marginBottom: 14,
-    },
-    timeTag: {
-      alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      borderRadius: 8,
-      flexDirection: 'row',
-      gap: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-    },
-    lightTimeTag: {
-      backgroundColor: 'rgba(255, 255, 255, 0.62)',
-    },
-    timeTagText: {
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    priorityBadge: {
-      alignItems: 'center',
-      borderRadius: 8,
-      borderWidth: 1,
-      flexDirection: 'row',
-      gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-    },
-    priorityBadgeText: {
-      fontSize: 12,
-      fontWeight: '700',
-    },
     taskTitle: {
+      alignSelf: 'stretch',
       color: '#FFFFFF',
       fontSize: 24,
       fontWeight: '800',
       lineHeight: 32,
       marginBottom: 12,
+      textAlign: 'center',
     },
     lightTaskTitle: {
       color: '#172033',
@@ -605,50 +366,25 @@ const createStyles = (colors: ThemeColors) =>
       color: 'rgba(23, 32, 51, 0.82)',
     },
     actionsSection: {
-      gap: 14,
-      marginTop: 16,
-    },
-    secondaryButton: {
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.12)',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-      borderRadius: 18,
-      borderWidth: 1,
-      flexDirection: 'row',
-      gap: 10,
-      justifyContent: 'center',
-      paddingVertical: 15,
+      width: '100%',
     },
-    lightSecondaryButton: {
-      backgroundColor: 'rgba(255, 255, 255, 0.68)',
-      borderColor: 'rgba(23, 32, 51, 0.14)',
-    },
-    secondaryButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    dismissButton: {
+    confirmButton: {
       alignItems: 'center',
-      backgroundColor: colors.danger || '#EF4444',
-      borderRadius: 18,
-      flexDirection: 'row',
-      gap: 10,
+      borderRadius: 999,
       justifyContent: 'center',
-      paddingVertical: 16,
       ...Platform.select({
         android: { elevation: 4 },
         ios: {
-          shadowColor: '#EF4444',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.35,
           shadowRadius: 8,
         },
       }),
     },
-    dismissButtonText: {
+    confirmButtonText: {
       color: '#FFFFFF',
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: '800',
       letterSpacing: 0.5,
     },

@@ -138,8 +138,6 @@ export async function scheduleTaskAlarm(
   metadata: Record<string, string>,
   preferences: AlarmSchedulePreferences = { vibrate: true },
 ): Promise<string | undefined> {
-  if (task.reminderMinutes === null) return undefined;
-
   const triggerDate = taskDateTime(task.date, task.startTime);
   if (triggerDate.getTime() <= Date.now()) return undefined;
 
@@ -149,11 +147,12 @@ export async function scheduleTaskAlarm(
   const permission = summarizePermission(await scheduler.getPermissionsAsync());
   if (
     !permission.canScheduleExactAlarms ||
-    (Platform.OS === 'android' && !permission.canPostNotifications)
+    (Platform.OS === 'android' &&
+      (!permission.canPostNotifications || !permission.canUseFullScreenIntent))
   ) {
     if (__DEV__) {
       console.warn(
-        `[Planly Alarm] Cannot schedule alarm for "${task.title}". canScheduleExactAlarms=${permission.canScheduleExactAlarms}, canPostNotifications=${permission.canPostNotifications}`,
+        `[Planly Alarm] Cannot schedule alarm for "${task.title}". canScheduleExactAlarms=${permission.canScheduleExactAlarms}, canPostNotifications=${permission.canPostNotifications}, canUseFullScreenIntent=${permission.canUseFullScreenIntent}`,
       );
     }
     return undefined;
@@ -176,10 +175,10 @@ export async function scheduleTaskAlarm(
 
   const alarm = await scheduler.scheduleAlarmAsync({
     android: {
-      alertActionMode: 'openAppOnly',
+      alertActionMode: 'default',
       alertBody,
       fullScreen: true,
-      fullScreenTarget: 'app',
+      fullScreenTarget: 'native',
       launchUri: `planly://alarm?taskId=${encodeURIComponent(task.id)}`,
       maxRingDurationSeconds: ALARM_MAX_RING_DURATION_SECONDS,
       metadata: alarmMetadataPayload,

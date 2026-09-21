@@ -35,6 +35,16 @@ export function todayKey(): string {
   return toDateKey(new Date());
 }
 
+export function roundTimeUpToHalfHour(date: Date = new Date()): string {
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
+  const roundedMinutes = Math.ceil(currentMinutes / 30) * 30;
+  const normalizedMinutes = roundedMinutes % (24 * 60);
+  const hours = Math.floor(normalizedMinutes / 60);
+  const minutes = normalizedMinutes % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 export function addDays(date: Date, amount: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + amount);

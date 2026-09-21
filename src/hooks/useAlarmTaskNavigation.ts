@@ -19,6 +19,7 @@ export function useAlarmTaskNavigation(
   requestTask: (taskId: string) => void,
   ready: boolean,
   tasks: Task[] = [],
+  completeTask?: (taskId: string) => void | Promise<void>,
 ) {
   const router = useRouter();
   const [activeAlarm, setActiveAlarm] = useState<ActiveAlarmInfo | null>(null);
@@ -75,17 +76,18 @@ export function useAlarmTaskNavigation(
     return run;
   }, []);
 
-  const dismissAlarm = useCallback(async () => {
+  const confirmAlarm = useCallback(async () => {
     if (!activeAlarm) return;
-    const currentAlarmId = activeAlarm.alarmId;
+    const { alarmId, task } = activeAlarm;
     activeAlarmRef.current = null;
     setActiveAlarm(null);
     try {
-      await dismissNativeAlarm(currentAlarmId);
+      await dismissNativeAlarm(alarmId);
     } catch {
       // Ignore dismissal error
     }
-  }, [activeAlarm]);
+    if (task.id) await completeTask?.(task.id);
+  }, [activeAlarm, completeTask]);
 
   const viewTask = useCallback(async () => {
     if (!activeAlarm) return;
@@ -123,7 +125,7 @@ export function useAlarmTaskNavigation(
 
   return {
     activeAlarm,
-    dismissAlarm,
+    confirmAlarm,
     viewTask,
   };
 }

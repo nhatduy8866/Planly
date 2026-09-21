@@ -38,6 +38,7 @@ import {
   MAX_BATCH_RANGE_DAYS,
 } from '../utils/taskBatch';
 import { TaskTimeConflictError } from '../utils/taskConflicts';
+import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
 
 export interface TaskFormValues {
@@ -122,6 +123,7 @@ export function TaskFormModal({
   const [picker, setPicker] = useState<PickerTarget>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState<TaskFormValues>();
 
   const weekdayOptions = useMemo(() => {
     const monday = new Date(2026, 8, 7);
@@ -252,39 +254,12 @@ export function TaskFormModal({
     void Haptics.selectionAsync();
   }
 
-  async function handleSubmit() {
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError(t('taskForm.titleRequired'));
-      return;
-    }
-
-    if (
-      !task &&
-      batchEnabled &&
-      batchValidationKey
-    ) {
-      setAdvancedOpen(true);
-      setError(
-        t(batchValidationKey),
-      );
-      return;
-    }
-
+  async function submitValues(values: TaskFormValues) {
     setSaving(true);
     setError('');
     let saved = false;
     try {
-      await onSubmit({
-        title: trimmedTitle,
-        description: description.trim(),
-        date,
-        startTime,
-        color,
-        priority,
-        batchDates: !task && batchEnabled ? batchDates : undefined,
-        applyToBatch: task?.batchId ? applyToBatch : undefined,
-      });
+      await onSubmit(values);
       saved = true;
     } catch (submitError) {
       if (submitError instanceof TaskTimeConflictError) {
@@ -307,6 +282,50 @@ export function TaskFormModal({
       setPicker(null);
       onClose();
     }
+  }
+
+  async function handleSubmit() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError(t('taskForm.titleRequired'));
+      return;
+    }
+
+    if (!task && batchEnabled && batchValidationKey) {
+      setAdvancedOpen(true);
+      setError(t(batchValidationKey));
+      return;
+    }
+
+    const values: TaskFormValues = {
+      title: trimmedTitle,
+      description: description.trim(),
+      date,
+      startTime,
+      color,
+      priority,
+      batchDates: !task && batchEnabled ? batchDates : undefined,
+    };
+
+    if (task?.batchId) {
+      setApplyToBatch(false);
+      setPendingSubmit(values);
+      return;
+    }
+
+    await submitValues(values);
+  }
+
+  function confirmBatchSubmit() {
+    if (!pendingSubmit) return;
+    const values = pendingSubmit;
+    setPendingSubmit(undefined);
+    void submitValues({ ...values, applyToBatch });
+  }
+
+  function cancelBatchSubmit() {
+    setPendingSubmit(undefined);
+    setApplyToBatch(false);
   }
 
   const pickerValue =
@@ -361,6 +380,7 @@ export function TaskFormModal({
                 {t(task ? 'taskForm.editTitle' : 'taskForm.newTitle')}
               </Text>
               <Pressable
+                accessibilityLabel={t('common.save')}
                 accessibilityRole="button"
                 disabled={saving}
                 onPress={() => void handleSubmit()}
@@ -655,49 +675,7 @@ export function TaskFormModal({
                     })}
                   </ScrollView>
 
-                  {task?.batchId ? (
-                    <View style={styles.batchSection}>
-                      <Pressable
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: applyToBatch }}
-                        onPress={() => {
-                          setApplyToBatch((current) => !current);
-                          void Haptics.selectionAsync();
-                        }}
-                        style={({ pressed }) => [
-                          styles.batchToggle,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={styles.batchTitleRow}>
-                          <MaterialIcons
-                            name="repeat"
-                            size={20}
-                            color={colors.primary}
-                          />
-                          <View style={styles.batchTitleWrap}>
-                            <Text style={styles.batchTitle}>
-                              {t('taskForm.batchEdit')}
-                            </Text>
-                            <Text style={styles.batchDescription}>
-                              {t('taskForm.batchEditDescription')}
-                            </Text>
-                          </View>
-                        </View>
-                        <MaterialIcons
-                          name={
-                            applyToBatch
-                              ? 'check-box'
-                              : 'check-box-outline-blank'
-                          }
-                          size={24}
-                          color={
-                            applyToBatch ? colors.primary : colors.textMuted
-                          }
-                        />
-                      </Pressable>
-                    </View>
-                  ) : !task ? (
+                  {!task ? (
                     <View style={styles.batchSection}>
                       <Pressable
                         accessibilityRole="checkbox"
@@ -1119,6 +1097,21 @@ export function TaskFormModal({
           </View>
         </Modal>
       ) : null}
+
+      <ConfirmModal
+        visible={Boolean(pendingSubmit)}
+        title={t('taskForm.batchEditConfirmTitle')}
+        message={t('taskForm.batchEditConfirmMessage')}
+        confirmText={t('common.save')}
+        optionChecked={applyToBatch}
+        optionDescription={t('taskForm.batchEditDescription')}
+        optionLabel={t('taskForm.batchEdit')}
+        onOptionChange={setApplyToBatch}
+        onConfirm={confirmBatchSubmit}
+        onCancel={cancelBatchSubmit}
+        tone="primary"
+        icon="repeat"
+      />
     </Modal>
   );
 }

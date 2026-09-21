@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import {
@@ -124,7 +123,6 @@ export function UserGuideModal({
     setExpandedSection((current) =>
       current === sectionId ? undefined : sectionId,
     );
-    void Haptics.selectionAsync();
   }
 
   return (
@@ -237,7 +235,6 @@ export function UserGuideModal({
               accessibilityRole="button"
               onPress={() => {
                 onReplayOnboarding();
-                void Haptics.selectionAsync();
               }}
               style={({ pressed }) => [
                 styles.replayButton,

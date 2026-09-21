@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
@@ -78,7 +77,6 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
 
         if (isMountedRef.current && transcript) {
           onTranscript(transcript);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       } catch (err) {
         console.warn('Lỗi nhận diện giọng nói qua Gemini:', err);
@@ -87,7 +85,6 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
           setErrorMessage(errorMsg);
         }
         onError?.(errorMsg);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
         if (isMountedRef.current) {
           setIsTranscribing(false);
@@ -103,14 +100,12 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
 
   const startListening = useCallback(async () => {
     setErrorMessage(null);
-    void Haptics.selectionAsync();
 
     const started = await startAudioRecording();
     if (!started) {
       const permMsg = t('ai.voicePermissionDenied');
       setErrorMessage(permMsg);
       onError?.(permMsg);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
 

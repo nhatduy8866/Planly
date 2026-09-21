@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
@@ -32,7 +31,6 @@ export function AiRefinementView({ onSubmit, onBack }: AiRefinementViewProps) {
   ];
 
   function handleSelectChip(chipText: string) {
-    void Haptics.selectionAsync();
     setInstruction(chipText);
   }
 

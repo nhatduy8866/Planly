@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
@@ -37,7 +36,6 @@ export function AppNavigationBar() {
           accessibilityState={{ expanded: menuExpanded }}
           onPress={() => {
             setMenuExpanded((expanded) => !expanded);
-            void Haptics.selectionAsync();
           }}
           style={({ pressed }) => [
             styles.menuButton,

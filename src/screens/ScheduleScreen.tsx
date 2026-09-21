@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutAnimation,
@@ -334,9 +333,6 @@ export function ScheduleScreen() {
     await saveTask(values, editingTask);
     const firstCreatedDate = values.batchDates?.[0] ?? values.date;
     selectDate(firstCreatedDate);
-    void Haptics.notificationAsync(
-      Haptics.NotificationFeedbackType.Success,
-    ).catch(() => undefined);
   }
 
   const removePendingCompletion = useCallback((taskId: string) => {
@@ -476,7 +472,6 @@ export function ScheduleScreen() {
                 animateTaskListTransition();
                 setTaskView(nextView);
                 refreshCurrentTime();
-                void Haptics.selectionAsync();
               }}
             />
           </View>
@@ -492,7 +487,6 @@ export function ScheduleScreen() {
               onSelect={(key) => {
                 animateTaskListTransition();
                 setTaskSort((current) => nextTaskSortState(current, key));
-                void Haptics.selectionAsync();
               }}
             />
           ) : null}
@@ -613,7 +607,6 @@ export function ScheduleScreen() {
             void deleteTask(deletingTask, deleteBatch);
             setDeletingTask(undefined);
             setDeleteBatch(false);
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         }}
         onCancel={() => {

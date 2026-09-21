@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
@@ -38,13 +37,11 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
   function openGuide() {
     onRequestClose();
     setGuideVisible(true);
-    void Haptics.selectionAsync();
   }
 
   function openSettings() {
     onRequestClose();
     setSettingsVisible(true);
-    void Haptics.selectionAsync();
   }
 
   return (
@@ -70,7 +67,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={(monthViewEnabled) => {
                 setMode(monthViewEnabled ? 'month' : 'week');
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -97,7 +93,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={() => {
                 toggleTheme();
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -120,7 +115,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={() => {
                 toggleLanguage();
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.primary, true: colors.primary }}
@@ -143,7 +137,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={(enabled) => {
                 setColorfulAccents(enabled);
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
@@ -166,7 +159,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               accessibilityRole="switch"
               onValueChange={(enabled) => {
                 setShowTaskBadges(enabled);
-                void Haptics.selectionAsync();
               }}
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}

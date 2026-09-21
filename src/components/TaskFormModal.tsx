@@ -2,7 +2,6 @@ import DateTimePicker, {
   type DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -230,14 +229,12 @@ export function TaskFormModal({
     setSpecificDates((current) =>
       [...current, specificDateDraft].sort(),
     );
-    void Haptics.selectionAsync();
   }
 
   function removeSpecificDate(targetDate: string) {
     setSpecificDates((current) =>
       current.filter((item) => item !== targetDate),
     );
-    void Haptics.selectionAsync();
   }
 
   function toggleBatch() {
@@ -251,7 +248,6 @@ export function TaskFormModal({
       setBatchEndDate(addCalendarMonths(date, 3));
     }
     setBatchEnabled(nextEnabled);
-    void Haptics.selectionAsync();
   }
 
   async function submitValues(values: TaskFormValues) {
@@ -574,7 +570,6 @@ export function TaskFormModal({
                           key={item.value}
                           onPress={() => {
                             setPriority(item.value);
-                            void Haptics.selectionAsync();
                           }}
                           style={({ pressed }) => [
                             styles.priorityChip,
@@ -622,7 +617,6 @@ export function TaskFormModal({
                     <Pressable
                       onPress={() => {
                         setColor(undefined);
-                        void Haptics.selectionAsync();
                       }}
                       style={({ pressed }) => [
                         styles.colorChip,
@@ -654,7 +648,6 @@ export function TaskFormModal({
                           accessibilityLabel={presetColor}
                           onPress={() => {
                             setColor(presetColor);
-                            void Haptics.selectionAsync();
                           }}
                           style={({ pressed }) => [
                             styles.colorCircle,
@@ -727,7 +720,6 @@ export function TaskFormModal({
                                   key={mode}
                                   onPress={() => {
                                     setBatchMode(mode);
-                                    void Haptics.selectionAsync();
                                   }}
                                   style={[
                                     styles.segment,

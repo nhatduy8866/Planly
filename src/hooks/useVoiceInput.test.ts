@@ -38,12 +38,6 @@ jest.mock('../preferences/PreferencesContext', () => ({
   }),
 }));
 
-jest.mock('expo-haptics', () => ({
-  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
-  notificationAsync: jest.fn(async () => undefined),
-  selectionAsync: jest.fn(async () => undefined),
-}));
-
 interface TestRendererInstance {
   unmount(): void;
 }

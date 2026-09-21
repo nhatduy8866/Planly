@@ -99,12 +99,6 @@ jest.mock('../services/reminderTransaction', () => ({
   ) => mockRollbackTaskReminders(savedTasks, previousTasks, options),
 }));
 
-jest.mock('expo-haptics', () => ({
-  NotificationFeedbackType: { Success: 'success' },
-  notificationAsync: jest.fn(async () => undefined),
-  selectionAsync: jest.fn(async () => undefined),
-}));
-
 interface TestRendererInstance {
   unmount(): void;
   update(element: ReturnType<typeof createElement>): void;

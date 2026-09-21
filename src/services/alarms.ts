@@ -147,11 +147,12 @@ export async function scheduleTaskAlarm(
   const permission = summarizePermission(await scheduler.getPermissionsAsync());
   if (
     !permission.canScheduleExactAlarms ||
-    (Platform.OS === 'android' && !permission.canPostNotifications)
+    (Platform.OS === 'android' &&
+      (!permission.canPostNotifications || !permission.canUseFullScreenIntent))
   ) {
     if (__DEV__) {
       console.warn(
-        `[Planly Alarm] Cannot schedule alarm for "${task.title}". canScheduleExactAlarms=${permission.canScheduleExactAlarms}, canPostNotifications=${permission.canPostNotifications}`,
+        `[Planly Alarm] Cannot schedule alarm for "${task.title}". canScheduleExactAlarms=${permission.canScheduleExactAlarms}, canPostNotifications=${permission.canPostNotifications}, canUseFullScreenIntent=${permission.canUseFullScreenIntent}`,
       );
     }
     return undefined;

@@ -28,6 +28,10 @@ jest.mock('expo-notifications', () => ({
   getLastNotificationResponse: () => mockGetLastResponse(),
 }));
 
+jest.mock('../services/notifications', () => ({
+  TASK_COMPLETE_ACTION_IDENTIFIER: 'planly_complete_task',
+}));
+
 interface TestRendererInstance {
   unmount(): void;
   update(element: ReturnType<typeof createElement>): void;
@@ -58,9 +62,10 @@ function notificationResponse(
 describe('useNotificationTaskNavigation', () => {
   let tree: TestRendererInstance | undefined;
   let requestTask: jest.Mock<(taskId: string) => void>;
+  let completeTask: jest.Mock<(taskId: string) => Promise<void>>;
 
   function Harness({ ready = true }: { ready?: boolean }) {
-    useNotificationTaskNavigation(requestTask, ready);
+    useNotificationTaskNavigation(requestTask, ready, completeTask);
     return null;
   }
 
@@ -69,6 +74,7 @@ describe('useNotificationTaskNavigation', () => {
     mockResponseListener = undefined;
     mockGetLastResponse.mockReturnValue(null);
     requestTask = jest.fn();
+    completeTask = jest.fn(async () => undefined);
   });
 
   afterEach(() => {
@@ -138,6 +144,25 @@ describe('useNotificationTaskNavigation', () => {
 
     expect(requestTask).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('completes a task from the notification action without opening its editor', async () => {
+    act(() => {
+      tree = create(createElement(Harness));
+    });
+
+    await act(async () => {
+      mockResponseListener?.(
+        notificationResponse('task-5', {
+          actionIdentifier: 'planly_complete_task',
+        }),
+      );
+    });
+
+    expect(completeTask).toHaveBeenCalledWith('task-5');
+    expect(requestTask).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockClearLastResponse).toHaveBeenCalledTimes(1);
   });
 
   it('removes the native listener on unmount', () => {

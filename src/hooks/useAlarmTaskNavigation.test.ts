@@ -43,24 +43,30 @@ const { create } = require('react-test-renderer') as {
 describe('useAlarmTaskNavigation', () => {
   let tree: TestRendererInstance | undefined;
   let requestTask: jest.Mock<(taskId: string) => void>;
+  let completeTask: jest.Mock<(taskId: string) => Promise<void>>;
   let hookResult: ReturnType<typeof useAlarmTaskNavigation> | undefined;
 
   function Harness({ ready = true }: { ready?: boolean }) {
-    hookResult = useAlarmTaskNavigation(requestTask, ready, [
-      {
-        completed: false,
-        createdAt: '2026-09-11T00:00:00.000Z',
-        date: '2026-09-11',
-        description: 'Chi tiết task từ store',
-        id: 'task-1',
-        order: 0,
-        priority: 'high',
-        startTime: '10:00',
-        title: 'Họp công ty',
-        updatedAt: '2026-09-11T00:00:00.000Z',
-        color: '#10B981',
-      },
-    ]);
+    hookResult = useAlarmTaskNavigation(
+      requestTask,
+      ready,
+      [
+        {
+          completed: false,
+          createdAt: '2026-09-11T00:00:00.000Z',
+          date: '2026-09-11',
+          description: 'Chi tiết task từ store',
+          id: 'task-1',
+          order: 0,
+          priority: 'high',
+          startTime: '10:00',
+          title: 'Họp công ty',
+          updatedAt: '2026-09-11T00:00:00.000Z',
+          color: '#10B981',
+        },
+      ],
+      completeTask,
+    );
     return null;
   }
 
@@ -76,6 +82,7 @@ describe('useAlarmTaskNavigation', () => {
       },
     );
     requestTask = jest.fn();
+    completeTask = jest.fn(async () => undefined);
     hookResult = undefined;
   });
 
@@ -110,7 +117,7 @@ describe('useAlarmTaskNavigation', () => {
     expect(mockDismissNativeAlarm).toHaveBeenCalledWith('native-1');
   });
 
-  it('dismisses native alarm when dismissAlarm is called', async () => {
+  it('dismisses the native alarm and completes its task when confirmed', async () => {
     mockGetActiveAlarmState.mockResolvedValue({
       alarmId: 'native-1',
       taskId: 'task-1',
@@ -121,11 +128,12 @@ describe('useAlarmTaskNavigation', () => {
     });
 
     await act(async () => {
-      await hookResult?.dismissAlarm();
+      await hookResult?.confirmAlarm();
     });
 
     expect(mockDismissNativeAlarm).toHaveBeenCalledWith('native-1');
     expect(hookResult?.activeAlarm).toBeNull();
+    expect(completeTask).toHaveBeenCalledWith('task-1');
     expect(requestTask).not.toHaveBeenCalled();
   });
 

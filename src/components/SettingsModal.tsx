@@ -5,7 +5,6 @@ import {
   useAudioPlayer,
   useAudioPlayerStatus,
 } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AppState,
@@ -216,7 +215,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
     closePicker();
     setReminderDeliveryMode(mode);
-    void Haptics.selectionAsync();
     if (mode !== 'alarm' || alarmBusy) return;
 
     setAlarmBusy(true);
@@ -255,7 +253,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
         setAlarmBackground(file);
       }
       setActivePicker(kind);
-      void Haptics.selectionAsync();
     } catch (error) {
       setAlarmMediaError(
         t(
@@ -274,7 +271,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmSound(null);
     setAlarmSoundPreset(preset);
     setAlarmMediaError(null);
-    void Haptics.selectionAsync();
   }
 
   function selectAlarmBackgroundPreset(preset: AlarmBackgroundPresetId) {
@@ -282,7 +278,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmBackground(null);
     setAlarmBackgroundPreset(preset);
     setAlarmMediaError(null);
-    void Haptics.selectionAsync();
   }
 
   async function previewAlarmSound(
@@ -315,7 +310,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   function setVibration(enabled: boolean) {
     closePicker();
     setAlarmVibrationEnabled(enabled);
-    void Haptics.selectionAsync();
   }
 
   function closeSettings() {
@@ -681,9 +675,6 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
           }
           setDeleteAllConfirmStep(0);
           void deleteAllTasks();
-          void Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success,
-          );
         }}
         onCancel={() => setDeleteAllConfirmStep(0)}
       />

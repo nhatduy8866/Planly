@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import {
@@ -64,7 +63,6 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
   function finish() {
     setPageIndex(0);
     onFinish();
-    void Haptics.selectionAsync();
   }
 
   function next() {
@@ -73,7 +71,6 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
       return;
     }
     setPageIndex((current) => current + 1);
-    void Haptics.selectionAsync();
   }
 
   return (
@@ -166,7 +163,6 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
                   accessibilityRole="button"
                   onPress={() => {
                     setPageIndex((current) => current - 1);
-                    void Haptics.selectionAsync();
                   }}
                   style={({ pressed }) => [
                     styles.secondaryButton,

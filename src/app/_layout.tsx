@@ -1,6 +1,6 @@
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -12,6 +12,7 @@ import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
 import { useTodayWidgetSync } from '../hooks/useTodayWidgetSync';
+import { useTaskActions } from '../hooks/useTaskActions';
 import {
   TaskNavigationProvider,
   useTaskNavigation,
@@ -51,6 +52,7 @@ function AppShell() {
     theme,
   } = usePreferences();
   const { requestTask } = useTaskNavigation();
+  const { completeTask } = useTaskActions();
   const styles = useThemedStyles(createStyles);
   const appReady = plannerHydrated && preferencesHydrated;
   const alarmPreferences = getAlarmSchedulePreferences(
@@ -59,12 +61,21 @@ function AppShell() {
     alarmVibrationEnabled,
   );
 
-  const { activeAlarm, dismissAlarm } = useAlarmTaskNavigation(
+  const completeTaskById = useCallback(
+    async (taskId: string) => {
+      const task = tasks.find((item) => item.id === taskId);
+      if (task && !task.completed) await completeTask(task);
+    },
+    [completeTask, tasks],
+  );
+
+  const { activeAlarm, confirmAlarm } = useAlarmTaskNavigation(
     requestTask,
     appReady,
     tasks,
+    completeTaskById,
   );
-  useNotificationTaskNavigation(requestTask, appReady);
+  useNotificationTaskNavigation(requestTask, appReady, completeTaskById);
   useReminderReconciliation(
     tasks,
     language,
@@ -114,7 +125,7 @@ function AppShell() {
         vibrate={alarmVibrationEnabled}
         visible={Boolean(activeAlarm)}
         task={activeAlarm?.task}
-        onDismiss={dismissAlarm}
+        onDismiss={confirmAlarm}
       />
     </>
   );

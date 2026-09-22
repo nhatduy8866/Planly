@@ -536,7 +536,7 @@ export function ScheduleScreen() {
         onPress={aiScheduler.openActionSheet}
         style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
       >
-        <MaterialIcons name="add" size={28} color={colors.white} />
+        <MaterialIcons name="add" size={56} color={colors.white} />
       </Pressable>
 
       <AiScheduleModal
@@ -605,7 +605,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 88, paddingHorizontal: 16 },
+  content: { paddingBottom: 144, paddingHorizontal: 16 },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -644,10 +644,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 28,
+    borderRadius: 56,
     bottom: 16,
     elevation: 6,
-    height: 56,
+    height: 112,
     justifyContent: 'center',
     position: 'absolute',
     right: 16,
@@ -655,7 +655,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { height: 4, width: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    width: 56,
+    width: 112,
     zIndex: 10,
   },
   pressed: { opacity: MOTION.pressedOpacity },

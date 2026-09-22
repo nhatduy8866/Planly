@@ -106,6 +106,7 @@ export async function reconcileTaskReminders(
     dependencies.getScheduledReminders(),
     dependencies.getReadiness(preferredMode, language),
   ]);
+  const currentTime = dependencies.now();
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
   const requestsByTaskId = new Map<string, ScheduledTaskReminder[]>();
 
@@ -128,13 +129,13 @@ export async function reconcileTaskReminders(
 
   for (const [taskId, requests] of requestsByTaskId) {
     if (tasksById.has(taskId)) continue;
-    for (const request of requests) await cancel(request.identifier);
+    await Promise.all(requests.map((request) => cancel(request.identifier)));
   }
 
   for (const task of tasks) {
     const requests = requestsByTaskId.get(task.id) ?? [];
-    if (!isEligibleForReminder(task, dependencies.now())) {
-      for (const request of requests) await cancel(request.identifier);
+    if (!isEligibleForReminder(task, currentTime)) {
+      await Promise.all(requests.map((request) => cancel(request.identifier)));
       if (task.notificationId !== undefined) {
         result.notificationIdUpdates.push({ id: task.id, notificationId: undefined });
       }
@@ -176,19 +177,20 @@ export async function reconcileTaskReminders(
       matchingPrimaryRequest !== undefined &&
       keptPrealert === undefined &&
       expectedPrealertDate !== undefined &&
-      expectedPrealertDate.getTime() > dependencies.now();
+      expectedPrealertDate.getTime() > currentTime;
     const keptRequest = needsMissingPrealertRepair
       ? undefined
       : matchingPrimaryRequest;
 
-    for (const request of requests) {
-      if (
-        request.identifier !== keptRequest?.identifier &&
-        (!keptRequest || request.identifier !== keptPrealert?.identifier)
-      ) {
-        await cancel(request.identifier);
-      }
-    }
+    await Promise.all(
+      requests
+        .filter(
+          (request) =>
+            request.identifier !== keptRequest?.identifier &&
+            (!keptRequest || request.identifier !== keptPrealert?.identifier),
+        )
+        .map((request) => cancel(request.identifier)),
+    );
 
     if (keptRequest) {
       if (task.notificationId !== keptRequest.identifier) {

@@ -143,7 +143,11 @@ export function taskDateTime(dateKey: string, time: string): Date {
 }
 
 export function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number);
+  const separatorIndex = time.indexOf(':');
+  if (separatorIndex < 0) return Number.NaN;
+
+  const hours = Number(time.slice(0, separatorIndex));
+  const minutes = Number(time.slice(separatorIndex + 1));
   return hours * 60 + minutes;
 }
 

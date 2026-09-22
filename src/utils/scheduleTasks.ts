@@ -18,14 +18,15 @@ export function filterScheduleTasksForView(
   view: ScheduleTaskView,
   now = new Date(),
 ): Task[] {
+  const currentTime = now.getTime();
   return tasks.filter((task) => {
     if (task.date !== selectedDate) return false;
     if (view === 'all') return true;
     const startTime = taskDateTime(task.date, task.startTime).getTime();
 
     return view === 'upcoming'
-      ? !task.completed && startTime >= now.getTime()
-      : task.completed || startTime < now.getTime();
+      ? !task.completed && startTime >= currentTime
+      : task.completed || startTime < currentTime;
   });
 }
 

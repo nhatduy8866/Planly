@@ -150,6 +150,26 @@ describe('diffPlannerData', () => {
     expect(mutations).toEqual([]);
   });
 
+  it('syncs every cloud-backed task field', () => {
+    const changes: Partial<Task>[] = [
+      { title: 'Tên mới' },
+      { description: 'Nội dung mới' },
+      { date: '2026-09-15' },
+      { startTime: '10:30' },
+      { color: '#123456' },
+      { batchId: 'batch-2' },
+      { completed: true },
+      { order: 2 },
+      { priority: 'high' },
+      { createdAt: '2026-09-13T01:30:00.000Z' },
+      { updatedAt: '2026-09-13T02:00:00.000Z' },
+    ];
+
+    for (const change of changes) {
+      expect(diffPlannerData([task], [{ ...task, ...change }])).toHaveLength(1);
+    }
+  });
+
   it('creates a timestamped mutation for a changed task', () => {
     const changedAt = '2026-09-13T06:00:00.000Z';
     const updated = { ...task, title: 'Tên mới' };

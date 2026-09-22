@@ -15,12 +15,8 @@ export class TaskTimeConflictError extends Error {
   }
 }
 
-function tasksHaveSameTime(first: Task, second: Task): boolean {
-  return (
-    first.date === second.date &&
-    Boolean(first.startTime) &&
-    first.startTime === second.startTime
-  );
+function taskTimeKey(task: Task): string | undefined {
+  return task.startTime ? `${task.date}\u0000${task.startTime}` : undefined;
 }
 
 export function findTaskTimeConflict(
@@ -28,31 +24,22 @@ export function findTaskTimeConflict(
   existingTasks: Task[],
 ): TaskTimeConflict | null {
   const taskIdsBeingSaved = new Set(tasksToSave.map((task) => task.id));
-  const activeExistingTasks = existingTasks.filter(
-    (task) => !task.completed && !taskIdsBeingSaved.has(task.id),
-  );
+  const occupiedTimes = new Map<string, Task>();
 
-  for (let taskIndex = 0; taskIndex < tasksToSave.length; taskIndex += 1) {
-    const task = tasksToSave[taskIndex];
+  for (const task of existingTasks) {
+    if (task.completed || taskIdsBeingSaved.has(task.id)) continue;
+    const key = taskTimeKey(task);
+    if (key && !occupiedTimes.has(key)) occupiedTimes.set(key, task);
+  }
+
+  for (const task of tasksToSave) {
     if (task.completed) continue;
 
-    const existingConflict = activeExistingTasks.find((existingTask) =>
-      tasksHaveSameTime(task, existingTask),
-    );
-    if (existingConflict) {
-      return { task, conflictingTask: existingConflict };
-    }
-
-    for (
-      let previousIndex = 0;
-      previousIndex < taskIndex;
-      previousIndex += 1
-    ) {
-      const previousTask = tasksToSave[previousIndex];
-      if (!previousTask.completed && tasksHaveSameTime(task, previousTask)) {
-        return { task, conflictingTask: previousTask };
-      }
-    }
+    const key = taskTimeKey(task);
+    if (!key) continue;
+    const conflictingTask = occupiedTimes.get(key);
+    if (conflictingTask) return { task, conflictingTask };
+    occupiedTimes.set(key, task);
   }
 
   return null;

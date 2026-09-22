@@ -24,11 +24,16 @@ export function useNotificationTaskNavigation(
   ready: boolean,
   completeTask?: (taskId: string) => void | Promise<void>,
 ): void {
-  const router = useRouter();
+  const { navigate } = useRouter();
+  const completeTaskRef = useRef(completeTask);
   const handledNotificationIdsRef = useRef(new Set<string>());
   const pendingResponseRef = useRef<Notifications.NotificationResponse | null>(
     null,
   );
+
+  useEffect(() => {
+    completeTaskRef.current = completeTask;
+  }, [completeTask]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -46,10 +51,10 @@ export function useNotificationTaskNavigation(
       handledNotificationIdsRef.current.add(responseKey);
       try {
         if (response.actionIdentifier === TASK_COMPLETE_ACTION_IDENTIFIER) {
-          await completeTask?.(taskId);
+          await completeTaskRef.current?.(taskId);
         } else {
           requestTask(taskId);
-          router.navigate('/');
+          navigate('/');
         }
         Notifications.clearLastNotificationResponse();
       } catch {
@@ -76,5 +81,5 @@ export function useNotificationTaskNavigation(
     if (coldStartResponse) handleResponse(coldStartResponse);
 
     return () => subscription.remove();
-  }, [completeTask, ready, requestTask, router]);
+  }, [navigate, ready, requestTask]);
 }

@@ -453,22 +453,19 @@ export function ScheduleScreen() {
             />
           </View>
           {dayTasks.length > 1 ? (
-            <View style={styles.taskSortPicker}>
-              <SortDropdown<'time' | 'title' | 'priority'>
-                direction={taskSort.direction}
-                fullWidth
-                options={[
-                  { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                  { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                  { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-                ]}
-                selectedKey={taskSort.key}
-                onSelect={(key) => {
-                  animateTaskListTransition(reducedMotion);
-                  setTaskSort((current) => nextTaskSortState(current, key));
-                }}
-              />
-            </View>
+            <SortDropdown<'time' | 'title' | 'priority'>
+              direction={taskSort.direction}
+              options={[
+                { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+              ]}
+              selectedKey={taskSort.key}
+              onSelect={(key) => {
+                animateTaskListTransition(reducedMotion);
+                setTaskSort((current) => nextTaskSortState(current, key));
+              }}
+            />
           ) : null}
         </View>
 
@@ -536,7 +533,7 @@ export function ScheduleScreen() {
         onPress={aiScheduler.openActionSheet}
         style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
       >
-        <MaterialIcons name="add" size={56} color={colors.white} />
+        <MaterialIcons name="add" size={42} color={colors.white} />
       </Pressable>
 
       <AiScheduleModal
@@ -605,7 +602,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 144, paddingHorizontal: 16 },
+  content: { paddingBottom: 116, paddingHorizontal: 16 },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -636,18 +633,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minWidth: 0,
     width: 0,
   },
-  taskSortPicker: {
-    flex: 1,
-    minWidth: 0,
-    width: 0,
-  },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 56,
+    borderRadius: 42,
     bottom: 16,
     elevation: 6,
-    height: 112,
+    height: 84,
     justifyContent: 'center',
     position: 'absolute',
     right: 16,
@@ -655,7 +647,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { height: 4, width: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    width: 112,
+    width: 84,
     zIndex: 10,
   },
   pressed: { opacity: MOTION.pressedOpacity },

@@ -39,7 +39,6 @@ export interface TodayWidgetSnapshot {
   upcomingCount: number;
 }
 
-const MAX_SNAPSHOT_TASKS = 1;
 const DEFAULT_TASK_COLOR = '#4F46E5';
 
 export const TODAY_WIDGET_COMPLETE_ACTION = 'COMPLETE_TASK';
@@ -52,6 +51,15 @@ function safeTaskColor(color: string | undefined): `#${string}` {
     : DEFAULT_TASK_COLOR;
 }
 
+function compareWidgetTasks(first: Task, second: Task): number {
+  return (
+    timeToMinutes(first.startTime) - timeToMinutes(second.startTime) ||
+    first.order - second.order ||
+    first.createdAt.localeCompare(second.createdAt) ||
+    first.id.localeCompare(second.id)
+  );
+}
+
 export function createTodayWidgetSnapshot(
   tasks: Task[],
   language: Language,
@@ -62,21 +70,29 @@ export function createTodayWidgetSnapshot(
   const locale = language === 'vi' ? 'vi-VN' : 'en-US';
   const dateKey = toDateKey(date);
   const referenceTime = date.getHours() * 60 + date.getMinutes();
-  const dayTasks = tasks
-    .filter((task) => task.date === dateKey)
-    .sort(
-      (first, second) =>
-        timeToMinutes(first.startTime) - timeToMinutes(second.startTime) ||
-        (first.order ?? 0) - (second.order ?? 0) ||
-        first.createdAt.localeCompare(second.createdAt) ||
-        first.id.localeCompare(second.id),
-    );
-  const upcomingTasks = dayTasks.filter(
-    (task) => !task.completed && timeToMinutes(task.startTime) >= referenceTime,
-  );
+  let completedCount = 0;
+  let nextUpcomingTask: Task | undefined;
+  let totalCount = 0;
+  let upcomingCount = 0;
+
+  for (const task of tasks) {
+    if (task.date !== dateKey) continue;
+    totalCount += 1;
+    if (task.completed) {
+      completedCount += 1;
+      continue;
+    }
+
+    const taskStart = timeToMinutes(task.startTime);
+    if (!Number.isFinite(taskStart) || taskStart < referenceTime) continue;
+    upcomingCount += 1;
+    if (!nextUpcomingTask || compareWidgetTasks(task, nextUpcomingTask) < 0) {
+      nextUpcomingTask = task;
+    }
+  }
 
   return {
-    completedCount: dayTasks.filter((task) => task.completed).length,
+    completedCount,
     dateLabel: formatCompactDate(dateKey, locale),
     emptyLabel:
       language === 'vi'
@@ -84,20 +100,22 @@ export function createTodayWidgetSnapshot(
         : 'No upcoming tasks',
     language,
     pendingCompletions,
-    tasks: upcomingTasks.slice(0, MAX_SNAPSHOT_TASKS).map((task) => ({
-      color: safeTaskColor(task.color),
-      completed: task.completed,
-      id: task.id,
-      startTime: task.startTime,
-      title:
-        task.title.trim() ||
-        (language === 'vi' ? 'Công việc chưa đặt tên' : 'Untitled task'),
-    })),
+    tasks: nextUpcomingTask
+      ? [{
+          color: safeTaskColor(nextUpcomingTask.color),
+          completed: nextUpcomingTask.completed,
+          id: nextUpcomingTask.id,
+          startTime: nextUpcomingTask.startTime,
+          title:
+            nextUpcomingTask.title.trim() ||
+            (language === 'vi' ? 'Công việc chưa đặt tên' : 'Untitled task'),
+        }]
+      : [],
     theme,
     todayLabel: language === 'vi' ? 'Hôm nay' : 'Today',
-    totalCount: dayTasks.length,
+    totalCount,
     undoLabel: language === 'vi' ? 'Chạm để hoàn tác' : 'Tap to undo',
-    upcomingCount: upcomingTasks.length,
+    upcomingCount,
   };
 }
 

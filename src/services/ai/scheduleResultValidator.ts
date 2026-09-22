@@ -56,13 +56,21 @@ function batchGroups(drafts: AiDraftTask[]): Map<string, AiDraftTask[]> {
   return groups;
 }
 
-function logicalTaskCount(drafts: AiDraftTask[]): number {
-  const groups = batchGroups(drafts);
-  return groups.size + drafts.filter((draft) => !draft.batchGroupId).length;
+function logicalTaskCount(
+  drafts: AiDraftTask[],
+  groups: ReadonlyMap<string, AiDraftTask[]>,
+): number {
+  let count = groups.size;
+  for (const draft of drafts) {
+    if (!draft.batchGroupId) count += 1;
+  }
+  return count;
 }
 
-function hasInvalidBatch(drafts: AiDraftTask[]): boolean {
-  for (const group of batchGroups(drafts).values()) {
+function hasInvalidBatch(
+  groups: ReadonlyMap<string, AiDraftTask[]>,
+): boolean {
+  for (const group of groups.values()) {
     const dates = group.map((draft) => draft.date).sort();
     const first = group[0];
     if (
@@ -106,6 +114,7 @@ export function validateAiScheduleResult(
 ): AiScheduleValidationResult {
   const constraints = extractScheduleConstraints(prompt, context);
   const issues: AiScheduleValidationIssue[] = [];
+  const groups = batchGroups(drafts);
   const targetDate = constraints.date ?? context.targetDate;
   const activeTargetTasks = (context.allTasks || context.existingTasks).filter(
     (task) => task.date === targetDate && !task.completed,
@@ -123,8 +132,8 @@ export function validateAiScheduleResult(
   }
 
   const expectedCount = constraints.expectedTaskCount;
-  const receivedCount = batchGroups(drafts).size > 0
-    ? logicalTaskCount(drafts)
+  const receivedCount = groups.size > 0
+    ? logicalTaskCount(drafts, groups)
     : drafts.length;
   if (expectedCount !== undefined && receivedCount !== expectedCount) {
     issues.push({
@@ -134,8 +143,8 @@ export function validateAiScheduleResult(
   }
 
   if (
-    (isAiBatchIntent(prompt) && batchGroups(drafts).size === 0) ||
-    hasInvalidBatch(drafts)
+    (isAiBatchIntent(prompt) && groups.size === 0) ||
+    hasInvalidBatch(groups)
   ) {
     issues.push({
       code: 'batch_mismatch',
@@ -187,7 +196,7 @@ export function validateAiScheduleResult(
     semanticTasks.add(semanticKey);
   }
 
-  if (logicalTaskCount(drafts) === 1) {
+  if (logicalTaskCount(drafts, groups) === 1) {
     const [draft] = drafts;
     if (constraints.date && draft.date !== constraints.date) {
       issues.push({

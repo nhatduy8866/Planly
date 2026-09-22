@@ -24,6 +24,8 @@ interface TaskRow {
   updated_at: string;
 }
 
+type TaskMutation = Extract<SyncMutation, { entity: 'task' }>;
+
 const TASK_COLUMNS = [
   'id',
   'title',
@@ -105,8 +107,7 @@ export async function fetchCloudPlannerSnapshot(
   };
 }
 
-function taskMutationRow(mutation: SyncMutation, userId: string) {
-  if (mutation.entity !== 'task') return undefined;
+function taskMutationRow(mutation: TaskMutation, userId: string) {
   if (mutation.operation === 'delete') {
     return {
       batch_id: null,
@@ -149,9 +150,12 @@ export async function pushCloudPlannerMutations(
   userId: string,
   mutations: SyncMutation[],
 ): Promise<void> {
-  const taskRows = mutations
-    .map((mutation) => taskMutationRow(mutation, userId))
-    .filter((row) => row !== undefined);
+  const taskRows = [];
+  for (const mutation of mutations) {
+    if (mutation.entity === 'task') {
+      taskRows.push(taskMutationRow(mutation, userId));
+    }
+  }
   if (taskRows.length === 0) return;
 
   const result = await client.from('planly_tasks').upsert(taskRows, {

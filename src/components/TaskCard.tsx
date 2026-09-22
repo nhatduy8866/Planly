@@ -338,8 +338,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: scaleCardSize(16),
-    borderLeftWidth: scaleCardSize(15),
-    borderWidth: scaleCardSize(4),
+    borderLeftWidth: scaleCardSize(12),
+    borderWidth: scaleCardSize(3.2),
     flexDirection: 'row',
     padding: scaleCardSize(12),
   },

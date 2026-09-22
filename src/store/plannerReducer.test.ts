@@ -140,6 +140,27 @@ describe('plannerReducer', () => {
     expect(result.tasks[0].id).toBe('task-2');
   });
 
+  it('keeps the same state when deleting or toggling a missing task', () => {
+    const state = {
+      ...initialPlannerState,
+      hydrated: true,
+      tasks: [task({ id: 'existing' })],
+    };
+
+    expect(
+      plannerReducer(state, {
+        type: 'delete_task',
+        payload: { id: 'missing' },
+      }),
+    ).toBe(state);
+    expect(
+      plannerReducer(state, {
+        type: 'toggle_task',
+        payload: { id: 'missing' },
+      }),
+    ).toBe(state);
+  });
+
   it('deletes multiple tasks by id in one action', () => {
     const state = {
       ...initialPlannerState,

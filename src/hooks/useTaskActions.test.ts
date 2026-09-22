@@ -7,6 +7,7 @@ import { TaskTimeConflictError } from '../utils/taskConflicts';
 import { useTaskActions } from './useTaskActions';
 
 const mockDispatch = jest.fn();
+const mockShowToast = jest.fn();
 const mockCancelTaskReminder = jest.fn<
   (notificationId?: string) => Promise<void>
 >();
@@ -34,6 +35,10 @@ const mockScheduleTaskReminder = jest.fn<
 jest.mock('../store/PlannerContext', () => ({
   usePlannerDispatch: () => mockDispatch,
   usePlannerTasks: () => mockPlannerState.tasks,
+}));
+
+jest.mock('../components/AppToast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 jest.mock('../preferences/PreferencesContext', () => ({
@@ -174,6 +179,7 @@ describe('useTaskActions batch editing', () => {
         batchId: undefined,
       }),
     });
+    expect(mockShowToast).toHaveBeenCalledWith('toast.taskUpdated');
   });
 
   it('saves every occurrence when applying edits to the batch', async () => {
@@ -205,6 +211,7 @@ describe('useTaskActions batch editing', () => {
         }),
       ],
     });
+    expect(mockShowToast).toHaveBeenCalledWith('toast.tasksUpdated');
   });
 
   it('creates one batch task for each explicitly selected date', async () => {
@@ -229,6 +236,7 @@ describe('useTaskActions batch editing', () => {
     ]);
     expect(new Set(action.payload.map((task) => task.batchId)).size).toBe(1);
     expect(mockScheduleTaskReminder).toHaveBeenCalledTimes(3);
+    expect(mockShowToast).toHaveBeenCalledWith('toast.tasksCreated');
   });
 
   it('deletes only the selected occurrence by default', async () => {
@@ -241,6 +249,7 @@ describe('useTaskActions batch editing', () => {
       payload: { id: 'task-1' },
     });
     expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
+    expect(mockShowToast).toHaveBeenCalledWith('toast.taskDeleted');
   });
 
   it('deletes every occurrence and reminder when applying deletion to a batch', async () => {
@@ -255,6 +264,7 @@ describe('useTaskActions batch editing', () => {
     expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
     expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-1');
     expect(mockCancelTaskReminder).toHaveBeenCalledWith('notification-2');
+    expect(mockShowToast).toHaveBeenCalledWith('toast.tasksDeleted');
   });
 
   it('deletes all tasks and their reminders', async () => {
@@ -267,6 +277,7 @@ describe('useTaskActions batch editing', () => {
       payload: { ids: ['task-1', 'task-2'] },
     });
     expect(mockCancelTaskReminder).toHaveBeenCalledTimes(2);
+    expect(mockShowToast).toHaveBeenCalledWith('toast.allTasksDeleted');
   });
 
   it('marks a task complete and cancels its alarm reminder', async () => {
@@ -283,6 +294,15 @@ describe('useTaskActions batch editing', () => {
         notificationId: undefined,
       }),
     });
+    expect(mockShowToast).toHaveBeenCalledWith('toast.taskCompleted');
+  });
+
+  it('shows completion feedback when toggling a task', async () => {
+    await act(async () => {
+      await hook.toggleTask(mockPlannerState.tasks[0]);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('toast.taskCompleted');
   });
 
   it('blocks creating a task at an occupied time before scheduling a reminder', async () => {

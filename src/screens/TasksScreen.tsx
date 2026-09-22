@@ -38,7 +38,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task } from '../types';
 import { formatLongDate, todayKey } from '../utils/date';
 import {
-  matchesTaskListFilter,
+  createTaskListFilter,
   type TaskListFilter,
 } from '../utils/taskFilters';
 import {
@@ -87,9 +87,10 @@ export function TasksScreen() {
 
   const groupedTasks = useMemo(() => {
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase(locale);
+    const matchesFilter = createTaskListFilter(filter, currentTime);
     const filtered = tasks
       .filter((task) => {
-        if (!matchesTaskListFilter(task, filter, currentTime)) return false;
+        if (!matchesFilter(task)) return false;
         if (!normalizedQuery) return true;
         return `${task.title} ${task.description}`
           .toLocaleLowerCase(locale)

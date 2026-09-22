@@ -20,21 +20,42 @@ export interface ScheduleValidationResult {
 const DAY_START = 8 * 60;
 const DAY_END = 21 * 60 + 30;
 const SLOT_INCREMENT = 15;
+const EMPTY_OCCUPIED_STARTS: ReadonlySet<number> = new Set();
 
-function hasSameStartTime(first: string, second: string): boolean {
-  const firstMinutes = timeToMinutes(first);
-  const secondMinutes = timeToMinutes(second);
-  return (
-    Number.isFinite(firstMinutes) &&
-    Number.isFinite(secondMinutes) &&
-    firstMinutes === secondMinutes
-  );
+function scheduleSlotKey(
+  date: string,
+  startTime: string,
+): string | undefined {
+  const start = timeToMinutes(startTime);
+  return Number.isFinite(start) ? `${date}\u0000${start}` : undefined;
+}
+
+function addOccupiedTask(
+  occupiedBySlot: Map<string, ScheduleConflictTask[]>,
+  key: string,
+  task: ScheduleConflictTask,
+): void {
+  const occupied = occupiedBySlot.get(key);
+  if (occupied) occupied.push(task);
+  else occupiedBySlot.set(key, [task]);
+}
+
+function occupiedStartsForDate(
+  date: string,
+  tasks: ScheduleConflictTask[],
+): Set<number> {
+  const occupiedStarts = new Set<number>();
+  for (const task of tasks) {
+    if (task.date !== date || !task.startTime) continue;
+    const start = timeToMinutes(task.startTime);
+    if (Number.isFinite(start)) occupiedStarts.add(start);
+  }
+  return occupiedStarts;
 }
 
 function findAvailableStart(
   preferredStart: number,
-  date: string,
-  occupiedTasks: ScheduleConflictTask[],
+  occupiedStarts: ReadonlySet<number>,
   excludedStarts: ReadonlySet<number>,
 ): number | null {
   const roundedStart =
@@ -42,15 +63,7 @@ function findAvailableStart(
     SLOT_INCREMENT;
 
   for (let start = roundedStart; start <= DAY_END; start += SLOT_INCREMENT) {
-    if (excludedStarts.has(start)) continue;
-
-    const isAvailable = occupiedTasks.every((task) => {
-      if (task.date !== date || !task.startTime) return true;
-      const occupiedStart = timeToMinutes(task.startTime);
-      return !Number.isFinite(occupiedStart) || occupiedStart !== start;
-    });
-
-    if (isAvailable) return start;
+    if (!excludedStarts.has(start) && !occupiedStarts.has(start)) return start;
   }
 
   return null;
@@ -66,54 +79,38 @@ export function validateScheduleByDate(
 ): ScheduleValidationResult {
   const collisions: ScheduleCollision[] = [];
   const draftIds = new Set(drafts.map((draft) => draft.id));
-  const activeExistingTasks = existingTasks.filter(
-    (task) =>
-      !task.completed &&
-      Boolean(task.startTime) &&
-      !draftIds.has(task.id),
-  );
+  const occupiedBySlot = new Map<string, ScheduleConflictTask[]>();
 
-  drafts.forEach((draft, draftIndex) => {
-    if (!draft.startTime) return;
+  for (const task of existingTasks) {
+    if (task.completed || !task.startTime || draftIds.has(task.id)) continue;
+    const key = scheduleSlotKey(task.date, task.startTime);
+    if (!key) continue;
+    addOccupiedTask(occupiedBySlot, key, {
+      id: task.id,
+      title: task.title,
+      date: task.date,
+      startTime: task.startTime,
+      origin: 'existing',
+    });
+  }
 
-    for (const existingTask of activeExistingTasks) {
-      if (
-        existingTask.date === draft.date &&
-        hasSameStartTime(existingTask.startTime, draft.startTime)
-      ) {
-        collisions.push({
-          draftTask: draft,
-          conflictingTask: {
-            id: existingTask.id,
-            title: existingTask.title,
-            date: existingTask.date,
-            startTime: existingTask.startTime,
-            origin: 'existing',
-          },
-        });
-      }
+  for (const draft of drafts) {
+    if (!draft.startTime) continue;
+    const key = scheduleSlotKey(draft.date, draft.startTime);
+    if (!key) continue;
+
+    for (const conflictingTask of occupiedBySlot.get(key) ?? []) {
+      collisions.push({ draftTask: draft, conflictingTask });
     }
 
-    for (let previousIndex = 0; previousIndex < draftIndex; previousIndex += 1) {
-      const previousDraft = drafts[previousIndex];
-      if (
-        previousDraft.date === draft.date &&
-        previousDraft.startTime &&
-        hasSameStartTime(previousDraft.startTime, draft.startTime)
-      ) {
-        collisions.push({
-          draftTask: draft,
-          conflictingTask: {
-            id: previousDraft.id,
-            title: previousDraft.title,
-            date: previousDraft.date,
-            startTime: previousDraft.startTime,
-            origin: 'draft',
-          },
-        });
-      }
-    }
-  });
+    addOccupiedTask(occupiedBySlot, key, {
+      id: draft.id,
+      title: draft.title,
+      date: draft.date,
+      startTime: draft.startTime,
+      origin: 'draft',
+    });
+  }
 
   return { isValid: collisions.length === 0, collisions };
 }
@@ -125,41 +122,27 @@ export function detectConflicts(
 ): ScheduleConflict[] {
   const validation = validateScheduleByDate(drafts, existingTasks);
   const draftIds = new Set(drafts.map((draft) => draft.id));
-  const activeExistingTasks: ScheduleConflictTask[] = existingTasks
-    .filter(
-      (task) =>
-        !task.completed &&
-        Boolean(task.startTime) &&
-        !draftIds.has(task.id),
-    )
-    .map((task) => ({
-      id: task.id,
-      title: task.title,
-      date: task.date,
-      startTime: task.startTime,
-      origin: 'existing',
-    }));
+  const occupiedStartsByDate = new Map<string, Set<number>>();
+  const addOccupiedStart = (date: string, startTime: string) => {
+    const start = timeToMinutes(startTime);
+    if (!Number.isFinite(start)) return;
+    const occupiedStarts = occupiedStartsByDate.get(date);
+    if (occupiedStarts) occupiedStarts.add(start);
+    else occupiedStartsByDate.set(date, new Set([start]));
+  };
+
+  for (const task of existingTasks) {
+    if (task.completed || !task.startTime || draftIds.has(task.id)) continue;
+    addOccupiedStart(task.date, task.startTime);
+  }
+  for (const draft of drafts) {
+    if (draft.startTime) addOccupiedStart(draft.date, draft.startTime);
+  }
 
   return validation.collisions.map(({ draftTask, conflictingTask }) => {
-    const occupiedTasks: ScheduleConflictTask[] = [
-      ...activeExistingTasks,
-      ...drafts
-        .filter(
-          (candidate) =>
-            candidate.id !== draftTask.id && Boolean(candidate.startTime),
-        )
-        .map((candidate) => ({
-          id: candidate.id,
-          title: candidate.title,
-          date: candidate.date,
-          startTime: candidate.startTime,
-          origin: 'draft' as const,
-        })),
-    ];
-    const suggestedSlots = generateSuggestedSlots(
-      draftTask,
+    const suggestedSlots = generateSuggestedSlotsFromOccupied(
       conflictingTask,
-      occupiedTasks,
+      occupiedStartsByDate.get(draftTask.date) ?? EMPTY_OCCUPIED_STARTS,
     );
 
     return {
@@ -178,6 +161,16 @@ export function generateSuggestedSlots(
   draft: AiDraftTask,
   conflictingTask: ScheduleConflictTask,
   occupiedTasks: ScheduleConflictTask[],
+): ConflictSlotOption[] {
+  return generateSuggestedSlotsFromOccupied(
+    conflictingTask,
+    occupiedStartsForDate(draft.date, occupiedTasks),
+  );
+}
+
+function generateSuggestedSlotsFromOccupied(
+  conflictingTask: ScheduleConflictTask,
+  occupiedStarts: ReadonlySet<number>,
 ): ConflictSlotOption[] {
   const options: ConflictSlotOption[] = [];
   const conflictStart = timeToMinutes(conflictingTask.startTime);
@@ -209,8 +202,7 @@ export function generateSuggestedSlots(
 
     const availableStart = findAvailableStart(
       candidate.preferredStart,
-      draft.date,
-      occupiedTasks,
+      occupiedStarts,
       usedStarts,
     );
     if (availableStart === null) continue;

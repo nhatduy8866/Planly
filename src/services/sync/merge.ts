@@ -1,4 +1,5 @@
 import type { Task } from '../../types';
+import { haveSameSyncedTaskData } from '../../utils/taskEquality';
 import {
   createDeleteMutation,
   createTaskUpsertMutation,
@@ -157,9 +158,7 @@ export function diffPlannerData(
 
   for (const task of currentTasks) {
     const previous = previousTasksById.get(task.id);
-    if (JSON.stringify(taskForSync(previous ?? task)) !== JSON.stringify(taskForSync(task))) {
-      mutations.push(createTaskUpsertMutation(task, changedAt, ownerId));
-    } else if (!previous) {
+    if (!previous || !haveSameSyncedTaskData(previous, task)) {
       mutations.push(createTaskUpsertMutation(task, changedAt, ownerId));
     }
   }

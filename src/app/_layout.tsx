@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../auth/AuthContext';
 import { PreferencesProvider, usePreferences } from '../preferences/PreferencesContext';
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
+import { AppToastViewport, ToastProvider } from '../components/AppToast';
 import { OnboardingModal } from '../components/OnboardingModal';
 import { MotionProvider } from '../components/animation/MotionProvider';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
@@ -138,6 +139,7 @@ function AppShell() {
         task={activeAlarm?.task}
         onDismiss={confirmAlarm}
       />
+      <AppToastViewport />
     </>
   );
 }
@@ -148,13 +150,15 @@ export default function RootLayout() {
       <MotionProvider>
         <AuthProvider>
           <PreferencesProvider>
-            <TaskNavigationProvider>
-              <PlannerProvider>
-                <CloudSyncProvider>
-                  <AppShell />
-                </CloudSyncProvider>
-              </PlannerProvider>
-            </TaskNavigationProvider>
+            <ToastProvider>
+              <TaskNavigationProvider>
+                <PlannerProvider>
+                  <CloudSyncProvider>
+                    <AppShell />
+                  </CloudSyncProvider>
+                </PlannerProvider>
+              </TaskNavigationProvider>
+            </ToastProvider>
           </PreferencesProvider>
         </AuthProvider>
       </MotionProvider>

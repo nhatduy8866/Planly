@@ -165,6 +165,30 @@ describe('useNotificationTaskNavigation', () => {
     expect(mockClearLastResponse).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the latest completion callback without replacing the native listener', async () => {
+    act(() => {
+      tree = create(createElement(Harness));
+    });
+    const firstCompleteTask = completeTask;
+    completeTask = jest.fn(async () => undefined);
+
+    act(() => {
+      tree?.update(createElement(Harness));
+    });
+    expect(mockRemove).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockResponseListener?.(
+        notificationResponse('task-latest', {
+          actionIdentifier: 'planly_complete_task',
+        }),
+      );
+    });
+
+    expect(firstCompleteTask).not.toHaveBeenCalled();
+    expect(completeTask).toHaveBeenCalledWith('task-latest');
+  });
+
   it('removes the native listener on unmount', () => {
     act(() => {
       tree = create(createElement(Harness));

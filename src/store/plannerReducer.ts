@@ -33,6 +33,20 @@ export type PlannerAction =
   | { type: 'move_task'; payload: { id: string; direction: -1 | 1 } }
   | { type: 'sort_day'; payload: { date: string; by?: 'time' | 'title' | 'priority' } };
 
+function applyTaskOrders(
+  state: PlannerState,
+  orderById: ReadonlyMap<string, number>,
+): PlannerState {
+  let changed = false;
+  const tasks = state.tasks.map((task) => {
+    const order = orderById.get(task.id);
+    if (order === undefined || order === task.order) return task;
+    changed = true;
+    return { ...task, order };
+  });
+
+  return changed ? { ...state, tasks } : state;
+}
 
 export function plannerReducer(
   state: PlannerState,
@@ -50,12 +64,16 @@ export function plannerReducer(
         tasks: action.payload.tasks,
       };
     case 'upsert_task': {
-      const exists = state.tasks.some((task) => task.id === action.payload.id);
-      const tasks = exists
-        ? state.tasks.map((task) =>
-            task.id === action.payload.id ? action.payload : task,
-          )
-        : [...state.tasks, action.payload];
+      const index = state.tasks.findIndex(
+        (task) => task.id === action.payload.id,
+      );
+      if (index < 0) {
+        return { ...state, tasks: [...state.tasks, action.payload] };
+      }
+      if (state.tasks[index] === action.payload) return state;
+
+      const tasks = [...state.tasks];
+      tasks[index] = action.payload;
       return { ...state, tasks };
     }
     case 'upsert_tasks': {
@@ -121,32 +139,40 @@ export function plannerReducer(
 
       return { ...state, tasks };
     }
-    case 'delete_task':
+    case 'delete_task': {
+      const index = state.tasks.findIndex(
+        (task) => task.id === action.payload.id,
+      );
+      if (index < 0) return state;
       return {
         ...state,
-        tasks: state.tasks.filter((task) => task.id !== action.payload.id),
+        tasks: [
+          ...state.tasks.slice(0, index),
+          ...state.tasks.slice(index + 1),
+        ],
       };
+    }
     case 'delete_tasks': {
       if (!action.payload.ids.length) return state;
       const deletedIds = new Set(action.payload.ids);
-      return {
-        ...state,
-        tasks: state.tasks.filter((task) => !deletedIds.has(task.id)),
-      };
+      const tasks = state.tasks.filter((task) => !deletedIds.has(task.id));
+      return tasks.length === state.tasks.length ? state : { ...state, tasks };
     }
-    case 'toggle_task':
-      return {
-        ...state,
-        tasks: state.tasks.map((task) =>
-          task.id === action.payload.id
-            ? {
-                ...task,
-                completed: !task.completed,
-                updatedAt: new Date().toISOString(),
-              }
-            : task,
-        ),
+    case 'toggle_task': {
+      const index = state.tasks.findIndex(
+        (task) => task.id === action.payload.id,
+      );
+      if (index < 0) return state;
+
+      const tasks = [...state.tasks];
+      const task = tasks[index];
+      tasks[index] = {
+        ...task,
+        completed: !task.completed,
+        updatedAt: new Date().toISOString(),
       };
+      return { ...state, tasks };
+    }
     case 'move_task': {
       const current = state.tasks.find((task) => task.id === action.payload.id);
       if (!current) return state;
@@ -170,14 +196,7 @@ export function plannerReducer(
       dayTasks.forEach((task, order) => {
         orderById.set(task.id, order);
       });
-      return {
-        ...state,
-        tasks: state.tasks.map((task) =>
-          orderById.has(task.id)
-            ? { ...task, order: orderById.get(task.id)! }
-            : task,
-        ),
-      };
+      return applyTaskOrders(state, orderById);
     }
     case 'sort_day': {
       const by = action.payload.by ?? 'time';
@@ -210,14 +229,7 @@ export function plannerReducer(
       sortedDay.forEach((task, order) => {
         orderById.set(task.id, order);
       });
-      return {
-        ...state,
-        tasks: state.tasks.map((task) =>
-          orderById.has(task.id)
-            ? { ...task, order: orderById.get(task.id)! }
-            : task,
-        ),
-      };
+      return applyTaskOrders(state, orderById);
     }
     default:
       return state;

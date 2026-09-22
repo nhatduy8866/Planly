@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useToast } from '../components/AppToast';
 import {
   cancelTaskReminder,
   scheduleTaskReminder,
@@ -17,9 +18,30 @@ import { assertNoTaskTimeConflicts } from '../utils/taskConflicts';
 import { buildTaskEdits } from '../utils/taskEdits';
 import type { TaskFormValues } from '../components/TaskFormModal';
 
+function getNextOrderByDate(
+  tasks: Task[],
+  targetDates: readonly string[],
+): Map<string, number> {
+  const nextOrderByDate = new Map(
+    targetDates.map((date) => [date, 0]),
+  );
+
+  for (const task of tasks) {
+    const currentNextOrder = nextOrderByDate.get(task.date);
+    if (currentNextOrder === undefined) continue;
+    nextOrderByDate.set(
+      task.date,
+      Math.max(currentNextOrder, task.order + 1),
+    );
+  }
+
+  return nextOrderByDate;
+}
+
 export function useTaskActions() {
   const plannerTasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
+  const { showToast } = useToast();
   const {
     alarmSound,
     alarmSoundPreset,
@@ -60,6 +82,16 @@ export function useTaskActions() {
         } else {
           dispatch({ type: 'upsert_tasks', payload: tasksWithReminders });
         }
+        showToast(
+          t(
+            tasksWithReminders.length === 1
+              ? 'toast.taskUpdated'
+              : 'toast.tasksUpdated',
+            tasksWithReminders.length === 1
+              ? { title: tasksWithReminders[0].title }
+              : { count: tasksWithReminders.length },
+          ),
+        );
         return;
       }
 
@@ -67,19 +99,7 @@ export function useTaskActions() {
         new Set(batchDates?.length ? batchDates : [values.date]),
       ).sort();
       const batchId = batchDates ? createId('batch') : undefined;
-      const nextOrderByDate = new Map<string, number>();
-
-      for (const targetDate of targetDates) {
-        nextOrderByDate.set(
-          targetDate,
-          plannerTasks
-            .filter((task) => task.date === targetDate)
-            .reduce(
-              (max, task) => Math.max(max, task.order ?? -1),
-              -1,
-            ) + 1,
-        );
-      }
+      const nextOrderByDate = getNextOrderByDate(plannerTasks, targetDates);
 
       const newTasks: Task[] = targetDates.map((targetDate) => ({
         ...taskValues,
@@ -115,8 +135,26 @@ export function useTaskActions() {
       } else {
         dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
+      showToast(
+        t(
+          tasksWithReminders.length === 1
+            ? 'toast.taskCreated'
+            : 'toast.tasksCreated',
+          tasksWithReminders.length === 1
+            ? { title: tasksWithReminders[0].title }
+            : { count: tasksWithReminders.length },
+        ),
+      );
     },
-    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      plannerTasks,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const duplicateTask = useCallback(
@@ -130,9 +168,7 @@ export function useTaskActions() {
         notificationId: undefined,
         completed: false,
         order:
-          plannerTasks
-            .filter((item) => item.date === source.date)
-            .reduce((max, item) => Math.max(max, item.order ?? -1), -1) + 1,
+          getNextOrderByDate(plannerTasks, [source.date]).get(source.date) ?? 0,
         createdAt: now,
         updatedAt: now,
       };
@@ -148,8 +184,17 @@ export function useTaskActions() {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(t('toast.taskDuplicated', { title: source.title }));
     },
-    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode, t],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      plannerTasks,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const deleteTasks = useCallback(
@@ -185,13 +230,27 @@ export function useTaskActions() {
           ? plannerTasks.filter((item) => item.batchId === task.batchId)
           : [task];
       await deleteTasks(tasksToDelete);
+      showToast(
+        t(
+          tasksToDelete.length === 1
+            ? 'toast.taskDeleted'
+            : 'toast.tasksDeleted',
+          tasksToDelete.length === 1
+            ? { title: tasksToDelete[0].title }
+            : { count: tasksToDelete.length },
+        ),
+      );
     },
-    [deleteTasks, plannerTasks],
+    [deleteTasks, plannerTasks, showToast, t],
   );
 
   const deleteAllTasks = useCallback(
-    async () => deleteTasks(plannerTasks),
-    [deleteTasks, plannerTasks],
+    async () => {
+      if (!plannerTasks.length) return;
+      await deleteTasks(plannerTasks);
+      showToast(t('toast.allTasksDeleted'));
+    },
+    [deleteTasks, plannerTasks, showToast, t],
   );
 
   const toggleTask = useCallback(
@@ -217,8 +276,21 @@ export function useTaskActions() {
         }
       }
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(
+        t(
+          task.completed ? 'toast.taskCompleted' : 'toast.taskReopened',
+          { title: task.title },
+        ),
+      );
     },
-    [alarmPreferences, dispatch, language, reminderDeliveryMode],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const completeTask = useCallback(
@@ -233,8 +305,9 @@ export function useTaskActions() {
       };
       await cancelTaskReminder(source.notificationId);
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(t('toast.taskCompleted', { title: task.title }));
     },
-    [dispatch],
+    [dispatch, showToast, t],
   );
 
   return {

@@ -40,7 +40,6 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
 import {
   addDays,
-  formatLongDate,
   formatMonthTitle,
   fromDateKey,
   toDateKey,
@@ -439,15 +438,19 @@ export function ScheduleScreen() {
         </View>
 
         <View style={styles.listHeader}>
-          <View style={styles.listTitleWrap}>
-            <Text
-              adjustsFontSizeToFit
-              minimumFontScale={0.82}
-              numberOfLines={1}
-              style={styles.dayTitle}
-            >
-              {formatLongDate(selectedDate, locale)}
-            </Text>
+          <View style={styles.taskViewPicker}>
+            <SortDropdown<ScheduleTaskView>
+              accessibilityLabel={t('schedule.taskView')}
+              buttonIcon="filter-list"
+              fullWidth
+              options={taskViewOptions}
+              selectedKey={taskView}
+              onSelect={(nextView) => {
+                animateTaskListTransition(reducedMotion);
+                setTaskView(nextView);
+                refreshCurrentTime();
+              }}
+            />
           </View>
           {dayTasks.length ? (
             <View style={styles.listActions}>
@@ -464,22 +467,8 @@ export function ScheduleScreen() {
           ) : null}
         </View>
 
-        <View style={styles.taskViewBar}>
-          <View style={styles.taskViewPicker}>
-            <SortDropdown<ScheduleTaskView>
-              accessibilityLabel={t('schedule.taskView')}
-              buttonIcon="filter-list"
-              fullWidth
-              options={taskViewOptions}
-              selectedKey={taskView}
-              onSelect={(nextView) => {
-                animateTaskListTransition(reducedMotion);
-                setTaskView(nextView);
-                refreshCurrentTime();
-              }}
-            />
-          </View>
-          {dayTasks.length > 1 ? (
+        {dayTasks.length > 1 ? (
+          <View style={styles.sortBar}>
             <SortDropdown<'time' | 'title' | 'priority'>
               direction={taskSort.direction}
               options={[
@@ -493,8 +482,8 @@ export function ScheduleScreen() {
                 setTaskSort((current) => nextTaskSortState(current, key));
               }}
             />
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         {visibleDayTasks.length ? (
           visibleDayTasks.map((task, index) => {
@@ -650,8 +639,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
     marginTop: 24,
   },
-  listTitleWrap: { flex: 1, minWidth: 0 },
-  dayTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   listActions: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -659,10 +646,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
     justifyContent: 'flex-end',
   },
-  taskViewBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
+  sortBar: {
+    alignItems: 'flex-end',
     marginBottom: 12,
   },
   taskViewPicker: {

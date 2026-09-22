@@ -30,6 +30,7 @@ import {
 } from '../services/sync/outbox';
 import { supabase } from '../services/supabase';
 import type { Task } from '../types';
+import { haveSameTaskLists } from '../utils/taskEquality';
 
 export type CloudSyncStatus =
   | 'disabled'
@@ -57,10 +58,6 @@ const CACHE_OWNER_STORAGE_KEY = '@planly/sync/cache-owner/v1';
 const CloudSyncContext = createContext<CloudSyncContextValue | undefined>(
   undefined,
 );
-
-function samePlannerData(leftTasks: Task[], rightTasks: Task[]): boolean {
-  return JSON.stringify(leftTasks) === JSON.stringify(rightTasks);
-}
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
   const { configured, hydrated: authHydrated, user } = useAuth();
@@ -128,7 +125,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         queuedMutations,
       );
 
-      if (!samePlannerData(currentTasks, merged.tasks)) {
+      if (!haveSameTaskLists(currentTasks, merged.tasks)) {
         applyingCloudDataRef.current = true;
         dispatch({
           type: 'replace_from_sync',

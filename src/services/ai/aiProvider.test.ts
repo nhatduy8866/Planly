@@ -56,7 +56,7 @@ describe('PlanlyAiProvider', () => {
     );
 
     expect(result).toEqual([]);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('gemini-3.8-flash');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('gemini-3.5-flash');
   });
 
   it('repairs a cloud result that merges two independently timed tasks', async () => {
@@ -74,7 +74,7 @@ describe('PlanlyAiProvider', () => {
       'tao lich 8h sang tap the duc va 14h hoc tieng anh', context,
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('gemini-3.8-flash');
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('gemini-3.5-flash');
     const complexRequest = JSON.parse(
       String(fetchMock.mock.calls[0]?.[1]?.body),
     ) as { generationConfig?: { thinkingConfig?: { thinkingLevel?: string } } };
@@ -229,7 +229,7 @@ describe('PlanlyAiProvider', () => {
       };
     };
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
     );
     expect(request.generationConfig.responseJsonSchema?.type).toBe('array');
     expect(
@@ -240,11 +240,11 @@ describe('PlanlyAiProvider', () => {
     ).not.toHaveProperty('batchGroupId');
     expect(request.generationConfig.responseSchema).toBeUndefined();
     expect(request.generationConfig.thinkingConfig?.thinkingLevel).toBe(
-      'MINIMAL',
+      'LOW',
     );
   });
 
-  it('escalates an invalid Flash-Lite result to Flash for repair', async () => {
+  it('repairs an invalid Gemini 3.5 Flash result with the same model', async () => {
     const response = (title: string) => ({
       ok: true,
       json: async () => ({
@@ -276,9 +276,9 @@ describe('PlanlyAiProvider', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
     );
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('gemini-3.8-flash');
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('gemini-3.5-flash');
     expect(result[0].title).toBe('Đọc sách');
   });
 
@@ -439,7 +439,7 @@ describe('PlanlyAiProvider', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to the offline parser when both cloud models fail', async () => {
+  it('falls back to the offline parser when Gemini 3.5 Flash fails', async () => {
     const fetchMock = jest
       .fn<typeof fetch>()
       .mockRejectedValue(new Error('network unavailable'));
@@ -449,7 +449,7 @@ describe('PlanlyAiProvider', () => {
       'test-key',
     ).parseScheduleRequest('Ngày mai họp nhóm lúc 9h', context);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
     expect(result[0].date).toBe('2026-09-08');
     expect(result[0].startTime).toBe('09:00');

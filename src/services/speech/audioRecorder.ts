@@ -1,10 +1,10 @@
 import { Platform } from 'react-native';
 import {
-  AudioModule,
   RecordingPresets,
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
+  useAudioRecorder,
   type AudioRecorder,
 } from 'expo-audio';
 
@@ -16,6 +16,18 @@ export interface RecordingResult {
 
 let activeRecorder: AudioRecorder | null = null;
 let recordingStartTime = 0;
+
+export function usePlanlyAudioRecorder(): AudioRecorder {
+  return useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+}
+
+async function leaveRecordingMode(): Promise<void> {
+  try {
+    await setAudioModeAsync({ allowsRecording: false });
+  } catch (error) {
+    console.warn('Lỗi khôi phục chế độ âm thanh:', error);
+  }
+}
 
 /**
  * Kiểm tra và yêu cầu quyền sử dụng Microphone
@@ -37,7 +49,7 @@ export async function ensureMicrophonePermission(): Promise<boolean> {
 /**
  * Bắt đầu ghi âm âm thanh
  */
-export async function startAudioRecording(): Promise<boolean> {
+export async function startAudioRecording(recorder: AudioRecorder): Promise<boolean> {
   const hasPermission = await ensureMicrophonePermission();
   if (!hasPermission) {
     return false;
@@ -60,10 +72,6 @@ export async function startAudioRecording(): Promise<boolean> {
       activeRecorder = null;
     }
 
-    const nativeAudio = AudioModule as unknown as {
-      AudioRecorder: new (options: unknown) => AudioRecorder;
-    };
-    const recorder = new nativeAudio.AudioRecorder(RecordingPresets.HIGH_QUALITY);
     await recorder.prepareToRecordAsync();
     recorder.record();
 
@@ -73,6 +81,7 @@ export async function startAudioRecording(): Promise<boolean> {
   } catch (error) {
     console.warn('Lỗi bắt đầu ghi âm:', error);
     activeRecorder = null;
+    await leaveRecordingMode();
     return false;
   }
 }
@@ -114,6 +123,8 @@ export async function stopAudioRecording(): Promise<RecordingResult | null> {
   } catch (error) {
     console.warn('Lỗi dừng ghi âm:', error);
     return null;
+  } finally {
+    await leaveRecordingMode();
   }
 }
 
@@ -130,5 +141,7 @@ export async function cancelAudioRecording(): Promise<void> {
     await recorder.stop();
   } catch {
     // bỏ qua lỗi
+  } finally {
+    await leaveRecordingMode();
   }
 }

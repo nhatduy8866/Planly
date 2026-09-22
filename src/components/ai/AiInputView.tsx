@@ -123,6 +123,14 @@ export function AiInputView({
           />
           <View style={styles.inputFooter}>
             <Pressable
+              accessibilityLabel={
+                isRecording
+                  ? t('ai.voiceListening')
+                  : isTranscribing
+                    ? t('ai.voiceProcessing')
+                    : t('ai.voiceStart')
+              }
+              accessibilityRole="button"
               disabled={isTranscribing}
               onPress={handleVoicePress}
               style={[
@@ -132,21 +140,32 @@ export function AiInputView({
               ]}
             >
               {isTranscribing ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.transcribingText}>{t('ai.voiceProcessing')}</Text>
-                </>
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : isRecording ? (
-                <>
-                  <MaterialIcons name="mic" size={22} color={colors.danger} />
-                  <Text style={styles.recordingText}>
-                    {t('ai.voiceListening')} ({durationSeconds < 10 ? `0${durationSeconds}` : durationSeconds}s)
-                  </Text>
-                </>
+                <MaterialIcons name="mic" size={22} color={colors.danger} />
               ) : (
                 <MaterialIcons name="mic-none" size={22} color={colors.primary} />
               )}
             </Pressable>
+            {isRecording ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                numberOfLines={2}
+                style={[styles.voiceStatusText, styles.recordingText]}
+              >
+                {t('ai.voiceListening')} ({durationSeconds < 10 ? `0${durationSeconds}` : durationSeconds}s)
+              </Text>
+            ) : isTranscribing ? (
+              <Text
+                accessibilityLiveRegion="polite"
+                numberOfLines={2}
+                style={[styles.voiceStatusText, styles.transcribingText]}
+              >
+                {t('ai.voiceProcessing')}
+              </Text>
+            ) : (
+              <View style={styles.inputFooterSpacer} />
+            )}
             <Text style={styles.charCount}>{text.length}/1000</Text>
           </View>
         </View>
@@ -267,17 +286,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   micButton: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    padding: 6,
+    borderRadius: 10,
+    flexShrink: 0,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
   },
   micButtonActive: {
     backgroundColor: colors.dangerSoft,
-    borderRadius: 8,
   },
   micButtonProcessing: {
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 8,
+  },
+  voiceStatusText: {
+    flex: 1,
+    flexShrink: 1,
+    lineHeight: 18,
+    marginHorizontal: 8,
+    minWidth: 0,
+  },
+  inputFooterSpacer: {
+    flex: 1,
   },
   recordingText: {
     color: colors.danger,
@@ -291,6 +320,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   charCount: {
     color: colors.textMuted,
+    flexShrink: 0,
     fontSize: 12,
   },
   sectionLabel: {

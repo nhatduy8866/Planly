@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const GEMINI_MODELS = ['gemini-3.5-flash'] as const;
 
 /**
  * Đọc nội dung file âm thanh thành chuỗi base64
@@ -32,7 +32,7 @@ export async function readAudioAsBase64(uri: string): Promise<string> {
 }
 
 /**
- * Gửi âm thanh tới Gemini 2.5 Flash để nhận diện thành văn bản tiếng Việt
+ * Gửi âm thanh tới Gemini 3.5 Flash để nhận diện thành văn bản tiếng Việt
  */
 export async function transcribeAudioWithGemini(
   uri: string,
@@ -59,6 +59,9 @@ export async function transcribeAudioWithGemini(
   let lastError: unknown = null;
 
   for (const model of GEMINI_MODELS) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const payload = {
@@ -67,21 +70,23 @@ export async function transcribeAudioWithGemini(
             role: 'user',
             parts: [
               {
+                text: promptText,
+              },
+              {
                 inlineData: {
                   mimeType,
                   data: base64Data,
                 },
               },
-              {
-                text: promptText,
-              },
             ],
           },
         ],
+        generationConfig: {
+          thinkingConfig: {
+            thinkingLevel: 'MINIMAL',
+          },
+        },
       };
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(url, {
         method: 'POST',
@@ -90,8 +95,6 @@ export async function transcribeAudioWithGemini(
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
       if (!res.ok) {
         const errorBody = await res.text().catch(() => '');
         lastError = new Error(`Gemini STT API error ${res.status}: ${errorBody}`);
@@ -99,8 +102,14 @@ export async function transcribeAudioWithGemini(
       }
 
       const data = await res.json();
-      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (candidateText && typeof candidateText === 'string') {
+      const responseParts = data?.candidates?.[0]?.content?.parts;
+      const candidateText = Array.isArray(responseParts)
+        ? responseParts
+            .filter((part) => !part?.thought && typeof part?.text === 'string')
+            .map((part) => part.text)
+            .join('\n')
+        : '';
+      if (candidateText) {
         const cleanText = candidateText.trim().replace(/^["'“](.*)["'”]$/, '$1').trim();
         if (cleanText) {
           return cleanText;
@@ -108,6 +117,8 @@ export async function transcribeAudioWithGemini(
       }
     } catch (err) {
       lastError = err;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

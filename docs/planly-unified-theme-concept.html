@@ -1,0 +1,1798 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#535CCF">
+  <title>Planly — Calm Indigo UI Concept</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #F4F6FA;
+      --surface: #FFFFFF;
+      --surface-subtle: #F9FAFC;
+      --surface-raised: #FFFFFF;
+      --ink: #172033;
+      --ink-secondary: #5E6A7F;
+      --ink-tertiary: #8B95A7;
+      --line: #E6E9F0;
+      --line-strong: #D8DDE8;
+      --primary: #535CCF;
+      --primary-hover: #454DB7;
+      --primary-soft: #ECEEFD;
+      --primary-faint: #F6F6FE;
+      --success: #1B9D74;
+      --success-soft: #E8F7F1;
+      --warning: #C77A1A;
+      --warning-soft: #FFF4E2;
+      --danger: #D95468;
+      --danger-soft: #FDECEF;
+      --shadow-sm: 0 2px 8px rgba(25, 32, 51, .05);
+      --shadow-md: 0 16px 40px rgba(25, 32, 51, .09);
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --sidebar-width: 264px;
+      --ease: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 91% 8%, rgba(83, 92, 207, .09), transparent 22rem),
+        var(--canvas);
+      color: var(--ink);
+      font-family: "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    textarea { font: inherit; }
+
+    button { color: inherit; }
+
+    button,
+    [role="button"] {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(83, 92, 207, .24);
+      outline-offset: 2px;
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+      flex: 0 0 auto;
+    }
+
+    .icon-sm { width: 16px; height: 16px; }
+    .icon-lg { width: 24px; height: 24px; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--sidebar-width);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      padding: 28px 20px 20px;
+      background: rgba(255, 255, 255, .93);
+      border-right: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 8px 28px;
+    }
+
+    .brand-mark {
+      position: relative;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 9px 20px rgba(83, 92, 207, .25);
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      width: 19px;
+      height: 19px;
+      right: -5px;
+      bottom: -5px;
+      border-radius: 50%;
+      background: #8F97EE;
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+    }
+
+    .concept-badge {
+      margin-left: auto;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .nav-label {
+      margin: 0 10px 8px;
+      color: var(--ink-tertiary);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav-item {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 12px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      text-align: left;
+      transition: background .18s var(--ease), color .18s var(--ease), transform .18s var(--ease);
+    }
+
+    .nav-item:hover {
+      background: var(--surface-subtle);
+      color: var(--ink);
+      transform: translateX(2px);
+    }
+
+    .nav-item.active {
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 750;
+    }
+
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      width: 3px;
+      height: 22px;
+      border-radius: 0 5px 5px 0;
+      background: var(--primary);
+    }
+
+    .nav-meta {
+      margin-left: auto;
+      min-width: 22px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: var(--canvas);
+      color: var(--ink-secondary);
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .nav-item.active .nav-meta {
+      background: var(--surface);
+      color: var(--primary);
+    }
+
+    .focus-card {
+      margin-top: auto;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface-subtle);
+    }
+
+    .focus-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .focus-score {
+      margin: 10px 0 8px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -.6px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--line);
+    }
+
+    .progress > span {
+      display: block;
+      width: 68%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--primary);
+      transition: width .35s var(--ease);
+    }
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 12px 8px 4px;
+      border-top: 1px solid var(--line);
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .profile-copy { min-width: 0; }
+    .profile-name { font-size: 12px; font-weight: 800; }
+    .profile-status { color: var(--ink-tertiary); font-size: 10px; }
+
+    .main {
+      grid-column: 2;
+      min-width: 0;
+      padding: 34px clamp(24px, 4vw, 64px) 56px;
+    }
+
+    .mobile-header,
+    .bottom-nav { display: none; }
+
+    .screen {
+      display: none;
+      max-width: 1220px;
+      margin: 0 auto;
+      animation: screen-in .32s var(--ease);
+    }
+
+    .screen.active { display: block; }
+
+    @keyframes screen-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    .page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 7px;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 5px;
+      font-size: clamp(28px, 3.2vw, 38px);
+      line-height: 1.15;
+      letter-spacing: -1.25px;
+    }
+
+    h2 {
+      margin-bottom: 4px;
+      font-size: 19px;
+      line-height: 1.3;
+      letter-spacing: -.35px;
+    }
+
+    h3 {
+      margin-bottom: 3px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .subtitle {
+      margin-bottom: 0;
+      color: var(--ink-secondary);
+      font-size: 14px;
+    }
+
+    .head-actions,
+    .inline-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform .16s var(--ease), background .16s var(--ease), border-color .16s var(--ease), box-shadow .16s var(--ease);
+    }
+
+    .button:hover { transform: translateY(-1px); }
+    .button:active { transform: translateY(0); }
+
+    .button-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(83, 92, 207, .19);
+    }
+
+    .button-primary:hover { background: var(--primary-hover); }
+
+    .button-secondary {
+      border-color: var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .button-secondary:hover { border-color: var(--line-strong); }
+
+    .button-ghost {
+      min-height: 36px;
+      padding: 7px 10px;
+      color: var(--ink-secondary);
+    }
+
+    .button-ghost:hover { background: var(--surface-subtle); color: var(--ink); }
+
+    .icon-button {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 16px;
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .stat-icon.success { background: var(--success-soft); color: var(--success); }
+    .stat-icon.warning { background: var(--warning-soft); color: var(--warning); }
+    .stat-value { font-size: 19px; font-weight: 850; letter-spacing: -.4px; }
+    .stat-label { color: var(--ink-secondary); font-size: 11px; font-weight: 650; }
+
+    .schedule-layout {
+      display: grid;
+      grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.3fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .calendar-card { padding: 20px; }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .month-switcher {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .month-switcher button {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+
+    .month-switcher button:hover { background: var(--surface-subtle); }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      text-align: center;
+    }
+
+    .weekday {
+      padding: 5px 0 9px;
+      color: var(--ink-tertiary);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .day {
+      position: relative;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .day:hover { background: var(--surface-subtle); color: var(--ink); }
+    .day.muted { color: #BCC3CF; }
+    .day.today { color: var(--primary); font-weight: 850; }
+    .day.selected { background: var(--primary); color: #fff; box-shadow: 0 7px 14px rgba(83, 92, 207, .24); }
+    .day.has-task:not(.selected)::after {
+      content: "";
+      position: absolute;
+      bottom: 4px;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+
+    .calendar-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-secondary);
+      font-size: 11px;
+    }
+
+    .legend { display: flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+
+    .agenda-card { padding: 20px; }
+
+    .segmented {
+      display: inline-flex;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--surface-subtle);
+    }
+
+    .segment {
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink-secondary);
+      font-size: 11px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .segment.active {
+      background: var(--surface);
+      color: var(--primary);
+      box-shadow: 0 1px 4px rgba(25, 32, 51, .08);
+    }
+
+    .timeline { display: grid; gap: 2px; }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 58px 16px minmax(0, 1fr);
+      gap: 9px;
+      min-height: 82px;
+    }
+
+    .timeline-time {
+      padding-top: 11px;
+      color: var(--ink-secondary);
+      font-size: 11px;
+      font-weight: 750;
+      text-align: right;
+    }
+
+    .timeline-axis {
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+
+    .timeline-axis::before {
+      content: "";
+      position: absolute;
+      top: 20px;
+      bottom: -9px;
+      width: 1px;
+      background: var(--line);
+    }
+
+    .timeline-item:last-child .timeline-axis::before { display: none; }
+
+    .timeline-dot {
+      position: relative;
+      z-index: 1;
+      width: 9px;
+      height: 9px;
+      margin-top: 15px;
+      border: 2px solid var(--surface);
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-soft);
+    }
+
+    .timeline-dot.success { background: var(--success); box-shadow: 0 0 0 2px var(--success-soft); }
+    .timeline-dot.warning { background: var(--warning); box-shadow: 0 0 0 2px var(--warning-soft); }
+
+    .agenda-task {
+      min-width: 0;
+      margin-bottom: 9px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--primary);
+      border-radius: 12px;
+      background: var(--surface-subtle);
+      transition: border-color .16s, transform .16s;
+    }
+
+    .agenda-task:hover { transform: translateX(2px); border-color: var(--line-strong); }
+    .agenda-task.success { border-left-color: var(--success); }
+    .agenda-task.warning { border-left-color: var(--warning); }
+    .agenda-task-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .agenda-task p { margin: 3px 0 0; color: var(--ink-secondary); font-size: 11px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 9px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .tag.success { background: var(--success-soft); color: var(--success); }
+    .tag.warning { background: var(--warning-soft); color: var(--warning); }
+
+    .task-toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .search-box {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--ink-secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .search-box input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .task-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 240px;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .progress-card {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 20px;
+    }
+
+    .progress-ring {
+      --progress: 72%;
+      width: 74px;
+      height: 74px;
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--primary) var(--progress), var(--primary-soft) 0);
+    }
+
+    .progress-ring::before {
+      content: "72%";
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--surface);
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .progress-copy p { margin: 5px 0 0; color: var(--ink-secondary); font-size: 12px; }
+
+    .mini-summary { padding: 18px; }
+    .mini-summary-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+    .mini-summary-label { display: flex; align-items: center; gap: 7px; color: var(--ink-secondary); font-size: 11px; }
+    .mini-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+    .mini-dot.success { background: var(--success); }
+    .mini-dot.warning { background: var(--warning); }
+    .mini-summary-value { font-weight: 850; }
+
+    .task-group { margin-bottom: 18px; }
+    .task-group-head { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 9px; }
+    .task-group-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 850; }
+    .task-count { color: var(--ink-tertiary); font-size: 11px; font-weight: 700; }
+    .task-list { display: grid; gap: 9px; }
+
+    .task-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 15px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: transform .16s var(--ease), border-color .16s var(--ease);
+    }
+
+    .task-row:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+
+    .check {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 1.5px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface);
+      color: transparent;
+      cursor: pointer;
+    }
+
+    .check .icon { width: 14px; height: 14px; stroke-width: 2.5; }
+    .task-row.completed .check { border-color: var(--success); background: var(--success); color: #fff; }
+    .task-row.completed .task-title { color: var(--ink-tertiary); text-decoration: line-through; }
+    .task-row.completed .task-meta { opacity: .68; }
+
+    .task-title { margin-bottom: 4px; font-weight: 800; }
+    .task-meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-secondary); font-size: 11px; }
+    .task-meta span { display: inline-flex; align-items: center; gap: 4px; }
+    .task-actions { display: flex; gap: 4px; }
+    .task-actions button { border: 0; }
+
+    .ai-layout {
+      display: grid;
+      grid-template-columns: minmax(300px, .8fr) minmax(420px, 1.2fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .ai-compose,
+    .ai-plan { padding: 22px; }
+
+    .ai-orb {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+      border-radius: 15px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(83, 92, 207, .24);
+    }
+
+    .textarea-wrap {
+      margin: 18px 0 12px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 15px;
+      background: var(--surface-subtle);
+      transition: border-color .16s, box-shadow .16s;
+    }
+
+    .textarea-wrap:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(83, 92, 207, .1);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 138px;
+      display: block;
+      resize: vertical;
+      padding: 15px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    .textarea-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px 10px 12px;
+      color: var(--ink-tertiary);
+      font-size: 10px;
+    }
+
+    .mic-button {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 10px 0 18px;
+    }
+
+    .suggestion {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--ink-secondary);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .suggestion:hover { border-color: #BFC4F1; background: var(--primary-faint); color: var(--primary); }
+
+    .ai-note {
+      display: flex;
+      gap: 9px;
+      margin-top: 16px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      background: var(--primary-faint);
+      color: var(--ink-secondary);
+      font-size: 10px;
+    }
+
+    .plan-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+    .plan-date { color: var(--ink-secondary); font-size: 11px; font-weight: 700; }
+    .plan-list { display: grid; gap: 10px; }
+
+    .plan-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-subtle);
+    }
+
+    .plan-item::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--primary);
+    }
+
+    .plan-time { color: var(--primary); font-size: 11px; font-weight: 850; }
+    .plan-item p { margin: 3px 0 0; color: var(--ink-secondary); font-size: 10px; }
+    .plan-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .plan-actions .button { flex: 1; }
+
+    .settings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .settings-card { overflow: hidden; }
+    .settings-section { padding: 20px; }
+    .settings-section + .settings-section { border-top: 1px solid var(--line); }
+
+    .settings-section-head {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 14px;
+    }
+
+    .section-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .settings-list { display: grid; }
+
+    .setting-row {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 10px 0;
+    }
+
+    .setting-row + .setting-row { border-top: 1px solid var(--line); }
+    .setting-copy { min-width: 0; }
+    .setting-title { font-size: 12px; font-weight: 800; }
+    .setting-description { margin-top: 2px; color: var(--ink-secondary); font-size: 10px; }
+    .setting-value { display: flex; align-items: center; gap: 7px; color: var(--ink-secondary); font-size: 11px; font-weight: 700; }
+
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      flex: 0 0 auto;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: var(--line-strong);
+      cursor: pointer;
+      transition: background .18s var(--ease);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(25, 32, 51, .2);
+      transition: transform .18s var(--ease);
+    }
+
+    .switch.on { background: var(--primary); }
+    .switch.on::after { transform: translateX(18px); }
+
+    .theme-panel { padding: 20px; }
+    .theme-preview {
+      margin: 16px 0;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--canvas);
+    }
+
+    .theme-stripes { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 6px; }
+    .theme-stripe { height: 42px; border-radius: 9px; background: var(--primary); }
+    .theme-stripe:nth-child(2) { background: var(--ink); }
+    .theme-stripe:nth-child(3) { background: var(--success); }
+    .theme-stripe:nth-child(4) { background: var(--warning); }
+
+    .token-list { display: grid; gap: 10px; }
+    .token-row { display: flex; align-items: center; justify-content: space-between; color: var(--ink-secondary); font-size: 10px; }
+    .token-row strong { color: var(--ink); }
+
+    .principle-list {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .principle-list li { display: flex; align-items: flex-start; gap: 8px; color: var(--ink-secondary); font-size: 11px; }
+    .principle-list .icon { margin-top: 1px; color: var(--success); }
+
+    .mobile-only { display: none; }
+
+    .fab {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 15;
+      width: 52px;
+      height: 52px;
+      display: none;
+      place-items: center;
+      border: 0;
+      border-radius: 17px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(83, 92, 207, .3);
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+      bottom: 24px;
+      z-index: 60;
+      min-width: 280px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--ink);
+      color: #fff;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 14px);
+      transition: opacity .22s var(--ease), transform .22s var(--ease);
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast .icon { color: #7BE1BD; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(23, 32, 51, .42);
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+      transition: opacity .2s var(--ease);
+    }
+
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      width: min(460px, 100%);
+      padding: 22px;
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow-md);
+      transform: translateY(12px) scale(.98);
+      transition: transform .22s var(--ease);
+    }
+
+    .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+    .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .modal-head p { margin: 4px 0 0; color: var(--ink-secondary); font-size: 11px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { display: grid; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { color: var(--ink-secondary); font-size: 10px; font-weight: 800; }
+    .field input {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 11px;
+      outline: 0;
+      color: var(--ink);
+      background: var(--surface-subtle);
+    }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+
+    @media (max-width: 1040px) {
+      :root { --sidebar-width: 220px; }
+      .schedule-layout,
+      .ai-layout { grid-template-columns: 1fr; }
+      .settings-layout { grid-template-columns: minmax(0, 1fr) 290px; }
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 780px) {
+      body { background: var(--canvas); }
+      .app { display: block; }
+      .sidebar { display: none; }
+      .main { padding: 78px 16px 104px; }
+      .mobile-header {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 30;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, .94);
+        backdrop-filter: blur(16px);
+      }
+      .mobile-brand { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 850; }
+      .mobile-brand .brand-mark { width: 34px; height: 34px; border-radius: 11px; }
+      .bottom-nav {
+        position: fixed;
+        inset: auto 0 0;
+        z-index: 30;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: rgba(255, 255, 255, .96);
+        backdrop-filter: blur(16px);
+      }
+      .bottom-item {
+        min-height: 52px;
+        display: grid;
+        place-items: center;
+        gap: 2px;
+        padding: 4px;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--ink-tertiary);
+        font-size: 9px;
+        font-weight: 750;
+      }
+      .bottom-item.active { background: var(--primary-soft); color: var(--primary); }
+      .page-head { align-items: flex-start; margin-bottom: 20px; }
+      .head-actions .button-secondary { display: none; }
+      h1 { font-size: 27px; }
+      .subtitle { font-size: 12px; }
+      .stats-grid { grid-template-columns: 1fr; gap: 9px; }
+      .stat-card { padding: 13px; }
+      .schedule-layout,
+      .task-overview,
+      .ai-layout,
+      .settings-layout { grid-template-columns: 1fr; }
+      .task-toolbar { grid-template-columns: 1fr; }
+      .task-toolbar .inline-actions { justify-content: space-between; }
+      .task-overview .mini-summary { display: none; }
+      .calendar-card,
+      .agenda-card,
+      .ai-compose,
+      .ai-plan { padding: 16px; }
+      .timeline-item { grid-template-columns: 46px 12px minmax(0, 1fr); gap: 7px; }
+      .task-row { grid-template-columns: auto minmax(0, 1fr); }
+      .task-actions { display: none; }
+      .settings-layout .theme-panel { order: -1; }
+      .theme-panel { padding: 16px; }
+      .desktop-only { display: none !important; }
+      .mobile-only { display: inline-flex; }
+      .fab { display: grid; bottom: 80px; right: 18px; }
+      .toast { left: 50%; bottom: 84px; width: calc(100% - 32px); min-width: 0; }
+    }
+
+    @media (max-width: 470px) {
+      .main { padding-inline: 12px; }
+      .page-head { gap: 10px; }
+      .page-head .button-primary span { display: none; }
+      .page-head .button-primary { width: 42px; padding: 0; }
+      .card { border-radius: 17px; }
+      .stat-card { display: none; }
+      .stat-card:first-child { display: flex; }
+      .calendar-grid { gap: 2px; }
+      .calendar-card { padding: 14px; }
+      .agenda-card { border: 0; padding: 6px 0; background: transparent; box-shadow: none; }
+      .agenda-card > .card-head { padding: 0 4px; }
+      .progress-card { padding: 16px; }
+      .progress-ring { width: 64px; height: 64px; }
+      .progress-ring::before { width: 50px; height: 50px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: auto; }
+      .modal { padding: 18px; }
+      .plan-item { grid-template-columns: 46px minmax(0, 1fr); }
+      .plan-item .tag { display: none; }
+      .plan-actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <defs>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/></symbol>
+      <symbol id="i-check-square" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3ZM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2ZM5.5 13l.8 2.2 2.2.8-2.2.8L5.5 19l-.8-2.2-2.2-.8 2.2-.8.8-2.2Z"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-trending" viewBox="0 0 24 24"><path d="m4 16 5-5 4 4 7-8M15 7h5v5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 5h11l-2 4 2 4H5"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="m21 3-8 18-3-7-7-3 18-8Z"/><path d="m10 14 5-5"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M13 20H4v-9L14.5.5a2.1 2.1 0 0 1 3 3L7 14v3h3L20.5 6.5"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 3h6l1 4H8l1-4ZM6 7l1 14h10l1-14M10 11v6M14 11v6"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18h1.5a1.5 1.5 0 0 0 0-3H12a2 2 0 0 1 0-4h4a5 5 0 0 0 5-5c0-3.3-4-6-9-6Z"/><circle cx="7.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="6.8" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7" r="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10H4ZM17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h11a4 4 0 0 0 .6-8A7 7 0 0 0 5.3 8.2 5 5 0 0 0 7 18Z"/><path d="m9 13 3-3 3 3M12 10v7"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app">
+    <aside class="sidebar" aria-label="Điều hướng chính">
+      <div class="brand">
+        <div class="brand-mark"><svg class="icon icon-lg"><use href="#i-check"></use></svg></div>
+        <span class="brand-name">Planly</span>
+        <span class="concept-badge">Concept</span>
+      </div>
+
+      <p class="nav-label">Không gian làm việc</p>
+      <nav class="nav-list">
+        <button class="nav-item active" data-screen="schedule" type="button">
+          <svg class="icon"><use href="#i-calendar"></use></svg>
+          <span>Lịch trình</span>
+          <span class="nav-meta">4</span>
+        </button>
+        <button class="nav-item" data-screen="tasks" type="button">
+          <svg class="icon"><use href="#i-check-square"></use></svg>
+          <span>Công việc</span>
+          <span class="nav-meta">8</span>
+        </button>
+        <button class="nav-item" data-screen="ai" type="button">
+          <svg class="icon"><use href="#i-sparkles"></use></svg>
+          <span>Planly AI</span>
+        </button>
+        <button class="nav-item" data-screen="settings" type="button">
+          <svg class="icon"><use href="#i-sliders"></use></svg>
+          <span>Cài đặt</span>
+        </button>
+      </nav>
+
+      <div class="focus-card">
+        <div class="focus-card-head">
+          <span>Tiến độ hôm nay</span>
+          <svg class="icon icon-sm"><use href="#i-trending"></use></svg>
+        </div>
+        <div class="focus-score"><span id="done-count">4</span> / 6</div>
+        <div class="progress" aria-label="Tiến độ 68 phần trăm"><span id="sidebar-progress"></span></div>
+      </div>
+
+      <div class="profile">
+        <div class="avatar">ND</div>
+        <div class="profile-copy">
+          <div class="profile-name">Nhật Duy</div>
+          <div class="profile-status">Đã đồng bộ</div>
+        </div>
+      </div>
+    </aside>
+
+    <header class="mobile-header">
+      <div class="mobile-brand">
+        <div class="brand-mark"><svg class="icon"><use href="#i-check"></use></svg></div>
+        Planly
+      </div>
+      <button class="icon-button" type="button" aria-label="Thông báo">
+        <svg class="icon"><use href="#i-bell"></use></svg>
+      </button>
+    </header>
+
+    <main class="main">
+      <section class="screen active" id="screen-schedule" aria-labelledby="schedule-title">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow"><svg class="icon icon-sm"><use href="#i-calendar"></use></svg> Thứ Ba, 22 tháng 9</div>
+            <h1 id="schedule-title">Chào buổi sáng, Duy</h1>
+            <p class="subtitle">Một ngày cân bằng bắt đầu từ kế hoạch rõ ràng.</p>
+          </div>
+          <div class="head-actions">
+            <button class="button button-secondary" type="button" data-today>
+              <svg class="icon icon-sm"><use href="#i-calendar"></use></svg>
+              Hôm nay
+            </button>
+            <button class="button button-primary" type="button" data-open-modal>
+              <svg class="icon icon-sm"><use href="#i-plus"></use></svg>
+              <span>Thêm công việc</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="card stat-card">
+            <div class="stat-icon"><svg class="icon"><use href="#i-clock"></use></svg></div>
+            <div><div class="stat-value">4h 30m</div><div class="stat-label">Thời gian đã lên lịch</div></div>
+          </article>
+          <article class="card stat-card">
+            <div class="stat-icon success"><svg class="icon"><use href="#i-check"></use></svg></div>
+            <div><div class="stat-value">4 hoàn tất</div><div class="stat-label">Đang đi đúng tiến độ</div></div>
+          </article>
+          <article class="card stat-card">
+            <div class="stat-icon warning"><svg class="icon"><use href="#i-sparkles"></use></svg></div>
+            <div><div class="stat-value">2h trống</div><div class="stat-label">Khung giờ tập trung</div></div>
+          </article>
+        </div>
+
+        <div class="schedule-layout">
+          <article class="card calendar-card">
+            <div class="card-head">
+              <div><h2>Tháng 9, 2026</h2><p class="subtitle">Tuần 39 · Còn 8 ngày</p></div>
+              <div class="month-switcher">
+                <button type="button" aria-label="Tháng trước"><svg class="icon icon-sm"><use href="#i-chevron-left"></use></svg></button>
+                <button type="button" aria-label="Tháng sau"><svg class="icon icon-sm"><use href="#i-chevron-right"></use></svg></button>
+              </div>
+            </div>
+            <div class="calendar-grid" aria-label="Lịch tháng 9 năm 2026">
+              <span class="weekday">T2</span><span class="weekday">T3</span><span class="weekday">T4</span><span class="weekday">T5</span><span class="weekday">T6</span><span class="weekday">T7</span><span class="weekday">CN</span>
+              <button class="day muted" type="button">31</button><button class="day" type="button">1</button><button class="day has-task" type="button">2</button><button class="day" type="button">3</button><button class="day has-task" type="button">4</button><button class="day" type="button">5</button><button class="day" type="button">6</button>
+              <button class="day" type="button">7</button><button class="day has-task" type="button">8</button><button class="day" type="button">9</button><button class="day has-task" type="button">10</button><button class="day" type="button">11</button><button class="day" type="button">12</button><button class="day" type="button">13</button>
+              <button class="day has-task" type="button">14</button><button class="day" type="button">15</button><button class="day" type="button">16</button><button class="day has-task" type="button">17</button><button class="day" type="button">18</button><button class="day" type="button">19</button><button class="day" type="button">20</button>
+              <button class="day has-task" type="button">21</button><button class="day today selected" type="button">22</button><button class="day has-task" type="button">23</button><button class="day" type="button">24</button><button class="day has-task" type="button">25</button><button class="day" type="button">26</button><button class="day" type="button">27</button>
+              <button class="day" type="button">28</button><button class="day has-task" type="button">29</button><button class="day" type="button">30</button><button class="day muted" type="button">1</button><button class="day muted" type="button">2</button><button class="day muted" type="button">3</button><button class="day muted" type="button">4</button>
+            </div>
+            <div class="calendar-footer">
+              <span class="legend"><span class="legend-dot"></span> Có công việc</span>
+              <strong id="selected-day-label">22 tháng 9</strong>
+            </div>
+          </article>
+
+          <article class="card agenda-card">
+            <div class="card-head">
+              <div><h2>Lịch hôm nay</h2><p class="subtitle">4 công việc · 1 ưu tiên cao</p></div>
+              <div class="segmented" aria-label="Bộ lọc lịch">
+                <button class="segment active" type="button">Sắp tới</button>
+                <button class="segment" type="button">Tất cả</button>
+              </div>
+            </div>
+            <div class="timeline">
+              <div class="timeline-item">
+                <time class="timeline-time">08:30</time>
+                <div class="timeline-axis"><span class="timeline-dot success"></span></div>
+                <div class="agenda-task success">
+                  <div class="agenda-task-row"><h3>Daily planning</h3><span class="tag success">Hoàn tất</span></div>
+                  <p>15 phút · Lặp lại mỗi ngày</p>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <time class="timeline-time">10:00</time>
+                <div class="timeline-axis"><span class="timeline-dot"></span></div>
+                <div class="agenda-task">
+                  <div class="agenda-task-row"><h3>Hoàn thiện UI calendar</h3><span class="tag">Đang làm</span></div>
+                  <p>90 phút · Dự án Planly</p>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <time class="timeline-time">14:00</time>
+                <div class="timeline-axis"><span class="timeline-dot warning"></span></div>
+                <div class="agenda-task warning">
+                  <div class="agenda-task-row"><h3>Review sprint cùng team</h3><span class="tag warning">Ưu tiên cao</span></div>
+                  <p>45 phút · Google Meet</p>
+                </div>
+              </div>
+              <div class="timeline-item">
+                <time class="timeline-time">16:30</time>
+                <div class="timeline-axis"><span class="timeline-dot"></span></div>
+                <div class="agenda-task">
+                  <div class="agenda-task-row"><h3>Chuẩn bị kế hoạch ngày mai</h3><span class="tag">Cá nhân</span></div>
+                  <p>30 phút · Nhắc trước 10 phút</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-tasks" aria-labelledby="tasks-title">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow"><svg class="icon icon-sm"><use href="#i-check-square"></use></svg> Không gian công việc</div>
+            <h1 id="tasks-title">Công việc của bạn</h1>
+            <p class="subtitle">Tập trung vào điều quan trọng, không chỉ điều khẩn cấp.</p>
+          </div>
+          <button class="button button-primary" type="button" data-open-modal>
+            <svg class="icon icon-sm"><use href="#i-plus"></use></svg>
+            <span>Thêm công việc</span>
+          </button>
+        </div>
+
+        <div class="task-toolbar">
+          <label class="search-box">
+            <svg class="icon icon-sm"><use href="#i-search"></use></svg>
+            <input id="task-search" type="search" placeholder="Tìm theo tên công việc..." aria-label="Tìm công việc">
+          </label>
+          <div class="inline-actions">
+            <div class="segmented" aria-label="Bộ lọc công việc">
+              <button class="segment active" type="button" data-task-filter="all">Tất cả</button>
+              <button class="segment" type="button" data-task-filter="active">Đang làm</button>
+              <button class="segment" type="button" data-task-filter="completed">Đã xong</button>
+            </div>
+            <button class="icon-button" type="button" aria-label="Sắp xếp"><svg class="icon"><use href="#i-filter"></use></svg></button>
+          </div>
+        </div>
+
+        <div class="task-overview">
+          <article class="card progress-card">
+            <div class="progress-ring" id="task-progress-ring"></div>
+            <div class="progress-copy">
+              <h2>Nhịp độ tuần này rất tốt</h2>
+              <p>Bạn đã hoàn thành 18/25 công việc. Còn 2 việc ưu tiên trong hôm nay.</p>
+            </div>
+          </article>
+          <article class="card mini-summary">
+            <h3>Tổng quan</h3>
+            <div class="mini-summary-row"><span class="mini-summary-label"><span class="mini-dot"></span>Đang làm</span><span class="mini-summary-value">5</span></div>
+            <div class="mini-summary-row"><span class="mini-summary-label"><span class="mini-dot warning"></span>Ưu tiên</span><span class="mini-summary-value">2</span></div>
+            <div class="mini-summary-row"><span class="mini-summary-label"><span class="mini-dot success"></span>Hoàn tất</span><span class="mini-summary-value">18</span></div>
+          </article>
+        </div>
+
+        <div class="task-group" data-task-group>
+          <div class="task-group-head"><div class="task-group-title">Hôm nay <span class="task-count">4 công việc</span></div><button class="button button-ghost" type="button">Thu gọn</button></div>
+          <div class="task-list">
+            <article class="task-row" data-task data-state="active">
+              <button class="check" type="button" aria-label="Đánh dấu hoàn tất"><svg class="icon"><use href="#i-check"></use></svg></button>
+              <div><div class="task-title">Hoàn thiện UI calendar</div><div class="task-meta"><span><svg class="icon icon-sm"><use href="#i-clock"></use></svg>10:00 – 11:30</span><span><svg class="icon icon-sm"><use href="#i-flag"></use></svg>Ưu tiên vừa</span></div></div>
+              <div class="task-actions"><button class="icon-button" type="button" aria-label="Sửa"><svg class="icon icon-sm"><use href="#i-edit"></use></svg></button><button class="icon-button" type="button" aria-label="Xóa"><svg class="icon icon-sm"><use href="#i-trash"></use></svg></button></div>
+            </article>
+            <article class="task-row" data-task data-state="active">
+              <button class="check" type="button" aria-label="Đánh dấu hoàn tất"><svg class="icon"><use href="#i-check"></use></svg></button>
+              <div><div class="task-title">Review sprint cùng team</div><div class="task-meta"><span><svg class="icon icon-sm"><use href="#i-clock"></use></svg>14:00 – 14:45</span><span><svg class="icon icon-sm"><use href="#i-flag"></use></svg>Ưu tiên cao</span></div></div>
+              <div class="task-actions"><button class="icon-button" type="button" aria-label="Sửa"><svg class="icon icon-sm"><use href="#i-edit"></use></svg></button><button class="icon-button" type="button" aria-label="Xóa"><svg class="icon icon-sm"><use href="#i-trash"></use></svg></button></div>
+            </article>
+            <article class="task-row completed" data-task data-state="completed">
+              <button class="check" type="button" aria-label="Đánh dấu chưa hoàn tất"><svg class="icon"><use href="#i-check"></use></svg></button>
+              <div><div class="task-title">Daily planning</div><div class="task-meta"><span><svg class="icon icon-sm"><use href="#i-clock"></use></svg>08:30</span><span><svg class="icon icon-sm"><use href="#i-repeat"></use></svg>Hàng ngày</span></div></div>
+              <div class="task-actions"><button class="icon-button" type="button" aria-label="Sửa"><svg class="icon icon-sm"><use href="#i-edit"></use></svg></button><button class="icon-button" type="button" aria-label="Xóa"><svg class="icon icon-sm"><use href="#i-trash"></use></svg></button></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="task-group" data-task-group>
+          <div class="task-group-head"><div class="task-group-title">Ngày mai <span class="task-count">2 công việc</span></div></div>
+          <div class="task-list">
+            <article class="task-row" data-task data-state="active">
+              <button class="check" type="button" aria-label="Đánh dấu hoàn tất"><svg class="icon"><use href="#i-check"></use></svg></button>
+              <div><div class="task-title">Kiểm tra notification flow</div><div class="task-meta"><span><svg class="icon icon-sm"><use href="#i-clock"></use></svg>09:00 – 10:00</span><span><svg class="icon icon-sm"><use href="#i-flag"></use></svg>Ưu tiên vừa</span></div></div>
+              <div class="task-actions"><button class="icon-button" type="button" aria-label="Sửa"><svg class="icon icon-sm"><use href="#i-edit"></use></svg></button><button class="icon-button" type="button" aria-label="Xóa"><svg class="icon icon-sm"><use href="#i-trash"></use></svg></button></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-ai" aria-labelledby="ai-title">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow"><svg class="icon icon-sm"><use href="#i-sparkles"></use></svg> Trợ lý lập kế hoạch</div>
+            <h1 id="ai-title">Planly AI</h1>
+            <p class="subtitle">Biến ý định tự nhiên thành một lịch trình khả thi.</p>
+          </div>
+          <span class="tag"><svg class="icon icon-sm"><use href="#i-sparkles"></use></svg>AI beta</span>
+        </div>
+
+        <div class="ai-layout">
+          <article class="card ai-compose">
+            <div class="ai-orb"><svg class="icon icon-lg"><use href="#i-sparkles"></use></svg></div>
+            <h2>Bạn muốn sắp xếp điều gì?</h2>
+            <p class="subtitle">Mô tả công việc, thời lượng và thời hạn. Planly sẽ tìm khung giờ hợp lý.</p>
+            <div class="textarea-wrap">
+              <textarea id="ai-prompt" maxlength="1000" placeholder="Ví dụ: Ngày mai tôi cần 2 giờ làm proposal, 30 phút tập thể dục và gọi cho khách hàng trước 16:00...">Ngày mai tôi cần hoàn thiện bản proposal trong 2 giờ và dành 30 phút tập thể dục buổi chiều.</textarea>
+              <div class="textarea-footer">
+                <button class="mic-button" type="button" aria-label="Nhập bằng giọng nói"><svg class="icon icon-sm"><use href="#i-mic"></use></svg></button>
+                <span><span id="char-count">111</span>/1000</span>
+              </div>
+            </div>
+            <div class="suggestions" aria-label="Gợi ý nhanh">
+              <button class="suggestion" type="button" data-prompt="Sắp xếp lại các việc còn lại trong hôm nay để tôi có 1 giờ nghỉ.">Sắp xếp lại hôm nay</button>
+              <button class="suggestion" type="button" data-prompt="Tạo một lịch tập trung cho ngày mai với 3 phiên deep work, mỗi phiên 60 phút.">Lên lịch ngày mai</button>
+              <button class="suggestion" type="button" data-prompt="Chia nhỏ công việc hoàn thiện proposal thành các bước trong 2 ngày tới.">Chia nhỏ công việc</button>
+            </div>
+            <button class="button button-primary" id="generate-plan" type="button" style="width:100%">
+              <svg class="icon icon-sm"><use href="#i-sparkles"></use></svg>
+              Tạo kế hoạch
+            </button>
+            <div class="ai-note"><svg class="icon icon-sm"><use href="#i-check"></use></svg><span>Planly chỉ đề xuất. Bạn luôn xem lại và xác nhận trước khi lịch được thay đổi.</span></div>
+          </article>
+
+          <article class="card ai-plan" id="ai-plan-card">
+            <div class="plan-head">
+              <div><h2>Kế hoạch đề xuất</h2><div class="plan-date">Thứ Tư, 23 tháng 9 · 3 công việc</div></div>
+              <span class="tag success">Không xung đột</span>
+            </div>
+            <div class="plan-list">
+              <div class="plan-item"><time class="plan-time">09:00</time><div><h3>Hoàn thiện outline proposal</h3><p>60 phút · Tập trung cao</p></div><span class="tag">AI đề xuất</span></div>
+              <div class="plan-item"><time class="plan-time">10:15</time><div><h3>Viết nội dung và số liệu</h3><p>60 phút · Nghỉ 15 phút trước đó</p></div><span class="tag">AI đề xuất</span></div>
+              <div class="plan-item"><time class="plan-time">16:30</time><div><h3>Tập thể dục</h3><p>30 phút · Sau phiên họp cuối ngày</p></div><span class="tag">AI đề xuất</span></div>
+            </div>
+            <div class="plan-actions">
+              <button class="button button-secondary" type="button"><svg class="icon icon-sm"><use href="#i-edit"></use></svg>Tinh chỉnh</button>
+              <button class="button button-primary" type="button" data-save-plan><svg class="icon icon-sm"><use href="#i-check"></use></svg>Thêm vào lịch</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-settings" aria-labelledby="settings-title">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow"><svg class="icon icon-sm"><use href="#i-sliders"></use></svg> Cá nhân hóa</div>
+            <h1 id="settings-title">Cài đặt</h1>
+            <p class="subtitle">Một nơi duy nhất để quản lý trải nghiệm Planly.</p>
+          </div>
+        </div>
+
+        <div class="settings-layout">
+          <div class="card settings-card">
+            <section class="settings-section">
+              <div class="settings-section-head"><div class="section-icon"><svg class="icon"><use href="#i-user"></use></svg></div><div><h2>Tài khoản & đồng bộ</h2><p class="subtitle">Dữ liệu được đồng bộ an toàn.</p></div></div>
+              <div class="settings-list">
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Tài khoản</div><div class="setting-description">nhatduy@example.com</div></div><span class="tag success"><svg class="icon icon-sm"><use href="#i-cloud"></use></svg>Đã đồng bộ</span></div>
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Đồng bộ nền</div><div class="setting-description">Tự động cập nhật giữa các thiết bị</div></div><button class="switch on" type="button" role="switch" aria-checked="true" aria-label="Đồng bộ nền"></button></div>
+              </div>
+            </section>
+            <section class="settings-section">
+              <div class="settings-section-head"><div class="section-icon"><svg class="icon"><use href="#i-bell"></use></svg></div><div><h2>Nhắc việc</h2><p class="subtitle">Giữ đúng nhịp mà không gây nhiễu.</p></div></div>
+              <div class="settings-list">
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Cho phép thông báo</div><div class="setting-description">Nhắc trước thời gian bắt đầu</div></div><button class="switch on" type="button" role="switch" aria-checked="true" aria-label="Cho phép thông báo"></button></div>
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Kiểu nhắc việc</div><div class="setting-description">Thông báo tiêu chuẩn</div></div><button class="button button-ghost" type="button">Thông báo <svg class="icon icon-sm"><use href="#i-chevron-right"></use></svg></button></div>
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Âm thanh</div><div class="setting-description">Planly Gentle</div></div><button class="button button-ghost" type="button"><svg class="icon icon-sm"><use href="#i-volume"></use></svg>Nghe thử</button></div>
+              </div>
+            </section>
+            <section class="settings-section">
+              <div class="settings-section-head"><div class="section-icon"><svg class="icon"><use href="#i-globe"></use></svg></div><div><h2>Ngôn ngữ & hiển thị</h2><p class="subtitle">Các lựa chọn nhất quán trên mọi màn hình.</p></div></div>
+              <div class="settings-list">
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Ngôn ngữ</div><div class="setting-description">Ngôn ngữ giao diện</div></div><span class="setting-value">Tiếng Việt <svg class="icon icon-sm"><use href="#i-chevron-right"></use></svg></span></div>
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Lịch tháng</div><div class="setting-description">Hiển thị tháng thay vì tuần</div></div><button class="switch on" type="button" role="switch" aria-checked="true" aria-label="Lịch tháng"></button></div>
+                <div class="setting-row"><div class="setting-copy"><div class="setting-title">Giảm chuyển động</div><div class="setting-description">Hạn chế hiệu ứng chuyển cảnh</div></div><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Giảm chuyển động"></button></div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="card theme-panel">
+            <div class="section-icon"><svg class="icon"><use href="#i-palette"></use></svg></div>
+            <h2 style="margin-top:12px">Calm Indigo</h2>
+            <p class="subtitle">Một theme rõ ràng, yên tĩnh và đáng tin cậy cho mọi ngữ cảnh.</p>
+            <div class="theme-preview"><div class="theme-stripes"><span class="theme-stripe"></span><span class="theme-stripe"></span><span class="theme-stripe"></span><span class="theme-stripe"></span></div></div>
+            <div class="token-list">
+              <div class="token-row"><span>Màu chủ đạo</span><strong>#535CCF</strong></div>
+              <div class="token-row"><span>Bo góc</span><strong>14 / 20px</strong></div>
+              <div class="token-row"><span>Spacing</span><strong>8px grid</strong></div>
+              <div class="token-row"><span>Chuyển động</span><strong>180ms</strong></div>
+            </div>
+            <ul class="principle-list">
+              <li><svg class="icon icon-sm"><use href="#i-check"></use></svg><span>Indigo chỉ dẫn hành động và trạng thái đang chọn.</span></li>
+              <li><svg class="icon icon-sm"><use href="#i-check"></use></svg><span>Mint, amber và red chỉ mang ý nghĩa ngữ nghĩa.</span></li>
+              <li><svg class="icon icon-sm"><use href="#i-check"></use></svg><span>Surface phẳng, border tinh tế, hạn chế shadow.</span></li>
+              <li><svg class="icon icon-sm"><use href="#i-check"></use></svg><span>Typography 3 cấp giúp đọc nhanh trên mobile.</span></li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Điều hướng mobile">
+      <button class="bottom-item active" data-screen="schedule" type="button"><svg class="icon"><use href="#i-calendar"></use></svg><span>Lịch</span></button>
+      <button class="bottom-item" data-screen="tasks" type="button"><svg class="icon"><use href="#i-check-square"></use></svg><span>Công việc</span></button>
+      <button class="bottom-item" data-screen="ai" type="button"><svg class="icon"><use href="#i-sparkles"></use></svg><span>Planly AI</span></button>
+      <button class="bottom-item" data-screen="settings" type="button"><svg class="icon"><use href="#i-sliders"></use></svg><span>Cài đặt</span></button>
+    </nav>
+  </div>
+
+  <button class="fab" type="button" aria-label="Thêm công việc" data-open-modal><svg class="icon icon-lg"><use href="#i-plus"></use></svg></button>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <svg class="icon"><use href="#i-check"></use></svg>
+    <span id="toast-message">Đã lưu thay đổi</span>
+  </div>
+
+  <div class="modal-backdrop" id="task-modal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <div><h2 id="modal-title">Thêm công việc</h2><p>Tạo nhanh một mục mới cho lịch trình của bạn.</p></div>
+        <button class="icon-button" type="button" aria-label="Đóng" data-close-modal><svg class="icon"><use href="#i-close"></use></svg></button>
+      </div>
+      <form id="quick-add-form">
+        <div class="form-grid">
+          <div class="field full"><label for="task-title-input">Tên công việc</label><input id="task-title-input" name="title" autocomplete="off" placeholder="Ví dụ: Chuẩn bị tài liệu họp" required></div>
+          <div class="field"><label for="task-date-input">Ngày</label><input id="task-date-input" name="date" type="date" value="2026-09-22"></div>
+          <div class="field"><label for="task-time-input">Thời gian</label><input id="task-time-input" name="time" type="time" value="09:00"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" data-close-modal>Hủy</button>
+          <button class="button button-primary" type="submit"><svg class="icon icon-sm"><use href="#i-plus"></use></svg>Thêm vào lịch</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    const screenButtons = document.querySelectorAll('[data-screen]');
+    const screens = document.querySelectorAll('.screen');
+    const screenTitles = {
+      schedule: 'Planly — Lịch trình',
+      tasks: 'Planly — Công việc',
+      ai: 'Planly — AI Planner',
+      settings: 'Planly — Cài đặt'
+    };
+
+    function setScreen(name, syncHash = true) {
+      screens.forEach((screen) => screen.classList.toggle('active', screen.id === `screen-${name}`));
+      screenButtons.forEach((button) => button.classList.toggle('active', button.dataset.screen === name));
+      document.title = screenTitles[name] || 'Planly';
+      if (syncHash && window.location.hash !== `#${name}`) {
+        window.history.replaceState(null, '', `#${name}`);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    screenButtons.forEach((button) => button.addEventListener('click', () => setScreen(button.dataset.screen)));
+    const initialScreen = window.location.hash.slice(1);
+    if (screenTitles[initialScreen]) setScreen(initialScreen, false);
+
+    const dayButtons = document.querySelectorAll('.day:not(.muted)');
+    const selectedDayLabel = document.getElementById('selected-day-label');
+    dayButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        dayButtons.forEach((day) => day.classList.remove('selected'));
+        button.classList.add('selected');
+        selectedDayLabel.textContent = `${button.textContent} tháng 9`;
+      });
+    });
+
+    document.querySelectorAll('.segmented').forEach((group) => {
+      group.querySelectorAll('.segment').forEach((button) => {
+        button.addEventListener('click', () => {
+          group.querySelectorAll('.segment').forEach((item) => item.classList.remove('active'));
+          button.classList.add('active');
+        });
+      });
+    });
+
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    let toastTimer;
+    function showToast(message) {
+      toastMessage.textContent = message;
+      toast.classList.add('show');
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    const taskRows = document.querySelectorAll('[data-task]');
+    function updateTaskProgress() {
+      const completed = document.querySelectorAll('[data-task].completed').length;
+      const total = taskRows.length;
+      const percentage = Math.round((completed / total) * 100);
+      document.getElementById('done-count').textContent = Math.min(6, 3 + completed);
+      document.getElementById('sidebar-progress').style.width = `${Math.max(18, percentage)}%`;
+      document.getElementById('task-progress-ring').style.setProperty('--progress', `${percentage}%`);
+    }
+
+    taskRows.forEach((row) => {
+      row.querySelector('.check').addEventListener('click', () => {
+        row.classList.toggle('completed');
+        row.dataset.state = row.classList.contains('completed') ? 'completed' : 'active';
+        updateTaskProgress();
+        showToast(row.classList.contains('completed') ? 'Đã hoàn tất công việc' : 'Đã khôi phục công việc');
+      });
+    });
+
+    const taskSearch = document.getElementById('task-search');
+    const filterButtons = document.querySelectorAll('[data-task-filter]');
+    let activeFilter = 'all';
+    function filterTasks() {
+      const query = taskSearch.value.trim().toLocaleLowerCase('vi');
+      taskRows.forEach((row) => {
+        const matchesSearch = row.textContent.toLocaleLowerCase('vi').includes(query);
+        const matchesState = activeFilter === 'all' || row.dataset.state === activeFilter;
+        row.hidden = !(matchesSearch && matchesState);
+      });
+    }
+    taskSearch.addEventListener('input', filterTasks);
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        activeFilter = button.dataset.taskFilter;
+        filterTasks();
+      });
+    });
+
+    const prompt = document.getElementById('ai-prompt');
+    const charCount = document.getElementById('char-count');
+    function updateCharCount() { charCount.textContent = prompt.value.length; }
+    prompt.addEventListener('input', updateCharCount);
+    updateCharCount();
+    document.querySelectorAll('[data-prompt]').forEach((button) => {
+      button.addEventListener('click', () => {
+        prompt.value = button.dataset.prompt;
+        updateCharCount();
+        prompt.focus();
+      });
+    });
+    document.getElementById('generate-plan').addEventListener('click', () => {
+      document.getElementById('ai-plan-card').animate(
+        [{ opacity: .35, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }],
+        { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' }
+      );
+      showToast('Đã tạo kế hoạch không xung đột');
+    });
+    document.querySelector('[data-save-plan]').addEventListener('click', () => showToast('Đã thêm 3 công việc vào lịch'));
+
+    document.querySelectorAll('.switch').forEach((toggle) => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('on');
+        const checked = toggle.classList.contains('on');
+        toggle.setAttribute('aria-checked', String(checked));
+        showToast(checked ? 'Đã bật tùy chọn' : 'Đã tắt tùy chọn');
+      });
+    });
+
+    const modal = document.getElementById('task-modal');
+    const titleInput = document.getElementById('task-title-input');
+    function openModal() {
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      window.setTimeout(() => titleInput.focus(), 80);
+    }
+    function closeModal() {
+      modal.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-open-modal]').forEach((button) => button.addEventListener('click', openModal));
+    document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', closeModal));
+    modal.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+    document.getElementById('quick-add-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const title = titleInput.value.trim();
+      closeModal();
+      showToast(`Đã thêm “${title}” vào lịch`);
+      event.currentTarget.reset();
+    });
+
+    document.querySelectorAll('[data-today]').forEach((button) => button.addEventListener('click', () => {
+      dayButtons.forEach((day) => day.classList.remove('selected'));
+      const today = document.querySelector('.day.today');
+      today.classList.add('selected');
+      selectedDayLabel.textContent = '22 tháng 9';
+      showToast('Đã quay về hôm nay');
+    }));
+
+    updateTaskProgress();
+  </script>
+</body>
+</html>

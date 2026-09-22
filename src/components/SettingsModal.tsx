@@ -10,7 +10,6 @@ import {
   AppState,
   Image,
   type ImageSourcePropType,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -51,6 +50,7 @@ import {
 } from '../services/notifications';
 import type { ThemeColors } from '../theme/colors';
 import { useCloudSync } from '../sync/CloudSyncContext';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type {
   AlarmBackgroundPresetId,
@@ -58,6 +58,7 @@ import type {
   ReminderDeliveryMode,
 } from '../types';
 import { AccountSyncModal } from './AccountSyncModal';
+import { MotionModal } from './animation/MotionModal';
 import { AppToastViewport, useToast } from './AppToast';
 import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
@@ -548,8 +549,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
 
   return (
     <>
-      <Modal
-        animationType="slide"
+      <MotionModal
         onShow={() => {
           void refreshNotificationPermission();
           if (reminderDeliveryMode === 'alarm') {
@@ -699,7 +699,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
             <AppToastViewport bottomOffset={16} />
           </View>
         </View>
-      </Modal>
+      </MotionModal>
 
       <AccountSyncModal
         onClose={() => setAccountSyncVisible(false)}
@@ -734,8 +734,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
         onCancel={() => setDeleteAllConfirmStep(0)}
       />
 
-      <Modal
-        animationType="fade"
+      <MotionModal
         onRequestClose={closePicker}
         transparent
         visible={activePicker !== null}
@@ -882,10 +881,9 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
           </Pressable>
           <AppToastViewport bottomOffset={16} />
         </Pressable>
-      </Modal>
+      </MotionModal>
 
-      <Modal
-        animationType="fade"
+      <MotionModal
         onRequestClose={() => setBackgroundPreview(null)}
         transparent
         visible={backgroundPreview !== null}
@@ -925,7 +923,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
             </View>
           ) : null}
         </View>
-      </Modal>
+      </MotionModal>
     </>
   );
 }
@@ -1128,6 +1126,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '800',
     },
     pressed: {
-      opacity: 0.68,
+      opacity: MOTION.pressedOpacity,
     },
   });

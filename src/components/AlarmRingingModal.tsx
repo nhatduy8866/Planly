@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ImageBackground,
   type ImageSourcePropType,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,8 +16,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { AlarmBackgroundAppearance, TaskPriority } from '../types';
+import { MotionModal } from './animation/MotionModal';
 
 export interface AlarmModalTaskData {
   id: string;
@@ -146,8 +147,7 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
   const confirmButtonColor = priorityColors[priority];
 
   return (
-    <Modal
-      animationType="fade"
+    <MotionModal
       hardwareAccelerated
       statusBarTranslucent
       transparent={false}
@@ -266,7 +266,7 @@ export const AlarmRingingModal = memo(function AlarmRingingModal({
         </View>
         </View>
       </ImageBackground>
-    </Modal>
+    </MotionModal>
   );
 });
 
@@ -389,7 +389,6 @@ const createStyles = () =>
       letterSpacing: 0.5,
     },
     buttonPressed: {
-      opacity: 0.82,
-      transform: [{ scale: 0.985 }],
+      opacity: MOTION.pressedOpacity,
     },
   });

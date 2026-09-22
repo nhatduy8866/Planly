@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Text } from 'react-native';
+import { Animated, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
+import { MOTION } from '../../theme/motion';
 import { AnimatedEntryItem } from './AnimatedEntryItem';
 
 describe('AnimatedEntryItem', () => {
@@ -12,6 +13,7 @@ describe('AnimatedEntryItem', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('renders children properly with initial opacity and translation', () => {
@@ -48,5 +50,24 @@ describe('AnimatedEntryItem', () => {
         tree!.unmount();
       });
     }).not.toThrow();
+  });
+
+  it('skips entry animation for items beyond the performance cap', () => {
+    const timingSpy = jest.spyOn(Animated, 'timing');
+    let tree: renderer.ReactTestRenderer | undefined;
+
+    act(() => {
+      tree = renderer.create(
+        <AnimatedEntryItem index={MOTION.entrance.maxAnimatedItems}>
+          <Text>Static Item</Text>
+        </AnimatedEntryItem>,
+      );
+    });
+
+    expect(timingSpy).not.toHaveBeenCalled();
+
+    act(() => {
+      tree!.unmount();
+    });
   });
 });

@@ -10,6 +10,7 @@ import {
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
+import { MOTION } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
 import { formatDateRange, formatLongDate } from '../../utils/date';
@@ -350,6 +351,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: MOTION.pressedOpacity,
   },
 });

@@ -1,5 +1,8 @@
 import { memo, useEffect, useState, type ReactNode } from 'react';
-import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, type StyleProp, type ViewStyle } from 'react-native';
+
+import { MOTION, MOTION_EASING } from '../../theme/motion';
+import { useReducedMotion } from './MotionProvider';
 
 export interface AnimatedEntryItemProps {
   index: number;
@@ -8,6 +11,7 @@ export interface AnimatedEntryItemProps {
   style?: StyleProp<ViewStyle>;
   staggerMs?: number;
   maxDelayMs?: number;
+  maxAnimatedItems?: number;
   duration?: number;
   offsetY?: number;
 }
@@ -17,14 +21,21 @@ export const AnimatedEntryItem = memo(function AnimatedEntryItem({
   triggerKey,
   children,
   style,
-  staggerMs = 35,
-  maxDelayMs = 240,
-  duration = 240,
-  offsetY = 16,
+  staggerMs = MOTION.entrance.staggerMs,
+  maxDelayMs = MOTION.entrance.maxDelayMs,
+  maxAnimatedItems = MOTION.entrance.maxAnimatedItems,
+  duration = MOTION.duration.standard,
+  offsetY = MOTION.entrance.offsetY,
 }: AnimatedEntryItemProps) {
   const [animValue] = useState(() => new Animated.Value(0));
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion || index >= maxAnimatedItems) {
+      animValue.setValue(1);
+      return;
+    }
+
     animValue.setValue(0);
     const delay = Math.min(index * staggerMs, maxDelayMs);
 
@@ -33,7 +44,7 @@ export const AnimatedEntryItem = memo(function AnimatedEntryItem({
       Animated.timing(animValue, {
         toValue: 1,
         duration,
-        easing: Easing.out(Easing.cubic),
+        easing: MOTION_EASING,
         useNativeDriver: true,
       }),
     ]);
@@ -43,7 +54,16 @@ export const AnimatedEntryItem = memo(function AnimatedEntryItem({
     return () => {
       animation.stop();
     };
-  }, [animValue, duration, index, maxDelayMs, staggerMs, triggerKey]);
+  }, [
+    animValue,
+    duration,
+    index,
+    maxAnimatedItems,
+    maxDelayMs,
+    reducedMotion,
+    staggerMs,
+    triggerKey,
+  ]);
 
   const translateY = animValue.interpolate({
     inputRange: [0, 1],

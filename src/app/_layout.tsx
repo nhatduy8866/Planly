@@ -9,6 +9,7 @@ import { PreferencesProvider, usePreferences } from '../preferences/PreferencesC
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
 import { AppToastViewport, ToastProvider } from '../components/AppToast';
 import { OnboardingModal } from '../components/OnboardingModal';
+import { MotionProvider } from '../components/animation/MotionProvider';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
 import { useReminderReconciliation } from '../hooks/useReminderReconciliation';
@@ -146,19 +147,21 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <PreferencesProvider>
-          <ToastProvider>
-            <TaskNavigationProvider>
-              <PlannerProvider>
-                <CloudSyncProvider>
-                  <AppShell />
-                </CloudSyncProvider>
-              </PlannerProvider>
-            </TaskNavigationProvider>
-          </ToastProvider>
-        </PreferencesProvider>
-      </AuthProvider>
+      <MotionProvider>
+        <AuthProvider>
+          <PreferencesProvider>
+            <ToastProvider>
+              <TaskNavigationProvider>
+                <PlannerProvider>
+                  <CloudSyncProvider>
+                    <AppShell />
+                  </CloudSyncProvider>
+                </PlannerProvider>
+              </TaskNavigationProvider>
+            </ToastProvider>
+          </PreferencesProvider>
+        </AuthProvider>
+      </MotionProvider>
     </SafeAreaProvider>
   );
 }

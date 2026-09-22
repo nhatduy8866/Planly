@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { OnboardingModal } from './OnboardingModal';
 import { SettingsModal } from './SettingsModal';
@@ -276,6 +277,6 @@ const createStyles = (colors: ThemeColors) =>
       marginLeft: 11,
     },
     pressed: {
-      opacity: 0.68,
+      opacity: MOTION.pressedOpacity,
     },
   });

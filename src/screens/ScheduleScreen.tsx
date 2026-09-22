@@ -18,6 +18,7 @@ import { IconButton } from '../components/IconButton';
 import { SortDropdown, type SortOption } from '../components/SortDropdown';
 import { TaskCard } from '../components/TaskCard';
 import { AnimatedEntryItem } from '../components/animation/AnimatedEntryItem';
+import { useReducedMotion } from '../components/animation/MotionProvider';
 import {
   TaskFormModal,
   type TaskFormValues,
@@ -34,6 +35,7 @@ import {
   usePlannerTasks,
 } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
 import {
@@ -93,23 +95,24 @@ interface PendingCompletion {
 
 const TASK_LIST_TRANSITION = {
   create: {
-    duration: 180,
+    duration: MOTION.duration.standard,
     property: LayoutAnimation.Properties.opacity,
     type: LayoutAnimation.Types.easeInEaseOut,
   },
   delete: {
-    duration: 180,
+    duration: MOTION.duration.standard,
     property: LayoutAnimation.Properties.opacity,
     type: LayoutAnimation.Types.easeInEaseOut,
   },
-  duration: 180,
+  duration: MOTION.duration.standard,
   update: {
-    duration: 180,
+    duration: MOTION.duration.standard,
     type: LayoutAnimation.Types.easeInEaseOut,
   },
 };
 
-function animateTaskListTransition() {
+function animateTaskListTransition(reducedMotion: boolean) {
+  if (reducedMotion) return;
   LayoutAnimation.configureNext(TASK_LIST_TRANSITION);
 }
 
@@ -151,6 +154,7 @@ export function ScheduleScreen() {
   const tasks = usePlannerTasks();
   const { colorfulAccents, colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
+  const reducedMotion = useReducedMotion();
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
   const { mode, registerTodayHandler } = useCalendarNavigation();
   const { registerTaskHandler } = useTaskNavigation();
@@ -190,12 +194,12 @@ export function ScheduleScreen() {
 
   const selectDate = useCallback((date: string) => {
     const now = new Date();
-    animateTaskListTransition();
+    animateTaskListTransition(reducedMotion);
     setSelectedDate(date);
     setCursor(fromDateKey(date));
     setTaskView(getDefaultScheduleTaskView(date, now));
     refreshCurrentTime();
-  }, [refreshCurrentTime]);
+  }, [reducedMotion, refreshCurrentTime]);
 
   const goToday = useCallback(() => {
     selectDate(todayKey());
@@ -220,17 +224,17 @@ export function ScheduleScreen() {
     const taskY = taskLayoutYRef.current.get(taskId);
     if (taskY === undefined) return;
     scrollViewRef.current?.scrollTo({
-      animated: true,
+      animated: !reducedMotion,
       y: Math.max(0, taskY - 16),
     });
-  }, []);
+  }, [reducedMotion]);
 
   const focusTaskFromNotification = useCallback(
     (taskId: string) => {
       const task = latestTasksRef.current.find((item) => item.id === taskId);
       if (!task) return;
 
-      animateTaskListTransition();
+      animateTaskListTransition(reducedMotion);
       setSelectedDate(task.date);
       setCursor(fromDateKey(task.date));
       setTaskView('all');
@@ -243,7 +247,7 @@ export function ScheduleScreen() {
       }, 3_500);
       requestAnimationFrame(() => scrollToTask(task.id));
     },
-    [refreshCurrentTime, scrollToTask],
+    [reducedMotion, refreshCurrentTime, scrollToTask],
   );
 
   useEffect(
@@ -354,14 +358,14 @@ export function ScheduleScreen() {
 
     try {
       if (latestTask && !latestTask.completed) {
-        animateTaskListTransition();
+        animateTaskListTransition(reducedMotion);
         await toggleTask(latestTask);
       }
     } finally {
       pendingCompletionsRef.current.delete(taskId);
       removePendingCompletion(taskId);
     }
-  }, [removePendingCompletion, toggleTask]);
+  }, [reducedMotion, removePendingCompletion, toggleTask]);
 
   const handleTaskToggle = useCallback((task: Task) => {
     const pending = pendingCompletionsRef.current.get(task.id);
@@ -376,7 +380,7 @@ export function ScheduleScreen() {
     }
 
     if (task.completed) {
-      animateTaskListTransition();
+      animateTaskListTransition(reducedMotion);
       void toggleTask(task);
       return;
     }
@@ -392,7 +396,7 @@ export function ScheduleScreen() {
     setPendingCompletionTaskIds((current) =>
       new Set(current).add(task.id),
     );
-  }, [commitPendingCompletion, removePendingCompletion, toggleTask]);
+  }, [commitPendingCompletion, reducedMotion, removePendingCompletion, toggleTask]);
   return (
     <View style={styles.container}>
       <ScrollView
@@ -442,7 +446,7 @@ export function ScheduleScreen() {
               options={taskViewOptions}
               selectedKey={taskView}
               onSelect={(nextView) => {
-                animateTaskListTransition();
+                animateTaskListTransition(reducedMotion);
                 setTaskView(nextView);
                 refreshCurrentTime();
               }}
@@ -474,7 +478,7 @@ export function ScheduleScreen() {
               ]}
               selectedKey={taskSort.key}
               onSelect={(key) => {
-                animateTaskListTransition();
+                animateTaskListTransition(reducedMotion);
                 setTaskSort((current) => nextTaskSortState(current, key));
               }}
             />
@@ -592,7 +596,7 @@ export function ScheduleScreen() {
         onOptionChange={setDeleteBatch}
         onConfirm={() => {
           if (deletingTask) {
-            animateTaskListTransition();
+            animateTaskListTransition(reducedMotion);
             void deleteTask(deletingTask, deleteBatch);
             setDeletingTask(undefined);
             setDeleteBatch(false);
@@ -661,5 +665,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 7,
   },
   addButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: MOTION.pressedOpacity },
 });

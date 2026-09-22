@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   Animated,
@@ -12,8 +12,10 @@ import {
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION, MOTION_EASING } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task, TaskPriority } from '../types';
+import { useReducedMotion } from './animation/MotionProvider';
 import { IconButton } from './IconButton';
 
 interface TaskCardProps {
@@ -83,6 +85,7 @@ export const TaskCard = memo(function TaskCard({
 }: TaskCardProps) {
   const { colorfulAccents, colors, t } = usePreferences();
   const styles = useThemedStyles(createStyles, { scaleFontSizes: false });
+  const reducedMotion = useReducedMotion();
   const cardAccent = task.color
     ? task.color
     : colorfulAccents
@@ -96,6 +99,9 @@ export const TaskCard = memo(function TaskCard({
   const [overlayProgress] = useState(
     () => new Animated.Value(completionPending ? 1 : 0),
   );
+  const completionEffectMounted = useRef(false);
+  const overlayEffectMounted = useRef(false);
+  const toggleEffectMounted = useRef(false);
   const priority = task.priority ?? 'none';
   const priorityColors: Record<Exclude<TaskPriority, 'none'>, string> = {
     high: colors.priorityHigh,
@@ -116,40 +122,74 @@ export const TaskCard = memo(function TaskCard({
   }, [onDelete, task]);
 
   useEffect(() => {
+    if (!completionEffectMounted.current) {
+      completionEffectMounted.current = true;
+      completionProgress.setValue(isCompleted ? 1 : 0);
+      return;
+    }
+
+    if (reducedMotion) {
+      completionProgress.setValue(isCompleted ? 1 : 0);
+      return;
+    }
+
     const animation = Animated.timing(completionProgress, {
-      duration: 180,
+      duration: MOTION.duration.standard,
+      easing: MOTION_EASING,
       toValue: isCompleted ? 1 : 0,
       useNativeDriver: true,
     });
     animation.start();
 
     return () => animation.stop();
-  }, [completionProgress, isCompleted]);
+  }, [completionProgress, isCompleted, reducedMotion]);
 
   useEffect(() => {
-    toggleScale.setValue(0.72);
-    const animation = Animated.spring(toggleScale, {
-      damping: 12,
-      mass: 0.55,
-      stiffness: 220,
+    if (!toggleEffectMounted.current) {
+      toggleEffectMounted.current = true;
+      toggleScale.setValue(1);
+      return;
+    }
+
+    if (reducedMotion) {
+      toggleScale.setValue(1);
+      return;
+    }
+
+    toggleScale.setValue(0.88);
+    const animation = Animated.timing(toggleScale, {
+      duration: MOTION.duration.quick,
+      easing: MOTION_EASING,
       toValue: 1,
       useNativeDriver: true,
     });
     animation.start();
 
     return () => animation.stop();
-  }, [isCompleted, toggleScale]);
+  }, [isCompleted, reducedMotion, toggleScale]);
 
   useEffect(() => {
+    if (!overlayEffectMounted.current) {
+      overlayEffectMounted.current = true;
+      overlayProgress.setValue(completionPending ? 1 : 0);
+      return;
+    }
+
+    if (reducedMotion) {
+      overlayProgress.setValue(completionPending ? 1 : 0);
+      return;
+    }
+
     const animation = Animated.timing(overlayProgress, {
-      duration: 150,
+      duration: MOTION.duration.quick,
+      easing: MOTION_EASING,
       toValue: completionPending ? 1 : 0,
       useNativeDriver: true,
     });
     animation.start();
 
     return () => animation.stop();
-  }, [completionPending, overlayProgress]);
+  }, [completionPending, overlayProgress, reducedMotion]);
 
   return (
     <View style={styles.cardFrame}>
@@ -398,7 +438,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   completionOverlayPressed: {
-    opacity: 0.75,
+    opacity: MOTION.pressedOpacity,
   },
   completionOverlayMessage: {
     alignItems: 'center',

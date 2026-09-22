@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import {
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,8 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Translate } from '../i18n/translations';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { IconButton } from './IconButton';
+import { MotionModal } from './animation/MotionModal';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
 type TranslationKey = Parameters<Translate>[0];
@@ -126,8 +127,7 @@ export function UserGuideModal({
   }
 
   return (
-    <Modal
-      animationType="slide"
+    <MotionModal
       onRequestClose={onClose}
       transparent={Platform.OS === 'web'}
       visible={visible}
@@ -259,7 +259,7 @@ export function UserGuideModal({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </MotionModal>
   );
 }
 
@@ -295,7 +295,7 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: 14,
       width: 58,
     },
-    pressed: { opacity: 0.68 },
+    pressed: { opacity: MOTION.pressedOpacity },
     replayButton: {
       alignItems: 'center',
       backgroundColor: colors.primarySoft,

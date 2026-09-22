@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useState } from 'react';
 import {
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,7 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Translate } from '../i18n/translations';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { MotionModal } from './animation/MotionModal';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
 type TranslationKey = Parameters<Translate>[0];
@@ -74,8 +75,7 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
   }
 
   return (
-    <Modal
-      animationType="fade"
+    <MotionModal
       onRequestClose={finish}
       transparent={Platform.OS === 'web'}
       visible={visible}
@@ -203,7 +203,7 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
           </View>
         </View>
       </View>
-    </Modal>
+    </MotionModal>
   );
 }
 
@@ -325,7 +325,7 @@ const createStyles = (colors: ThemeColors) =>
       shadowRadius: 12,
       width: 116,
     },
-    pressed: { opacity: 0.7 },
+    pressed: { opacity: MOTION.pressedOpacity },
     primaryButton: {
       alignItems: 'center',
       backgroundColor: colors.primary,

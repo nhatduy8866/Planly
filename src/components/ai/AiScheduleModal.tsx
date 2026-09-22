@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
   TaskFormModal,
   type TaskFormValues,
 } from '../TaskFormModal';
+import { MotionModal } from '../animation/MotionModal';
 import { AiActionSheet } from './AiActionSheet';
 import { AiAnalyzingView } from './AiAnalyzingView';
 import { AiAutoSlottingView } from './AiAutoSlottingView';
@@ -104,8 +104,7 @@ export function AiScheduleModal({
   }
 
   return (
-    <Modal
-      animationType="fade"
+    <MotionModal
       transparent
       visible={visible}
       onRequestClose={handleClose}
@@ -225,7 +224,7 @@ export function AiScheduleModal({
           />
         ) : null}
       </View>
-    </Modal>
+    </MotionModal>
   );
 }
 

@@ -1,10 +1,12 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { MotionModal } from './animation/MotionModal';
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -44,9 +46,8 @@ export function ConfirmModal({
     tone === 'danger' ? colors.dangerSoft : colors.primarySoft;
 
   return (
-    <Modal
+    <MotionModal
       transparent
-      animationType="fade"
       visible={visible}
       onRequestClose={onCancel}
     >
@@ -121,7 +122,7 @@ export function ConfirmModal({
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
+    </MotionModal>
   );
 }
 
@@ -212,6 +213,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: MOTION.pressedOpacity,
   },
 });

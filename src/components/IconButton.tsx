@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-nat
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
@@ -60,5 +61,5 @@ const createStyles = (_colors: ThemeColors) => StyleSheet.create({
     width: 40,
   },
   disabled: { opacity: 0.3 },
-  pressed: { opacity: 0.65 },
+  pressed: { opacity: MOTION.pressedOpacity },
 });

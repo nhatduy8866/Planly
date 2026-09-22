@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { CalendarMode, Task } from '../types';
 import {
@@ -237,5 +238,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   monthNumber: { color: colors.text, fontSize: 13, fontWeight: '600' },
   outsideMonth: { color: colors.placeholder },
-  pressed: { opacity: 0.65 },
+  pressed: { opacity: MOTION.pressedOpacity },
 });

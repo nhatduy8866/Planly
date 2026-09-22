@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useState, type ComponentProps } from 'react';
 import {
   Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +10,9 @@ import {
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION, MOTION_EASING } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { useReducedMotion } from './animation/MotionProvider';
 
 type IconName = ComponentProps<typeof MaterialIcons>['name'];
 
@@ -38,16 +39,20 @@ export function EmptyState({
 }: EmptyStateProps) {
   const { colors } = usePreferences();
   const styles = useThemedStyles(createStyles);
-
-  // Subtle entrance fade-in
   const [entryAnim] = useState(() => new Animated.Value(0));
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion) {
+      entryAnim.setValue(1);
+      return;
+    }
+
     entryAnim.setValue(0);
     const anim = Animated.timing(entryAnim, {
       toValue: 1,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
+      duration: MOTION.duration.standard,
+      easing: MOTION_EASING,
       useNativeDriver: true,
     });
     anim.start();
@@ -55,11 +60,11 @@ export function EmptyState({
     return () => {
       anim.stop();
     };
-  }, [entryAnim, icon, title]);
+  }, [entryAnim, icon, reducedMotion, title]);
 
   const containerTranslateY = entryAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [12, 0],
+    outputRange: [MOTION.entrance.offsetY, 0],
   });
 
   return (
@@ -72,7 +77,6 @@ export function EmptyState({
         },
       ]}
     >
-      {/* Static premium squircle icon container */}
       <View style={styles.iconWrap}>
         <MaterialIcons name={icon} size={36} color={colors.primary} />
       </View>
@@ -195,7 +199,6 @@ const createStyles = (colors: ThemeColors) =>
       fontWeight: '700',
     },
     pressed: {
-      opacity: 0.85,
-      transform: [{ scale: 0.97 }],
+      opacity: MOTION.pressedOpacity,
     },
   });

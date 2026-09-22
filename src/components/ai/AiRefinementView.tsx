@@ -13,6 +13,7 @@ import {
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
+import { MOTION } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiRefinementViewProps {
@@ -204,6 +205,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.4,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: MOTION.pressedOpacity,
   },
 });

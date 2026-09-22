@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import {
   Dimensions,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -11,8 +10,10 @@ import {
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { SortDirection } from '../types';
+import { MotionModal } from './animation/MotionModal';
 
 export interface SortOption<T extends string = string> {
   key: T;
@@ -119,9 +120,8 @@ export function SortDropdown<T extends string = string>({
         </Pressable>
       </View>
 
-      <Modal
+      <MotionModal
         transparent
-        animationType="fade"
         visible={isOpen}
         onRequestClose={() => setIsOpen(false)}
       >
@@ -185,7 +185,7 @@ export function SortDropdown<T extends string = string>({
             })}
           </View>
         </Pressable>
-      </Modal>
+      </MotionModal>
     </>
   );
 }
@@ -218,7 +218,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   pressed: {
-    opacity: 0.7,
+    opacity: MOTION.pressedOpacity,
   },
   backdrop: {
     backgroundColor: colors.subtleOverlay,

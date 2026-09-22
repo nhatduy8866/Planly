@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { AppMenu } from './AppMenu';
 
@@ -123,7 +124,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 5,
     zIndex: 10,
   },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: MOTION.pressedOpacity },
   todayButton: {
     backgroundColor: colors.white,
     borderRadius: 12,

@@ -12,8 +12,10 @@ import {
 import type { AiSaveFeedback } from '../../hooks/useAiScheduler';
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
+import { MOTION, MOTION_EASING } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { formatLongDate } from '../../utils/date';
+import { useReducedMotion } from '../animation/MotionProvider';
 
 interface AiSaveSnackbarProps {
   action: 'undo' | 'view';
@@ -33,18 +35,26 @@ export function AiSaveSnackbar({
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [entrance] = useState(() => new Animated.Value(0));
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!feedback) return;
+
+    if (reducedMotion) {
+      entrance.setValue(1);
+      return;
+    }
+
     entrance.setValue(0);
     const animation = Animated.timing(entrance, {
-      duration: 180,
+      duration: MOTION.duration.standard,
+      easing: MOTION_EASING,
       toValue: 1,
       useNativeDriver: true,
     });
     animation.start();
     return () => animation.stop();
-  }, [entrance, feedback]);
+  }, [entrance, feedback, reducedMotion]);
 
   const copy = useMemo(() => {
     if (!feedback) return null;
@@ -94,7 +104,7 @@ export function AiSaveSnackbar({
             transform: [{
               translateY: entrance.interpolate({
                 inputRange: [0, 1],
-                outputRange: [12, 0],
+                outputRange: [MOTION.entrance.offsetY, 0],
               }),
             }],
           },
@@ -188,5 +198,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     zIndex: 20,
   },
   message: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  pressed: { opacity: 0.72 },
+  pressed: { opacity: MOTION.pressedOpacity },
 });

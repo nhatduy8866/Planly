@@ -31,6 +31,7 @@ import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { usePreferences } from '../preferences/PreferencesContext';
+import { MOTION } from '../theme/motion';
 import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -314,7 +315,7 @@ export function TasksScreen() {
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 16, paddingTop: 14 },
-  actionPressed: { opacity: 0.72 },
+  actionPressed: { opacity: MOTION.pressedOpacity },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,

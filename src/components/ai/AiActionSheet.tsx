@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
+import { MOTION } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 
 interface AiActionSheetProps {
@@ -130,6 +131,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: MOTION.pressedOpacity,
   },
 });

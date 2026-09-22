@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,8 +16,10 @@ import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { useCloudSync, type CloudSyncStatus } from '../sync/CloudSyncContext';
 import type { ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { IconButton } from './IconButton';
+import { MotionModal } from './animation/MotionModal';
 
 interface AccountSyncModalProps {
   onClose: () => void;
@@ -119,8 +120,7 @@ export function AccountSyncModal({
   }
 
   return (
-    <Modal
-      animationType="slide"
+    <MotionModal
       onRequestClose={onClose}
       transparent={Platform.OS === 'web'}
       visible={visible}
@@ -311,7 +311,7 @@ export function AccountSyncModal({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </MotionModal>
   );
 }
 
@@ -389,7 +389,7 @@ const createStyles = (colors: ThemeColors) =>
     },
     noticeText: { color: colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
     noticeTitle: { color: colors.text, fontSize: 16, fontWeight: '800', textAlign: 'center' },
-    pressed: { opacity: 0.72 },
+    pressed: { opacity: MOTION.pressedOpacity },
     primaryButton: {
       alignItems: 'center',
       backgroundColor: colors.primary,

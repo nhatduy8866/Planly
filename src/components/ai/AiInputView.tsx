@@ -13,6 +13,7 @@ import {
 
 import { usePreferences } from '../../preferences/PreferencesContext';
 import type { ThemeColors } from '../../theme/colors';
+import { MOTION } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { useVoiceInput } from '../../hooks/useVoiceInput';
 
@@ -375,9 +376,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  pressed: {
-    opacity: 0.75,
-  },
+  pressed: { opacity: MOTION.pressedOpacity },
   infoBanner: {
     alignItems: 'center',
     backgroundColor: colors.warningSoft,

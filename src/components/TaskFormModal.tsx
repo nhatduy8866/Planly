@@ -5,7 +5,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import { CARD_COLOR_PRESETS, type ThemeColors } from '../theme/colors';
+import { MOTION } from '../theme/motion';
 import { scaleFontSize } from '../theme/typography';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { Task, TaskPriority } from '../types';
@@ -36,6 +36,7 @@ import {
   getTaskBatchRangeIssue,
   MAX_BATCH_RANGE_DAYS,
 } from '../utils/taskBatch';
+import { MotionModal } from './animation/MotionModal';
 import { TaskTimeConflictError } from '../utils/taskConflicts';
 import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
@@ -343,9 +344,8 @@ export function TaskFormModal({
       : undefined;
 
   return (
-    <Modal
+    <MotionModal
       visible={visible}
-      animationType="fade"
       presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent
@@ -1053,7 +1053,7 @@ export function TaskFormModal({
       </View>
 
       {Platform.OS === 'ios' && picker ? (
-        <Modal transparent animationType="fade" visible={Boolean(picker)}>
+        <MotionModal transparent visible={Boolean(picker)}>
           <View style={styles.iosPickerOverlay}>
             <View style={styles.iosPickerSheet}>
               <View style={styles.iosPickerHeader}>
@@ -1087,7 +1087,7 @@ export function TaskFormModal({
               />
             </View>
           </View>
-        </Modal>
+        </MotionModal>
       ) : null}
 
       <ConfirmModal
@@ -1104,7 +1104,7 @@ export function TaskFormModal({
         tone="primary"
         icon="repeat"
       />
-    </Modal>
+    </MotionModal>
   );
 }
 
@@ -1500,5 +1500,5 @@ const createStyles = (colors: ThemeColors) =>
     },
     inlineError: { color: colors.danger, fontSize: 12, marginTop: 9 },
     error: { color: colors.danger, fontSize: 13, marginTop: 16 },
-    pressed: { opacity: 0.7 },
+    pressed: { opacity: MOTION.pressedOpacity },
   });

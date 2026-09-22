@@ -452,38 +452,25 @@ export function ScheduleScreen() {
               }}
             />
           </View>
-          {dayTasks.length ? (
-            <View style={styles.listActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('schedule.addTask')}
-                onPress={aiScheduler.openActionSheet}
-                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-              >
-                <MaterialIcons name="add" size={18} color={colors.white} />
-                <Text style={styles.addButtonText}>{t('schedule.addTask')}</Text>
-              </Pressable>
+          {dayTasks.length > 1 ? (
+            <View style={styles.taskSortPicker}>
+              <SortDropdown<'time' | 'title' | 'priority'>
+                direction={taskSort.direction}
+                fullWidth
+                options={[
+                  { key: 'time', label: t('sort.time'), icon: 'schedule' },
+                  { key: 'priority', label: t('sort.priority'), icon: 'flag' },
+                  { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
+                ]}
+                selectedKey={taskSort.key}
+                onSelect={(key) => {
+                  animateTaskListTransition(reducedMotion);
+                  setTaskSort((current) => nextTaskSortState(current, key));
+                }}
+              />
             </View>
           ) : null}
         </View>
-
-        {dayTasks.length > 1 ? (
-          <View style={styles.sortBar}>
-            <SortDropdown<'time' | 'title' | 'priority'>
-              direction={taskSort.direction}
-              options={[
-                { key: 'time', label: t('sort.time'), icon: 'schedule' },
-                { key: 'priority', label: t('sort.priority'), icon: 'flag' },
-                { key: 'title', label: t('sort.title'), icon: 'sort-by-alpha' },
-              ]}
-              selectedKey={taskSort.key}
-              onSelect={(key) => {
-                animateTaskListTransition(reducedMotion);
-                setTaskSort((current) => nextTaskSortState(current, key));
-              }}
-            />
-          </View>
-        ) : null}
 
         {visibleDayTasks.length ? (
           visibleDayTasks.map((task, index) => {
@@ -539,13 +526,18 @@ export function ScheduleScreen() {
             onPrimaryAction={
               taskView !== 'past' ? aiScheduler.openDirectPrompt : undefined
             }
-            actionLabel={
-              taskView !== 'past' ? t('schedule.addTask') : undefined
-            }
-            onAction={taskView !== 'past' ? openCreate : undefined}
           />
         )}
       </ScrollView>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('schedule.addTask')}
+        onPress={aiScheduler.openActionSheet}
+        style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+      >
+        <MaterialIcons name="add" size={28} color={colors.white} />
+      </Pressable>
 
       <AiScheduleModal
         scheduler={aiScheduler}
@@ -613,7 +605,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 32, paddingHorizontal: 16 },
+  content: { paddingBottom: 88, paddingHorizontal: 16 },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -635,35 +627,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   listHeader: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     marginBottom: 12,
     marginTop: 24,
-  },
-  listActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexShrink: 0,
-    gap: 8,
-    justifyContent: 'flex-end',
-  },
-  sortBar: {
-    alignItems: 'flex-end',
-    marginBottom: 12,
   },
   taskViewPicker: {
     flex: 1,
     minWidth: 0,
+    width: 0,
+  },
+  taskSortPicker: {
+    flex: 1,
+    minWidth: 0,
+    width: 0,
   },
   addButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 11,
-    flexDirection: 'row',
-    gap: 5,
+    borderRadius: 28,
+    bottom: 16,
+    elevation: 6,
+    height: 56,
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    position: 'absolute',
+    right: 16,
+    shadowColor: colors.shadow,
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    width: 56,
+    zIndex: 10,
   },
-  addButtonText: { color: colors.white, fontSize: 12, fontWeight: '800' },
   pressed: { opacity: MOTION.pressedOpacity },
 });

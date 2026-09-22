@@ -5,6 +5,7 @@ import {
   cancelAudioRecording,
   startAudioRecording,
   stopAudioRecording,
+  usePlanlyAudioRecorder,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
 
@@ -18,6 +19,7 @@ interface UseVoiceInputOptions {
 
 export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
   const { t } = usePreferences();
+  const recorder = usePlanlyAudioRecorder();
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -101,7 +103,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
   const startListening = useCallback(async () => {
     setErrorMessage(null);
 
-    const started = await startAudioRecording();
+    const started = await startAudioRecording(recorder);
     if (!started) {
       const permMsg = t('ai.voicePermissionDenied');
       setErrorMessage(permMsg);
@@ -123,7 +125,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
         void stopListening();
       }
     }, 1000);
-  }, [clearTimer, onError, stopListening, t]);
+  }, [clearTimer, onError, recorder, stopListening, t]);
 
   const toggleRecording = useCallback(() => {
     if (isTranscribing) {

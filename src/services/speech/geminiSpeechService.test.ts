@@ -58,7 +58,10 @@ describe('geminiSpeechService', () => {
         candidates: [
           {
             content: {
-              parts: [{ text: '“Mai 9h sáng họp team”' }],
+              parts: [
+                { thought: true, text: 'Phân tích âm thanh' },
+                { text: '“Mai 9h sáng họp team”' },
+              ],
             },
           },
         ],
@@ -78,19 +81,20 @@ describe('geminiSpeechService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
-    expect(callArgs[0]).toContain('gemini-2.5-flash');
+    expect(callArgs[0]).toContain('gemini-3.5-flash');
     expect(callArgs[0]).toContain('key=test-key');
 
     const body = JSON.parse(callArgs[1].body);
-    expect(body.contents[0].parts[0].inlineData).toEqual({
+    expect(body.contents[0].parts[1].inlineData).toEqual({
       mimeType: 'audio/mp4',
       data: 'BASE64_AUDIO_CONTENT',
     });
+    expect(body.generationConfig.thinkingConfig.thinkingLevel).toBe('MINIMAL');
 
     expect(result).toBe('Mai 9h sáng họp team');
   });
 
-  it('retries with fallback model when the primary model fails', async () => {
+  it('surfaces a Gemini 3.5 Flash API failure', async () => {
     mockReadAsStringAsync.mockResolvedValueOnce('BASE64_DATA');
 
     const fetchMock = jest
@@ -99,28 +103,17 @@ describe('geminiSpeechService', () => {
         ok: false,
         status: 503,
         text: async () => 'Service Unavailable',
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: 'Chiều 2h làm báo cáo' }],
-              },
-            },
-          ],
-        }),
       });
     global.fetch = fetchMock as any;
 
-    const result = await transcribeAudioWithGemini(
-      'file:///test.m4a',
-      'audio/mp4',
-      'test-key',
-    );
+    await expect(
+      transcribeAudioWithGemini(
+        'file:///test.m4a',
+        'audio/mp4',
+        'test-key',
+      ),
+    ).rejects.toThrow('Gemini STT API error 503');
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result).toBe('Chiều 2h làm báo cáo');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

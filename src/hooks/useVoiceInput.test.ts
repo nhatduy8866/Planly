@@ -13,6 +13,7 @@ import {
   startAudioRecording,
   stopAudioRecording,
   cancelAudioRecording,
+  usePlanlyAudioRecorder,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
 
@@ -20,9 +21,12 @@ const mockStartAudioRecording = jest.fn<typeof startAudioRecording>();
 const mockStopAudioRecording = jest.fn<typeof stopAudioRecording>();
 const mockCancelAudioRecording = jest.fn<typeof cancelAudioRecording>();
 const mockTranscribeAudioWithGemini = jest.fn<typeof transcribeAudioWithGemini>();
+const mockRecorder = {} as ReturnType<typeof usePlanlyAudioRecorder>;
 
 jest.mock('../services/speech/audioRecorder', () => ({
-  startAudioRecording: () => mockStartAudioRecording(),
+  usePlanlyAudioRecorder: () => mockRecorder,
+  startAudioRecording: (...args: Parameters<typeof startAudioRecording>) =>
+    mockStartAudioRecording(...args),
   stopAudioRecording: () => mockStopAudioRecording(),
   cancelAudioRecording: () => mockCancelAudioRecording(),
 }));
@@ -116,6 +120,7 @@ describe('useVoiceInput', () => {
     });
 
     expect(hook.isRecording).toBe(true);
+    expect(mockStartAudioRecording).toHaveBeenCalledWith(mockRecorder);
 
     act(() => {
       jest.advanceTimersByTime(2000);

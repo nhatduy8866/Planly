@@ -11,10 +11,7 @@ import {
   AiScheduleClarificationError,
   findScheduleClarification,
 } from './scheduleClarification';
-import {
-  analyzeScheduleRequest,
-  type AiScheduleExecutionRoute,
-} from './scheduleRequestAnalysis';
+import { analyzeScheduleRequest } from './scheduleRequestAnalysis';
 import {
   validateAiRefinementResult,
   validateAiScheduleResult,
@@ -155,24 +152,15 @@ interface RepairRequest {
   previousDrafts: AiDraftTask[];
 }
 
-type GeminiScheduleModel = 'gemini-3.5-flash-lite' | 'gemini-3.8-flash';
+const GEMINI_FLASH_MODEL = 'gemini-3.5-flash' as const;
+type GeminiScheduleModel = typeof GEMINI_FLASH_MODEL;
+const GEMINI_SCHEDULE_MODELS: readonly GeminiScheduleModel[] = [
+  GEMINI_FLASH_MODEL,
+];
 
-const GEMINI_FLASH_LITE_MODEL: GeminiScheduleModel = 'gemini-3.5-flash-lite';
-const GEMINI_FLASH_MODEL: GeminiScheduleModel = 'gemini-3.8-flash';
-
-function modelsForRoute(
-  route: Exclude<AiScheduleExecutionRoute, 'offline'>,
-  repair = false,
-): readonly GeminiScheduleModel[] {
-  if (repair) return [GEMINI_FLASH_MODEL];
-  return route === 'flash'
-    ? [GEMINI_FLASH_MODEL, GEMINI_FLASH_LITE_MODEL]
-    : [GEMINI_FLASH_LITE_MODEL, GEMINI_FLASH_MODEL];
-}
-
-function thinkingConfigForModel(model: GeminiScheduleModel) {
+function thinkingConfigForModel() {
   return {
-    thinkingLevel: model === GEMINI_FLASH_MODEL ? 'LOW' : 'MINIMAL',
+    thinkingLevel: 'LOW',
   } as const;
 }
 
@@ -368,7 +356,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const key = this.getApiKey();
     if (analysis.route === 'offline' || !key) return localResult;
 
-    const models = modelsForRoute(analysis.route);
+    const models = GEMINI_SCHEDULE_MODELS;
     try {
       const cloudResult = await this.callGeminiApi(
         prompt,
@@ -388,7 +376,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           prompt,
           context,
           key,
-          modelsForRoute(analysis.route, true),
+          GEMINI_SCHEDULE_MODELS,
           {
             issues: validation.issues,
             previousDrafts: cloudResult,
@@ -423,7 +411,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const canUseOffline =
       analysis.route === 'offline' &&
       hasMeaningfulDraftChanges(currentDrafts, localResult);
-    const route = analysis.route === 'flash' ? 'flash' : 'flash_lite';
     const key = this.getApiKey();
     if (canUseOffline || !key) return localResult;
 
@@ -433,7 +420,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
         instruction,
         context,
         key,
-        modelsForRoute(route),
+        GEMINI_SCHEDULE_MODELS,
       );
       if (cloudResult) {
         const validation = validateAiRefinementResult(
@@ -449,7 +436,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           instruction,
           context,
           key,
-          modelsForRoute(route, true),
+          GEMINI_SCHEDULE_MODELS,
           {
             issues: validation.issues,
             previousDrafts: cloudResult,
@@ -567,7 +554,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           generationConfig: {
             responseMimeType: 'application/json',
             responseJsonSchema: SCHEDULE_RESPONSE_SCHEMA,
-            thinkingConfig: thinkingConfigForModel(model),
+            thinkingConfig: thinkingConfigForModel(),
           },
         };
 
@@ -691,7 +678,7 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
           generationConfig: {
             responseMimeType: 'application/json',
             responseJsonSchema: REFINEMENT_RESPONSE_SCHEMA,
-            thinkingConfig: thinkingConfigForModel(model),
+            thinkingConfig: thinkingConfigForModel(),
           },
         };
 

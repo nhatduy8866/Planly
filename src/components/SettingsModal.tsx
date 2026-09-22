@@ -58,6 +58,7 @@ import type {
   ReminderDeliveryMode,
 } from '../types';
 import { AccountSyncModal } from './AccountSyncModal';
+import { AppToastViewport, useToast } from './AppToast';
 import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
 
@@ -106,6 +107,7 @@ function pausePreviewPlayer(player: AudioPlayer): void {
 
 export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const { configured: syncConfigured, user } = useAuth();
   const { status: syncStatus } = useCloudSync();
   const { deleteAllTasks } = useTaskActions();
@@ -200,7 +202,18 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       ) {
         await openNotificationSettings();
       } else {
-        setNotificationPermission(await requestNotificationPermission(language));
+        const permission = await requestNotificationPermission(language);
+        setNotificationPermission(permission);
+        showToast(t('toast.settingUpdated', {
+          setting: t('settings.notificationsTitle'),
+          value: t(
+            permission.state === 'granted'
+              ? 'settings.statusEnabled'
+              : permission.state === 'unsupported'
+                ? 'settings.statusUnsupported'
+                : 'settings.statusDisabled',
+          ),
+        }));
       }
       setNotificationCheckFailed(false);
     } catch {
@@ -219,13 +232,25 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   async function handleReminderDeliveryMode(mode: ReminderDeliveryMode) {
     closePicker();
     setReminderDeliveryMode(mode);
-    if (mode !== 'alarm' || alarmBusy) return;
+    const feedback = t('toast.settingUpdated', {
+      setting: t('settings.reminderTypeTitle'),
+      value: t(
+        mode === 'alarm'
+          ? 'settings.reminderTypeAlarm'
+          : 'settings.reminderTypeNotification',
+      ),
+    });
+    if (mode !== 'alarm' || alarmBusy) {
+      showToast(feedback);
+      return;
+    }
 
     setAlarmBusy(true);
     try {
       setAlarmPermission(await requestAlarmPermission());
     } finally {
       setAlarmBusy(false);
+      showToast(feedback);
     }
   }
 
@@ -256,6 +281,14 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       } else {
         setAlarmBackground(file);
       }
+      showToast(t('toast.settingUpdated', {
+        setting: t(
+          kind === 'sound'
+            ? 'settings.alarmSoundTitle'
+            : 'settings.alarmBackgroundTitle',
+        ),
+        value: file.name,
+      }));
       setActivePicker(kind);
     } catch (error) {
       setAlarmMediaError(
@@ -275,6 +308,10 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmSound(null);
     setAlarmSoundPreset(preset);
     setAlarmMediaError(null);
+    showToast(t('toast.settingUpdated', {
+      setting: t('settings.alarmSoundTitle'),
+      value: t(getAlarmSoundPreset(preset).labelKey),
+    }));
   }
 
   function selectAlarmBackgroundPreset(preset: AlarmBackgroundPresetId) {
@@ -282,6 +319,10 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
     setAlarmBackground(null);
     setAlarmBackgroundPreset(preset);
     setAlarmMediaError(null);
+    showToast(t('toast.settingUpdated', {
+      setting: t('settings.alarmBackgroundTitle'),
+      value: t(getAlarmBackgroundPreset(preset).labelKey),
+    }));
   }
 
   async function previewAlarmSound(
@@ -314,6 +355,14 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   function setVibration(enabled: boolean) {
     closePicker();
     setAlarmVibrationEnabled(enabled);
+    showToast(t('toast.settingUpdated', {
+      setting: t('settings.alarmVibrationTitle'),
+      value: t(
+        enabled
+          ? 'settings.alarmVibrationEnabled'
+          : 'settings.alarmVibrationDisabled',
+      ),
+    }));
   }
 
   function closeSettings() {
@@ -647,6 +696,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
                 </View>
               ) : null}
             </ScrollView>
+            <AppToastViewport bottomOffset={16} />
           </View>
         </View>
       </Modal>
@@ -830,6 +880,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
               ))}
             </ScrollView>
           </Pressable>
+          <AppToastViewport bottomOffset={16} />
         </Pressable>
       </Modal>
 

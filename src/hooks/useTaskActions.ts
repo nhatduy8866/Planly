@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useToast } from '../components/AppToast';
 import {
   cancelTaskReminder,
   scheduleTaskReminder,
@@ -20,6 +21,7 @@ import type { TaskFormValues } from '../components/TaskFormModal';
 export function useTaskActions() {
   const plannerTasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
+  const { showToast } = useToast();
   const {
     alarmSound,
     alarmSoundPreset,
@@ -60,6 +62,16 @@ export function useTaskActions() {
         } else {
           dispatch({ type: 'upsert_tasks', payload: tasksWithReminders });
         }
+        showToast(
+          t(
+            tasksWithReminders.length === 1
+              ? 'toast.taskUpdated'
+              : 'toast.tasksUpdated',
+            tasksWithReminders.length === 1
+              ? { title: tasksWithReminders[0].title }
+              : { count: tasksWithReminders.length },
+          ),
+        );
         return;
       }
 
@@ -115,8 +127,26 @@ export function useTaskActions() {
       } else {
         dispatch({ type: 'create_batch_tasks', payload: tasksWithReminders });
       }
+      showToast(
+        t(
+          tasksWithReminders.length === 1
+            ? 'toast.taskCreated'
+            : 'toast.tasksCreated',
+          tasksWithReminders.length === 1
+            ? { title: tasksWithReminders[0].title }
+            : { count: tasksWithReminders.length },
+        ),
+      );
     },
-    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      plannerTasks,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const duplicateTask = useCallback(
@@ -148,8 +178,17 @@ export function useTaskActions() {
         task.notificationId = undefined;
       }
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(t('toast.taskDuplicated', { title: source.title }));
     },
-    [alarmPreferences, dispatch, language, plannerTasks, reminderDeliveryMode, t],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      plannerTasks,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const deleteTasks = useCallback(
@@ -185,13 +224,27 @@ export function useTaskActions() {
           ? plannerTasks.filter((item) => item.batchId === task.batchId)
           : [task];
       await deleteTasks(tasksToDelete);
+      showToast(
+        t(
+          tasksToDelete.length === 1
+            ? 'toast.taskDeleted'
+            : 'toast.tasksDeleted',
+          tasksToDelete.length === 1
+            ? { title: tasksToDelete[0].title }
+            : { count: tasksToDelete.length },
+        ),
+      );
     },
-    [deleteTasks, plannerTasks],
+    [deleteTasks, plannerTasks, showToast, t],
   );
 
   const deleteAllTasks = useCallback(
-    async () => deleteTasks(plannerTasks),
-    [deleteTasks, plannerTasks],
+    async () => {
+      if (!plannerTasks.length) return;
+      await deleteTasks(plannerTasks);
+      showToast(t('toast.allTasksDeleted'));
+    },
+    [deleteTasks, plannerTasks, showToast, t],
   );
 
   const toggleTask = useCallback(
@@ -217,8 +270,21 @@ export function useTaskActions() {
         }
       }
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(
+        t(
+          task.completed ? 'toast.taskCompleted' : 'toast.taskReopened',
+          { title: task.title },
+        ),
+      );
     },
-    [alarmPreferences, dispatch, language, reminderDeliveryMode],
+    [
+      alarmPreferences,
+      dispatch,
+      language,
+      reminderDeliveryMode,
+      showToast,
+      t,
+    ],
   );
 
   const completeTask = useCallback(
@@ -233,8 +299,9 @@ export function useTaskActions() {
       };
       await cancelTaskReminder(source.notificationId);
       dispatch({ type: 'upsert_task', payload: task });
+      showToast(t('toast.taskCompleted', { title: task.title }));
     },
-    [dispatch],
+    [dispatch, showToast, t],
   );
 
   return {

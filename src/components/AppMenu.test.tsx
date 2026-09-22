@@ -12,6 +12,7 @@ const mockSetAlarmSound = jest.fn();
 const mockSetAlarmSoundPreset = jest.fn();
 const mockSetAlarmVibrationEnabled = jest.fn();
 const mockSetCalendarMode = jest.fn();
+const mockShowToast = jest.fn();
 const mockPlannerDispatch = jest.fn();
 const mockCancelTaskReminder = jest.fn(
   async (_notificationId?: string) => undefined,
@@ -53,6 +54,11 @@ const mockPreviewPlayer = {
 
 jest.mock('@expo/vector-icons', () => ({
   MaterialIcons: 'MaterialIcons',
+}));
+
+jest.mock('./AppToast', () => ({
+  AppToastViewport: () => null,
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 jest.mock('../store/PlannerContext', () => ({
@@ -194,6 +200,7 @@ describe('AppMenu settings', () => {
     act(() => calendarViewSwitch?.props.onValueChange(true));
 
     expect(mockSetCalendarMode).toHaveBeenCalledWith('month');
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 
   it('opens the user guide and can replay onboarding', () => {
@@ -323,6 +330,7 @@ describe('AppMenu settings', () => {
     expect(mockSetAlarmSound).toHaveBeenCalledWith(null);
     expect(mockSetAlarmSoundPreset).toHaveBeenCalledWith('classic');
     expect(mockSetAlarmVibrationEnabled).toHaveBeenCalledWith(false);
+    expect(mockShowToast).toHaveBeenCalledWith('toast.settingUpdated');
   });
 
   it('shows five background thumbnails plus upload and opens a full preview', () => {
@@ -385,6 +393,7 @@ describe('AppMenu settings', () => {
     });
     expect(mockSetAlarmBackground).toHaveBeenCalledWith(null);
     expect(mockSetAlarmBackgroundPreset).toHaveBeenCalledWith('aurora');
+    expect(mockShowToast).toHaveBeenCalledWith('toast.settingUpdated');
   });
 
   it('requires two confirmations before deleting every task', async () => {

@@ -1,7 +1,12 @@
 import type { Language } from '../i18n/translations';
 import type { ThemeMode } from '../theme/colors';
 import type { Task } from '../types';
-import { formatCompactDate, timeToMinutes, toDateKey } from '../utils/date';
+import {
+  formatCompactDate,
+  taskDateTime,
+  timeToMinutes,
+  toDateKey,
+} from '../utils/date';
 
 export const TODAY_WIDGET_NAME = 'PlanlyToday';
 export const TODAY_WIDGET_URI = 'planly:///';
@@ -60,6 +65,32 @@ function compareWidgetTasks(first: Task, second: Task): number {
   );
 }
 
+export function getNextTodayWidgetRefreshTime(
+  tasks: Task[],
+  date = new Date(),
+): number {
+  const dateKey = toDateKey(date);
+  let nextRefresh = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() + 1,
+  ).getTime();
+
+  for (const task of tasks) {
+    if (task.completed || task.date !== dateKey) continue;
+    const startTime = taskDateTime(task.date, task.startTime).getTime();
+    if (
+      Number.isFinite(startTime) &&
+      startTime > date.getTime() &&
+      startTime < nextRefresh
+    ) {
+      nextRefresh = startTime;
+    }
+  }
+
+  return nextRefresh;
+}
+
 export function createTodayWidgetSnapshot(
   tasks: Task[],
   language: Language,
@@ -69,7 +100,7 @@ export function createTodayWidgetSnapshot(
 ): TodayWidgetSnapshot {
   const locale = language === 'vi' ? 'vi-VN' : 'en-US';
   const dateKey = toDateKey(date);
-  const referenceTime = date.getHours() * 60 + date.getMinutes();
+  const referenceTime = date.getTime();
   let completedCount = 0;
   let nextUpcomingTask: Task | undefined;
   let totalCount = 0;
@@ -83,8 +114,8 @@ export function createTodayWidgetSnapshot(
       continue;
     }
 
-    const taskStart = timeToMinutes(task.startTime);
-    if (!Number.isFinite(taskStart) || taskStart < referenceTime) continue;
+    const taskStart = taskDateTime(task.date, task.startTime).getTime();
+    if (!Number.isFinite(taskStart) || taskStart <= referenceTime) continue;
     upcomingCount += 1;
     if (!nextUpcomingTask || compareWidgetTasks(task, nextUpcomingTask) < 0) {
       nextUpcomingTask = task;

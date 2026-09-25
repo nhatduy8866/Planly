@@ -9,12 +9,14 @@ import { cancelTaskReminder } from '../services/notifications';
 import {
   applyTodayWidgetCompletions,
   createTodayWidgetSnapshot,
+  getNextTodayWidgetRefreshTime,
   TODAY_WIDGET_COMPLETE_ACTION,
   TODAY_WIDGET_UNDO_ACTION,
   TODAY_WIDGET_UNDO_WINDOW_MS,
   splitTodayWidgetCompletions,
   type TodayWidgetCompletion,
 } from './todayWidgetData';
+import { scheduleTodayWidgetRefresh } from './todayWidgetRefresh';
 import {
   loadTodayWidgetState,
   queueTodayWidgetCompletion,
@@ -63,21 +65,31 @@ async function renderCurrentWidgetState(
     state.tasks,
     completionState.ready,
   );
+  const now = new Date();
   const snapshot = createTodayWidgetSnapshot(
     effectiveTasks,
     state.language,
-    new Date(),
+    now,
     state.theme,
     completionState.active,
   );
   props.renderWidget(renderAndroidTodayWidget(snapshot, props.widgetInfo));
+  await scheduleTodayWidgetRefresh(
+    getNextTodayWidgetRefreshTime(effectiveTasks, now),
+  );
   return completionState.active;
 }
 
 async function todayWidgetTaskHandler(
   props: WidgetTaskHandlerProps,
 ): Promise<void> {
-  if (props.widgetAction === 'WIDGET_DELETED') return;
+  if (props.widgetAction === 'WIDGET_DELETED') {
+    const state = await loadTodayWidgetState();
+    await scheduleTodayWidgetRefresh(
+      getNextTodayWidgetRefreshTime(state.tasks),
+    );
+    return;
+  }
 
   const state = await loadTodayWidgetState();
   const click = clickedTask(props);

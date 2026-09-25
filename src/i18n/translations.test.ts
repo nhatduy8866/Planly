@@ -19,6 +19,19 @@ describe('translations', () => {
     expect(translate('vi', 'task.batchBadge')).toBe('Lặp');
   });
 
+  it('includes privacy and sync feedback copy in both languages', () => {
+    expect(translate('vi', 'privacy.title')).toBe('Chính sách quyền riêng tư');
+    const policyLines = translate('vi', 'privacy.content').split('\n');
+    expect(policyLines).toHaveLength(9);
+    expect(policyLines[0]).toMatch(/^1\./);
+    expect(policyLines[2]).toContain('Supabase');
+    expect(policyLines[3]).toContain('Google Gemini');
+    expect(policyLines[8]).toMatch(/^9\./);
+    expect(translate('en', 'toast.syncCompleted')).toBe(
+      'Data synced successfully',
+    );
+  });
+
   it('formats task time conflict details', () => {
     expect(
       translate('vi', 'taskForm.timeConflict', {

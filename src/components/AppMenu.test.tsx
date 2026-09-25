@@ -267,6 +267,36 @@ describe('AppMenu settings', () => {
     expect(text).not.toContain('settings.alarmBackgroundDefaultDescription');
   });
 
+  it('shows the privacy policy as one plain numbered text component', () => {
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({
+      remove: jest.fn(),
+    });
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openSettings' })
+        .props.onPress();
+    });
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'privacy.title' })
+        .props.onPress();
+    });
+
+    const policyContent = tree?.root.findByProps({
+      testID: 'privacy-policy-content',
+    });
+
+    expect(policyContent?.type).toBe(Text);
+    expect(policyContent?.props.children).toBe('privacy.content');
+    expect(policyContent?.findAllByType(Text)).toHaveLength(1);
+  });
+
   it('shows five preset sounds plus upload and lets users preview before selecting', async () => {
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({
       remove: jest.fn(),

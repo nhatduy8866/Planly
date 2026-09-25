@@ -6,9 +6,11 @@ import type { Task } from '../types';
 import { renderAndroidTodayWidget } from './AndroidTodayWidget';
 import {
   createTodayWidgetSnapshot,
+  getNextTodayWidgetRefreshTime,
   TODAY_WIDGET_NAME,
   type TodayWidgetCompletion,
 } from './todayWidgetData';
+import { scheduleTodayWidgetRefresh } from './todayWidgetRefresh';
 
 export async function syncTodayWidget(
   tasks: Task[],
@@ -16,10 +18,11 @@ export async function syncTodayWidget(
   theme: ThemeMode,
   pendingCompletions: TodayWidgetCompletion[] = [],
 ): Promise<void> {
+  const now = new Date();
   const snapshot = createTodayWidgetSnapshot(
     tasks,
     language,
-    new Date(),
+    now,
     theme,
     pendingCompletions,
   );
@@ -28,4 +31,7 @@ export async function syncTodayWidget(
     renderWidget: (widgetInfo) =>
       renderAndroidTodayWidget(snapshot, widgetInfo),
   });
+  await scheduleTodayWidgetRefresh(
+    getNextTodayWidgetRefreshTime(tasks, now),
+  );
 }

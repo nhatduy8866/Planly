@@ -516,13 +516,6 @@ export function ScheduleScreen() {
                   ? 'schedule.emptyTitle'
                   : 'schedule.upcomingEmptyTitle',
             )}
-            primaryActionLabel={
-              taskView !== 'past' ? t('schedule.aiAction') : undefined
-            }
-            primaryActionIcon={taskView !== 'past' ? 'auto-awesome' : undefined}
-            onPrimaryAction={
-              taskView !== 'past' ? aiScheduler.openDirectPrompt : undefined
-            }
           />
         )}
       </ScrollView>

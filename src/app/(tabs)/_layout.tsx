@@ -88,11 +88,11 @@ function TabScaffold() {
         onPress={() => requestAddTask(activeTarget)}
         style={({ pressed }) => [
           styles.addButton,
-          { bottom: bottomInset + 4 },
+          { bottom: bottomInset },
           pressed && styles.pressed,
         ]}
       >
-        <MaterialIcons color={colors.white} name="add" size={42} />
+        <MaterialIcons color={colors.white} name="add" size={46} />
       </Pressable>
     </View>
   );
@@ -113,19 +113,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primary,
     borderColor: colors.surface,
-    borderRadius: 42,
+    borderRadius: 46,
     borderWidth: 4,
     elevation: 8,
-    height: 84,
+    height: 92,
     justifyContent: 'center',
     left: '50%',
-    marginLeft: -42,
+    marginLeft: -46,
     position: 'absolute',
     shadowColor: colors.shadow,
     shadowOffset: { height: 4, width: 0 },
     shadowOpacity: 0.22,
     shadowRadius: 9,
-    width: 84,
+    width: 92,
     zIndex: 20,
   },
   iconWrap: {

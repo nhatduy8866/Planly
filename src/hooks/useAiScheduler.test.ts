@@ -248,6 +248,23 @@ describe('useAiScheduler', () => {
     expect(scheduler.infoMessage).toContain('Đăng nhập');
   });
 
+  it('explains when the account has used all 50 daily AI requests', async () => {
+    mockParseScheduleRequest.mockRejectedValue(
+      new GeminiProxyError(
+        'GEMINI_PROXY_REQUEST_FAILED',
+        'Daily limit reached.',
+        429,
+        'DAILY_LIMIT_REACHED',
+      ),
+    );
+
+    await submitPrompt('lập kế hoạch nâng cao cho ngày mai');
+
+    expect(scheduler.step).toBe('input_prompt');
+    expect(scheduler.infoMessage).toContain('50 lượt AI');
+    expect(scheduler.infoMessage).toContain('07:00');
+  });
+
   it('updates only the selected AI draft before saving', async () => {
     mockParseScheduleRequest.mockResolvedValue([
       makeDraft({ id: 'first', title: 'Làm báo cáo' }),

@@ -191,6 +191,31 @@ describe('useVoiceInput', () => {
     expect(onErrorMock).toHaveBeenCalledWith('ai.cloudSignInRequired');
   });
 
+  it('explains when voice transcription reaches the daily AI limit', async () => {
+    mockStartAudioRecording.mockResolvedValueOnce(true);
+    mockStopAudioRecording.mockResolvedValueOnce({
+      uri: 'file:///sample.m4a',
+      durationMs: 2500,
+      mimeType: 'audio/mp4',
+    });
+    mockTranscribeAudioWithGemini.mockRejectedValueOnce(
+      new GeminiProxyError(
+        'GEMINI_PROXY_REQUEST_FAILED',
+        'Daily limit reached.',
+        429,
+        'DAILY_LIMIT_REACHED',
+      ),
+    );
+
+    await act(async () => {
+      await hook.startListening();
+      await hook.stopListening();
+    });
+
+    expect(hook.errorMessage).toBe('ai.dailyLimitReached');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.dailyLimitReached');
+  });
+
   it('cancels recording cleanly', async () => {
     mockStartAudioRecording.mockResolvedValueOnce(true);
 

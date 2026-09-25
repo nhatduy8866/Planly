@@ -490,6 +490,29 @@ describe('PlanlyAiProvider', () => {
     ).rejects.toMatchObject({ code: 'GEMINI_SIGN_IN_REQUIRED' });
   });
 
+  it('surfaces the daily account limit instead of silently falling back', async () => {
+    const gateway = jest
+      .fn<GeminiContentGateway>()
+      .mockRejectedValue(
+        new GeminiProxyError(
+          'GEMINI_PROXY_REQUEST_FAILED',
+          'Daily limit reached.',
+          429,
+          'DAILY_LIMIT_REACHED',
+        ),
+      );
+
+    await expect(
+      new PlanlyAiProvider(gateway).parseScheduleRequest(
+        'Ngày mai họp nhóm lúc 9h',
+        context,
+      ),
+    ).rejects.toMatchObject({
+      serverCode: 'DAILY_LIMIT_REACHED',
+      status: 429,
+    });
+  });
+
   it('sanitizes invalid task fields returned by the cloud model', async () => {
     const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
       ok: true,

@@ -20,7 +20,7 @@ import {
 import { resolveAiRecurrenceEndDate } from './batchIntent';
 import {
   GEMINI_FLASH_MODEL,
-  isGeminiProxySetupError,
+  shouldSurfaceGeminiProxyError,
   type GeminiContentGateway,
   type GeminiModel,
 } from './geminiProxy';
@@ -383,7 +383,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
       }
     } catch (err) {
       if (err instanceof AiScheduleClarificationError) throw err;
-      if (isGeminiProxySetupError(err)) throw err;
+      if (shouldSurfaceGeminiProxyError(err)) throw err;
       console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
     }
 
@@ -445,7 +445,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
         }
       }
     } catch (err) {
-      if (isGeminiProxySetupError(err)) throw err;
+      if (shouldSurfaceGeminiProxyError(err)) throw err;
       console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
     }
     return localResult;
@@ -626,7 +626,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           }));
         });
       } catch (error) {
-        if (isGeminiProxySetupError(error)) throw error;
+        if (shouldSurfaceGeminiProxyError(error)) throw error;
         continue;
       }
     }
@@ -715,7 +715,7 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
           };
         });
       } catch (error) {
-        if (isGeminiProxySetupError(error)) throw error;
+        if (shouldSurfaceGeminiProxyError(error)) throw error;
         continue;
       }
     }

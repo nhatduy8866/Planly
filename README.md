@@ -96,12 +96,15 @@ Supabase Edge Function `gemini-proxy` và chỉ chấp nhận người dùng Sup
 
 ```bash
 npx supabase link --project-ref your_project_ref
+npx supabase db push --linked
 npx supabase functions deploy gemini-proxy --use-api
 ```
 
 Các yêu cầu văn bản đơn giản vẫn dùng NLP offline. Lập lịch nâng cao và chuyển
 giọng nói thành văn bản cần Supabase được cấu hình, Edge Function đã deploy và
-người dùng đã đăng nhập.
+người dùng đã đăng nhập. Mỗi tài khoản có tối đa 50 lượt gọi AI cloud mỗi ngày;
+lập lịch nâng cao và chuyển giọng nói cùng sử dụng hạn mức này. Các yêu cầu được
+xử lý hoàn toàn offline không tính vào hạn mức.
 
 Chỉ dữ liệu công việc được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
 

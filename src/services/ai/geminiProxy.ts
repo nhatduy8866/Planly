@@ -34,6 +34,14 @@ export type GeminiProxyErrorCode =
   | 'GEMINI_PROXY_REQUEST_FAILED'
   | 'GEMINI_PROXY_INVALID_RESPONSE';
 
+export type GeminiProxyMessageKey =
+  | 'ai.cloudSignInRequired'
+  | 'ai.cloudSessionExpired'
+  | 'ai.dailyLimitReached'
+  | 'ai.cloudNotConfigured'
+  | 'ai.quotaCheckFailed'
+  | 'ai.cloudUnavailable';
+
 export class GeminiProxyError extends Error {
   constructor(
     readonly code: GeminiProxyErrorCode,
@@ -151,4 +159,42 @@ export function isGeminiProxySetupError(
     error.status === 404 ||
     error.status === 503
   );
+}
+
+export function shouldSurfaceGeminiProxyError(
+  error: unknown,
+): error is GeminiProxyError {
+  return isGeminiProxySetupError(error) || (
+    error instanceof GeminiProxyError &&
+    (error.serverCode === 'DAILY_LIMIT_REACHED' || error.status === 429)
+  );
+}
+
+export function getGeminiProxyMessageKey(
+  error: GeminiProxyError,
+): GeminiProxyMessageKey {
+  if (error.code === 'GEMINI_PROXY_AUTH_FAILED') {
+    return 'ai.cloudSessionExpired';
+  }
+  if (
+    error.code === 'GEMINI_SIGN_IN_REQUIRED' ||
+    error.serverCode === 'AUTH_REQUIRED' ||
+    error.status === 401
+  ) {
+    return 'ai.cloudSignInRequired';
+  }
+  if (error.serverCode === 'DAILY_LIMIT_REACHED' || error.status === 429) {
+    return 'ai.dailyLimitReached';
+  }
+  if (
+    error.code === 'SUPABASE_NOT_CONFIGURED' ||
+    error.serverCode === 'GEMINI_NOT_CONFIGURED' ||
+    error.serverCode === 'RATE_LIMIT_NOT_CONFIGURED'
+  ) {
+    return 'ai.cloudNotConfigured';
+  }
+  if (error.serverCode === 'QUOTA_CHECK_FAILED') {
+    return 'ai.quotaCheckFailed';
+  }
+  return 'ai.cloudUnavailable';
 }

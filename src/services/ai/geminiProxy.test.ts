@@ -2,7 +2,10 @@ import { describe, expect, it, jest } from '@jest/globals';
 import type { Session } from '@supabase/supabase-js';
 
 import {
+  GeminiProxyError,
   createGeminiProxyGateway,
+  getGeminiProxyMessageKey,
+  shouldSurfaceGeminiProxyError,
   type GeminiProxyClient,
 } from './geminiProxy';
 
@@ -84,5 +87,71 @@ describe('Gemini proxy gateway', () => {
       code: 'GEMINI_PROXY_REQUEST_FAILED',
       message: 'Function returned 503',
     }));
+  });
+
+  it('preserves the daily-limit response for a user-facing message', async () => {
+    const context = new Response(
+      JSON.stringify({
+        code: 'DAILY_LIMIT_REACHED',
+        message: 'Daily limit reached.',
+        limit: 50,
+      }),
+      {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+    const { client } = makeClient({
+      invokeError: { message: 'Function returned 429', context },
+    });
+
+    const error = await createGeminiProxyGateway(client)(
+      'gemini-3.5-flash',
+      { contents: [] },
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toEqual(expect.objectContaining({
+      code: 'GEMINI_PROXY_REQUEST_FAILED',
+      serverCode: 'DAILY_LIMIT_REACHED',
+      status: 429,
+    }));
+    expect(error).toBeInstanceOf(GeminiProxyError);
+    if (!(error instanceof GeminiProxyError)) {
+      throw new Error('Expected GeminiProxyError.');
+    }
+    expect(shouldSurfaceGeminiProxyError(error)).toBe(true);
+    expect(getGeminiProxyMessageKey(error)).toBe(
+      'ai.dailyLimitReached',
+    );
+  });
+
+  it.each<[string, number, string]>([
+    ['AUTH_REQUIRED', 401, 'ai.cloudSignInRequired'],
+    ['GEMINI_NOT_CONFIGURED', 503, 'ai.cloudNotConfigured'],
+    ['QUOTA_CHECK_FAILED', 503, 'ai.quotaCheckFailed'],
+    ['GEMINI_UPSTREAM_ERROR', 502, 'ai.cloudUnavailable'],
+  ])(
+    'maps %s to the correct localized message',
+    (serverCode, status, expectedKey) => {
+      const error = new GeminiProxyError(
+        'GEMINI_PROXY_REQUEST_FAILED',
+        serverCode,
+        status,
+        serverCode,
+      );
+
+      expect(getGeminiProxyMessageKey(error)).toBe(expectedKey);
+    },
+  );
+
+  it('distinguishes missing configuration from an expired session', () => {
+    expect(getGeminiProxyMessageKey(new GeminiProxyError(
+      'SUPABASE_NOT_CONFIGURED',
+      'Supabase is not configured.',
+    ))).toBe('ai.cloudNotConfigured');
+    expect(getGeminiProxyMessageKey(new GeminiProxyError(
+      'GEMINI_PROXY_AUTH_FAILED',
+      'Session refresh failed.',
+    ))).toBe('ai.cloudSessionExpired');
   });
 });

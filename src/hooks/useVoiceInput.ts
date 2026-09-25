@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usePreferences } from '../preferences/PreferencesContext';
-import { GeminiProxyError } from '../services/ai/geminiProxy';
+import {
+  GeminiProxyError,
+  getGeminiProxyMessageKey,
+} from '../services/ai/geminiProxy';
 import { generateGeminiContent } from '../services/ai/geminiProxyClient';
 import {
   cancelAudioRecording,
@@ -86,11 +89,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
       } catch (err) {
         console.warn('Lỗi nhận diện giọng nói qua Gemini:', err);
         const errorMsg = err instanceof GeminiProxyError
-          ? t(
-              err.code === 'GEMINI_SIGN_IN_REQUIRED'
-                ? 'ai.cloudSignInRequired'
-                : 'ai.cloudUnavailable',
-            )
+          ? t(getGeminiProxyMessageKey(err))
           : t('ai.voiceError');
         if (isMountedRef.current) {
           setErrorMessage(errorMsg);

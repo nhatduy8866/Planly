@@ -129,7 +129,7 @@ Tài liệu này ghi chú lại toàn bộ các công việc, tính năng và l�
     - `conflictDetector.ts`: Thuật toán phát hiện các công việc có cùng giờ bắt đầu và tự động đề xuất giờ thay thế.
     - `slottingEngine.ts`: Thuật toán tự động chọn giờ bắt đầu chưa được sử dụng cho các công việc không có giờ cố định dựa trên độ ưu tiên (việc quan trọng ưu tiên buổi sáng, vừa ưu tiên đầu giờ chiều, thấp ưu tiên tối).
     - `promptEngine.ts`: Template nền cho System Prompt và ngữ cảnh lập lịch.
-    - `aiProvider.ts`: `PlanlyAiProvider` triển khai mẫu thiết kế Provider linh hoạt: hỗ trợ gọi Google Gemini API trực tiếp (khi có `EXPO_PUBLIC_GEMINI_API_KEY`) và tự động fallback sang `nlpParser` offline siêu tốc khi offline hoặc không có API key.
+    - `aiProvider.ts`: `PlanlyAiProvider` triển khai mẫu thiết kế Provider linh hoạt: gọi Google Gemini qua Supabase Edge Function đã xác thực và tự động fallback sang `nlpParser` offline khi cloud không khả dụng.
   - **Tầng Điều phối State Machine (`src/hooks/useAiScheduler.ts`)**: Quản lý toàn bộ 10 bước chuyển màn hình, đồng bộ với dữ liệu lịch hiện tại của ngày đang chọn, tự động kiểm tra slotting và xung đột.
   - **Tầng Hiển thị UI (`src/components/ai/`)**: Tách biệt thành các component con độc lập, kế thừa bảng màu thương hiệu của Planly và các design token AI mới (`aiPrimary`, `aiSoft`, `aiTag`,...).
   - **Tầng Lưu trữ (`src/store/plannerReducer.ts`)**: Bổ sung action `create_batch_tasks` lưu đồng loạt danh sách công việc AI tạo ra trong một chu kỳ state duy nhất, lập lịch notification tự động.

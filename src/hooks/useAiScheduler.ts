@@ -8,7 +8,8 @@ import {
 } from '../store/PlannerContext';
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
-import { defaultAiProvider } from '../services/ai/aiProvider';
+import { defaultAiProvider } from '../services/ai/defaultAiProvider';
+import { GeminiProxyError } from '../services/ai/geminiProxy';
 import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { detectConflicts } from '../services/ai/conflictDetector';
@@ -204,6 +205,14 @@ export function useAiScheduler(
           setInfoMessage(
             t('ai.clarifyUnaccentedTime', { hour: err.hour }),
           );
+        } else if (err instanceof GeminiProxyError) {
+          setInfoMessage(
+            t(
+              err.code === 'GEMINI_SIGN_IN_REQUIRED'
+                ? 'ai.cloudSignInRequired'
+                : 'ai.cloudUnavailable',
+            ),
+          );
         } else {
           console.error('Lỗi phân tích AI:', err);
           setInfoMessage(t('ai.parseFailed'));
@@ -360,6 +369,15 @@ export function useAiScheduler(
         setStep('updated_preview'); // Màn 7: Kế hoạch đã cập nhật
       } catch (err) {
         console.error('Lỗi tinh chỉnh AI:', err);
+        if (err instanceof GeminiProxyError) {
+          setInfoMessage(
+            t(
+              err.code === 'GEMINI_SIGN_IN_REQUIRED'
+                ? 'ai.cloudSignInRequired'
+                : 'ai.cloudUnavailable',
+            ),
+          );
+        }
         setStep('refinement_chat');
       } finally {
         clearTimeout(timer1);

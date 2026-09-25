@@ -16,12 +16,17 @@ import {
   usePlanlyAudioRecorder,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
+import { GeminiProxyError } from '../services/ai/geminiProxy';
 
 const mockStartAudioRecording = jest.fn<typeof startAudioRecording>();
 const mockStopAudioRecording = jest.fn<typeof stopAudioRecording>();
 const mockCancelAudioRecording = jest.fn<typeof cancelAudioRecording>();
 const mockTranscribeAudioWithGemini = jest.fn<typeof transcribeAudioWithGemini>();
 const mockRecorder = {} as ReturnType<typeof usePlanlyAudioRecorder>;
+
+jest.mock('../services/ai/geminiProxyClient', () => ({
+  generateGeminiContent: jest.fn(),
+}));
 
 jest.mock('../services/speech/audioRecorder', () => ({
   usePlanlyAudioRecorder: () => mockRecorder,
@@ -136,6 +141,7 @@ describe('useVoiceInput', () => {
     expect(mockTranscribeAudioWithGemini).toHaveBeenCalledWith(
       'file:///sample.m4a',
       'audio/mp4',
+      expect.any(Function),
     );
     expect(onTranscriptMock).toHaveBeenCalledWith('Mai 9h họp team');
   });
@@ -159,6 +165,30 @@ describe('useVoiceInput', () => {
     expect(mockTranscribeAudioWithGemini).not.toHaveBeenCalled();
     expect(hook.errorMessage).toBe('ai.voiceTooShort');
     expect(onErrorMock).toHaveBeenCalledWith('ai.voiceTooShort');
+  });
+
+  it('asks the user to sign in when voice transcription needs auth', async () => {
+    mockStartAudioRecording.mockResolvedValueOnce(true);
+    mockStopAudioRecording.mockResolvedValueOnce({
+      uri: 'file:///sample.m4a',
+      durationMs: 2500,
+      mimeType: 'audio/mp4',
+    });
+    mockTranscribeAudioWithGemini.mockRejectedValueOnce(
+      new GeminiProxyError(
+        'GEMINI_SIGN_IN_REQUIRED',
+        'Sign in to use Gemini features.',
+        401,
+      ),
+    );
+
+    await act(async () => {
+      await hook.startListening();
+      await hook.stopListening();
+    });
+
+    expect(hook.errorMessage).toBe('ai.cloudSignInRequired');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.cloudSignInRequired');
   });
 
   it('cancels recording cleanly', async () => {

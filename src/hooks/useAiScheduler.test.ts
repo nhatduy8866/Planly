@@ -12,6 +12,7 @@ import type { PlannerState, Task } from '../types';
 import type { AiDraftTask } from '../types/ai';
 import type { AiSchedulingProvider } from '../services/ai/aiProvider';
 import { AiBatchScheduleError } from '../services/ai/batchIntent';
+import { GeminiProxyError } from '../services/ai/geminiProxy';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { useAiScheduler } from './useAiScheduler';
 
@@ -69,7 +70,7 @@ jest.mock('../preferences/PreferencesContext', () => {
   };
 });
 
-jest.mock('../services/ai/aiProvider', () => ({
+jest.mock('../services/ai/defaultAiProvider', () => ({
   defaultAiProvider: {
     parseScheduleRequest: (...args: Parameters<AiSchedulingProvider['parseScheduleRequest']>) =>
       mockParseScheduleRequest(...args),
@@ -230,6 +231,21 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('input_prompt');
     expect(scheduler.infoMessage).toContain('không dài quá 1 năm');
     expect(scheduler.draftTasks).toEqual([]);
+  });
+
+  it('asks the user to sign in when the protected Gemini proxy needs auth', async () => {
+    mockParseScheduleRequest.mockRejectedValue(
+      new GeminiProxyError(
+        'GEMINI_SIGN_IN_REQUIRED',
+        'Sign in to use Gemini features.',
+        401,
+      ),
+    );
+
+    await submitPrompt('lập kế hoạch nâng cao cho ngày mai');
+
+    expect(scheduler.step).toBe('input_prompt');
+    expect(scheduler.infoMessage).toContain('Đăng nhập');
   });
 
   it('updates only the selected AI draft before saving', async () => {

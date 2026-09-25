@@ -267,7 +267,7 @@ describe('AppMenu settings', () => {
     expect(text).not.toContain('settings.alarmBackgroundDefaultDescription');
   });
 
-  it('shows the privacy policy as one numbered legal list without an intro', () => {
+  it('shows the privacy policy as one plain numbered text component', () => {
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({
       remove: jest.fn(),
     });
@@ -288,29 +288,13 @@ describe('AppMenu settings', () => {
         .props.onPress();
     });
 
-    const policyList = tree?.root.findByProps({
-      testID: 'privacy-policy-list',
+    const policyContent = tree?.root.findByProps({
+      testID: 'privacy-policy-content',
     });
-    const text = policyList
-      ?.findAllByType(Text)
-      .map((node) => node.props.children)
-      .flat();
 
-    expect(text).toEqual(
-      expect.arrayContaining([
-        '1.',
-        'privacy.scopeTitle',
-        'privacy.dataTitle',
-        'privacy.purposeTitle',
-        'privacy.thirdPartyTitle',
-        'privacy.retentionTitle',
-        'privacy.securityTitle',
-        'privacy.rightsTitle',
-        '8.',
-        'privacy.changesTitle',
-      ]),
-    );
-    expect(text).not.toContain('privacy.intro');
+    expect(policyContent?.type).toBe(Text);
+    expect(policyContent?.props.children).toBe('privacy.content');
+    expect(policyContent?.findAllByType(Text)).toHaveLength(1);
   });
 
   it('shows five preset sounds plus upload and lets users preview before selecting', async () => {

@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { Translate } from '../i18n/translations';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { MOTION } from '../theme/motion';
@@ -19,54 +18,12 @@ import { IconButton } from './IconButton';
 
 export const CURRENT_PRIVACY_POLICY_VERSION = 1;
 
-type TranslationKey = Parameters<Translate>[0];
-
-interface PolicySection {
-  bodyKey: TranslationKey;
-  titleKey: TranslationKey;
-}
-
 interface PrivacyPolicyModalProps {
   onAccept?: () => void;
   onClose?: () => void;
   required?: boolean;
   visible: boolean;
 }
-
-const POLICY_SECTIONS: PolicySection[] = [
-  {
-    bodyKey: 'privacy.scopeBody',
-    titleKey: 'privacy.scopeTitle',
-  },
-  {
-    bodyKey: 'privacy.dataBody',
-    titleKey: 'privacy.dataTitle',
-  },
-  {
-    bodyKey: 'privacy.purposeBody',
-    titleKey: 'privacy.purposeTitle',
-  },
-  {
-    bodyKey: 'privacy.thirdPartyBody',
-    titleKey: 'privacy.thirdPartyTitle',
-  },
-  {
-    bodyKey: 'privacy.retentionBody',
-    titleKey: 'privacy.retentionTitle',
-  },
-  {
-    bodyKey: 'privacy.securityBody',
-    titleKey: 'privacy.securityTitle',
-  },
-  {
-    bodyKey: 'privacy.rightsBody',
-    titleKey: 'privacy.rightsTitle',
-  },
-  {
-    bodyKey: 'privacy.changesBody',
-    titleKey: 'privacy.changesTitle',
-  },
-];
 
 export function PrivacyPolicyModal({
   onAccept,
@@ -122,23 +79,9 @@ export function PrivacyPolicyModal({
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.policyList} testID="privacy-policy-list">
-              {POLICY_SECTIONS.map((section, index) => (
-                <View
-                  key={section.titleKey}
-                  style={[
-                    styles.policyItem,
-                    index < POLICY_SECTIONS.length - 1 && styles.policyItemDivider,
-                  ]}
-                >
-                  <Text style={styles.policyNumber}>{`${index + 1}.`}</Text>
-                  <View style={styles.sectionCopy}>
-                    <Text style={styles.sectionTitle}>{t(section.titleKey)}</Text>
-                    <Text style={styles.sectionBody}>{t(section.bodyKey)}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+            <Text style={styles.policyText} testID="privacy-policy-content">
+              {t('privacy.content')}
+            </Text>
           </ScrollView>
 
           <View
@@ -230,21 +173,10 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       width: 44,
     },
-    policyItem: { flexDirection: 'row', gap: 10, padding: 14 },
-    policyItemDivider: { borderBottomColor: colors.border, borderBottomWidth: 1 },
-    policyList: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 15,
-      borderWidth: 1,
-      overflow: 'hidden',
-    },
-    policyNumber: {
-      color: colors.primaryDark,
+    policyText: {
+      color: colors.text,
       fontSize: 14,
-      fontWeight: '900',
-      lineHeight: 20,
-      minWidth: 22,
+      lineHeight: 22,
     },
     pressed: { opacity: MOTION.pressedOpacity },
     primaryButton: {
@@ -260,18 +192,6 @@ const createStyles = (colors: ThemeColors) =>
     primaryButtonText: {
       color: colors.white,
       fontSize: 15,
-      fontWeight: '800',
-    },
-    sectionBody: {
-      color: colors.textMuted,
-      fontSize: 13,
-      lineHeight: 19,
-      marginTop: 4,
-    },
-    sectionCopy: { flex: 1 },
-    sectionTitle: {
-      color: colors.text,
-      fontSize: 14,
       fontWeight: '800',
     },
     title: { color: colors.text, fontSize: 18, fontWeight: '800' },

@@ -2,6 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import {
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -30,8 +31,8 @@ import { AiSaveSnackbar } from '../components/ai/AiSaveSnackbar';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { useMinuteClock } from '../hooks/useMinuteClock';
+import { useAddTaskNavigation } from '../navigation/AddTaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
-import { MOTION } from '../theme/motion';
 import { usePlannerTasks } from '../store/PlannerContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -58,6 +59,7 @@ export function TasksScreen() {
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
+  const { registerAddTaskHandler } = useAddTaskNavigation();
   const [filter, setFilter] = useState<TaskListFilter>('upcoming');
   const [currentTime, refreshCurrentTime] = useMinuteClock(filter !== 'all');
   const [taskSort, setTaskSort] = useState<TaskSortState>({
@@ -73,6 +75,11 @@ export function TasksScreen() {
   const [deleteBatch, setDeleteBatch] = useState(false);
   const aiTargetDate = todayKey();
   const aiScheduler = useAiScheduler(aiTargetDate);
+
+  useEffect(
+    () => registerAddTaskHandler('tasks', aiScheduler.openActionSheet),
+    [aiScheduler.openActionSheet, registerAddTaskHandler],
+  );
   const filters: { key: TaskListFilter; label: string }[] = [
     { key: 'upcoming', label: t('tasks.filterUpcoming') },
     { key: 'past', label: t('tasks.filterPast') },
@@ -152,34 +159,20 @@ export function TasksScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={(
           <>
-            <View style={styles.searchRow}>
-              <View style={styles.searchWrap}>
-                <MaterialIcons name="search" size={21} color={colors.textMuted} />
-                <TextInput
-                  onChangeText={setQuery}
-                  placeholder={t('tasks.search')}
-                  placeholderTextColor={colors.placeholder}
-                  style={styles.searchInput}
-                  value={query}
-                />
-                {query ? (
-                  <Pressable onPress={() => setQuery('')}>
-                    <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
-                  </Pressable>
-                ) : null}
-              </View>
-              <Pressable
-                accessibilityLabel={t('schedule.addTask')}
-                accessibilityRole="button"
-                onPress={aiScheduler.openActionSheet}
-                style={({ pressed }) => [
-                  styles.addButton,
-                  pressed && styles.actionPressed,
-                ]}
-              >
-                <MaterialIcons name="add" size={21} color={colors.white} />
-                <Text style={styles.addText}>{t('common.add')}</Text>
-              </Pressable>
+            <View style={styles.searchWrap}>
+              <MaterialIcons name="search" size={21} color={colors.textMuted} />
+              <TextInput
+                onChangeText={setQuery}
+                placeholder={t('tasks.search')}
+                placeholderTextColor={colors.placeholder}
+                style={styles.searchInput}
+                value={query}
+              />
+              {query ? (
+                <Pressable onPress={() => setQuery('')}>
+                  <MaterialIcons name="cancel" size={19} color={colors.textMuted} />
+                </Pressable>
+              ) : null}
             </View>
 
             <ScrollView
@@ -315,19 +308,7 @@ export function TasksScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 32, paddingHorizontal: 16, paddingTop: 14 },
-  actionPressed: { opacity: MOTION.pressedOpacity },
-  addButton: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 13,
-    flexDirection: 'row',
-    gap: 3,
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-  },
-  addText: { color: colors.white, fontSize: 13, fontWeight: '800' },
+  content: { paddingBottom: 52, paddingHorizontal: 16, paddingTop: 14 },
   searchWrap: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -345,7 +326,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 12,
   },
-  searchRow: { flexDirection: 'row', gap: 10 },
   filterRow: {
     alignItems: 'center',
     flexDirection: 'row',

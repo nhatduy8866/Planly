@@ -44,7 +44,7 @@ interface CloudSyncContextValue {
   lastSyncedAt: string | null;
   pendingCount: number;
   status: CloudSyncStatus;
-  syncNow: () => Promise<void>;
+  syncNow: () => Promise<CloudSyncStatus | undefined>;
 }
 
 interface PlannerSnapshot {
@@ -85,7 +85,9 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     undefined,
   );
   const mountedRef = useRef(true);
-  const syncNowRef = useRef<() => Promise<void>>(async () => undefined);
+  const syncNowRef = useRef<() => Promise<CloudSyncStatus | undefined>>(
+    async () => undefined,
+  );
 
   useEffect(() => {
     latestTasksRef.current = tasks;
@@ -106,7 +108,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       !userId ||
       !hydrated ||
       preparedOwnerIdRef.current !== userId
-    ) return;
+    ) return undefined;
 
     clearRetry();
     if (mountedRef.current) setStatus('syncing');
@@ -149,18 +151,23 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (!mountedRef.current) return;
       setPendingCount(remainingForUser.length);
       setLastSyncedAt(new Date().toISOString());
-      setStatus(remainingForUser.length > 0 ? 'pending' : 'synced');
+      const nextStatus = remainingForUser.length > 0 ? 'pending' : 'synced';
+      setStatus(nextStatus);
       if (remainingForUser.length > 0) rerunRequestedRef.current = true;
+      return nextStatus;
     } catch {
-      if (!mountedRef.current || latestUserIdRef.current !== userId) return;
+      if (!mountedRef.current || latestUserIdRef.current !== userId) {
+        return undefined;
+      }
       const queued = await readSyncOutbox(userId);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) return undefined;
       setPendingCount(queued.length);
       setStatus('error');
       retryTimerRef.current = setTimeout(() => {
         retryTimerRef.current = undefined;
         void syncNowRef.current();
       }, RETRY_DELAY_MS);
+      return 'error';
     }
   }, [clearRetry, dispatch, hydrated]);
 
@@ -170,18 +177,20 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       !latestUserIdRef.current ||
       !hydrated ||
       preparedOwnerIdRef.current !== latestUserIdRef.current
-    ) return;
+    ) return undefined;
     if (runningRef.current) {
       rerunRequestedRef.current = true;
-      return;
+      return undefined;
     }
 
     runningRef.current = true;
     try {
+      let result: CloudSyncStatus | undefined;
       do {
         rerunRequestedRef.current = false;
-        await performSync();
+        result = await performSync();
       } while (rerunRequestedRef.current && latestUserIdRef.current);
+      return result;
     } finally {
       runningRef.current = false;
     }

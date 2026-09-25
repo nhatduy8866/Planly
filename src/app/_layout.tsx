@@ -9,6 +9,10 @@ import { PreferencesProvider, usePreferences } from '../preferences/PreferencesC
 import { AlarmRingingModal } from '../components/AlarmRingingModal';
 import { AppToastViewport, ToastProvider } from '../components/AppToast';
 import { OnboardingModal } from '../components/OnboardingModal';
+import {
+  CURRENT_PRIVACY_POLICY_VERSION,
+  PrivacyPolicyModal,
+} from '../components/PrivacyPolicyModal';
 import { MotionProvider } from '../components/animation/MotionProvider';
 import { useAlarmTaskNavigation } from '../hooks/useAlarmTaskNavigation';
 import { useNotificationTaskNavigation } from '../hooks/useNotificationTaskNavigation';
@@ -42,6 +46,7 @@ function AppShell() {
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
   const {
+    acceptedPrivacyPolicyVersion,
     alarmBackground,
     alarmBackgroundPreset,
     alarmSound,
@@ -52,6 +57,7 @@ function AppShell() {
     hydrated: preferencesHydrated,
     language,
     reminderDeliveryMode,
+    setAcceptedPrivacyPolicyVersion,
     setHasSeenOnboarding,
     theme,
   } = usePreferences();
@@ -114,8 +120,18 @@ function AppShell() {
         </View>
       </View>
       <OnboardingModal
-        visible={!hasSeenOnboarding}
+        visible={
+          acceptedPrivacyPolicyVersion >= CURRENT_PRIVACY_POLICY_VERSION &&
+          !hasSeenOnboarding
+        }
         onFinish={() => setHasSeenOnboarding(true)}
+      />
+      <PrivacyPolicyModal
+        required
+        visible={acceptedPrivacyPolicyVersion < CURRENT_PRIVACY_POLICY_VERSION}
+        onAccept={() => {
+          setAcceptedPrivacyPolicyVersion(CURRENT_PRIVACY_POLICY_VERSION);
+        }}
       />
       <AlarmRingingModal
         backgroundAppearance={getAlarmBackgroundAppearance(

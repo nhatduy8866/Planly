@@ -62,6 +62,7 @@ import { MotionModal } from './animation/MotionModal';
 import { AppToastViewport, useToast } from './AppToast';
 import { ConfirmModal } from './ConfirmModal';
 import { IconButton } from './IconButton';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 
 type SettingsPicker = 'background' | 'delivery' | 'sound' | 'vibration';
 type MaterialIconName = keyof typeof MaterialIcons.glyphMap;
@@ -133,6 +134,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   const previewPlayer = useAudioPlayer(null);
   const previewStatus = useAudioPlayerStatus(previewPlayer);
   const [accountSyncVisible, setAccountSyncVisible] = useState(false);
+  const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState(false);
   const [deleteAllConfirmStep, setDeleteAllConfirmStep] = useState<0 | 1 | 2>(
     0,
   );
@@ -369,6 +371,7 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
   function closeSettings() {
     closePicker();
     setAccountSyncVisible(false);
+    setPrivacyPolicyVisible(false);
     setBackgroundPreview(null);
     setDeleteAllConfirmStep(0);
     onClose();
@@ -599,6 +602,13 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
               })}
 
               {renderSettingRow({
+                icon: 'privacy-tip',
+                label: t('privacy.title'),
+                onPress: () => setPrivacyPolicyVisible(true),
+                value: t('privacy.settingsValue'),
+              })}
+
+              {renderSettingRow({
                 icon:
                   reminderDeliveryMode === 'alarm' ? 'alarm' : 'notifications',
                 label: t('settings.reminderTypeTitle'),
@@ -704,6 +714,11 @@ export function SettingsModal({ onClose, visible }: SettingsModalProps) {
       <AccountSyncModal
         onClose={() => setAccountSyncVisible(false)}
         visible={accountSyncVisible}
+      />
+
+      <PrivacyPolicyModal
+        onClose={() => setPrivacyPolicyVisible(false)}
+        visible={privacyPolicyVisible}
       />
 
       <ConfirmModal

@@ -19,6 +19,13 @@ describe('translations', () => {
     expect(translate('vi', 'task.batchBadge')).toBe('Lặp');
   });
 
+  it('includes privacy and sync feedback copy in both languages', () => {
+    expect(translate('vi', 'privacy.title')).toBe('Chính sách quyền riêng tư');
+    expect(translate('en', 'toast.syncCompleted')).toBe(
+      'Data synced successfully',
+    );
+  });
+
   it('formats task time conflict details', () => {
     expect(
       translate('vi', 'taskForm.timeConflict', {

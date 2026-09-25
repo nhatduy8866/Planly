@@ -267,6 +267,52 @@ describe('AppMenu settings', () => {
     expect(text).not.toContain('settings.alarmBackgroundDefaultDescription');
   });
 
+  it('shows the privacy policy as one numbered legal list without an intro', () => {
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({
+      remove: jest.fn(),
+    });
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'menu.openSettings' })
+        .props.onPress();
+    });
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'privacy.title' })
+        .props.onPress();
+    });
+
+    const policyList = tree?.root.findByProps({
+      testID: 'privacy-policy-list',
+    });
+    const text = policyList
+      ?.findAllByType(Text)
+      .map((node) => node.props.children)
+      .flat();
+
+    expect(text).toEqual(
+      expect.arrayContaining([
+        '1.',
+        'privacy.scopeTitle',
+        'privacy.dataTitle',
+        'privacy.purposeTitle',
+        'privacy.thirdPartyTitle',
+        'privacy.retentionTitle',
+        'privacy.securityTitle',
+        'privacy.rightsTitle',
+        '8.',
+        'privacy.changesTitle',
+      ]),
+    );
+    expect(text).not.toContain('privacy.intro');
+  });
+
   it('shows five preset sounds plus upload and lets users preview before selecting', async () => {
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({
       remove: jest.fn(),

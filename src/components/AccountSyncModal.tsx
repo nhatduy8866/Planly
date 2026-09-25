@@ -19,6 +19,7 @@ import type { ThemeColors } from '../theme/colors';
 import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { IconButton } from './IconButton';
+import { AppToastViewport, useToast } from './AppToast';
 import { MotionModal } from './animation/MotionModal';
 
 interface AccountSyncModalProps {
@@ -35,6 +36,7 @@ export function AccountSyncModal({
   visible,
 }: AccountSyncModalProps) {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const { configured, hydrated, signIn, signOut, signUp, user } = useAuth();
   const { lastSyncedAt, pendingCount, status, syncNow } = useCloudSync();
   const { colors, locale, t } = usePreferences();
@@ -116,6 +118,15 @@ export function AccountSyncModal({
       setError(errorMessage(signOutError));
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function handleSyncNow() {
+    const result = await syncNow();
+    if (result === 'synced' || result === 'pending') {
+      showToast(t('toast.syncCompleted'));
+    } else if (result === 'error') {
+      showToast(t('toast.syncFailed'));
     }
   }
 
@@ -207,7 +218,7 @@ export function AccountSyncModal({
                   accessibilityLabel={t('sync.syncNow')}
                   accessibilityRole="button"
                   disabled={status === 'syncing'}
-                  onPress={() => void syncNow()}
+                  onPress={() => void handleSyncNow()}
                   style={({ pressed }) => [
                     styles.primaryButton,
                     status === 'syncing' && styles.disabled,
@@ -309,6 +320,7 @@ export function AccountSyncModal({
             {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </ScrollView>
+          <AppToastViewport bottomOffset={16} />
         </View>
       </View>
     </MotionModal>

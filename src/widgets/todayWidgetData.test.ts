@@ -5,6 +5,7 @@ import {
   applyTodayWidgetCompletions,
   completeTodayWidgetSnapshot,
   createTodayWidgetSnapshot,
+  getNextTodayWidgetRefreshTime,
   TODAY_WIDGET_UNDO_WINDOW_MS,
   undoTodayWidgetSnapshotCompletion,
 } from './todayWidgetData';
@@ -144,6 +145,31 @@ describe('today widget data', () => {
     expect(snapshot.totalCount).toBe(10);
     expect(snapshot.upcomingCount).toBe(10);
     expect(snapshot.todayLabel).toBe('Today');
+  });
+
+  it('expires the current task at its exact start time', () => {
+    const tasks = [makeTask({ id: 'starts-now', startTime: '15:00' })];
+    const atStart = new Date(2026, 8, 13, 15, 0, 0);
+
+    expect(
+      createTodayWidgetSnapshot(tasks, 'vi', atStart).tasks,
+    ).toEqual([]);
+  });
+
+  it('schedules the next native refresh for the next task boundary', () => {
+    const now = new Date(2026, 8, 13, 14, 30, 0);
+    const tasks = [
+      makeTask({ id: 'later', startTime: '16:00' }),
+      makeTask({ id: 'next', startTime: '15:00' }),
+      makeTask({ completed: true, id: 'completed', startTime: '14:45' }),
+    ];
+
+    expect(getNextTodayWidgetRefreshTime(tasks, now)).toBe(
+      new Date(2026, 8, 13, 15, 0, 0).getTime(),
+    );
+    expect(getNextTodayWidgetRefreshTime([], now)).toBe(
+      new Date(2026, 8, 14, 0, 0, 0).getTime(),
+    );
   });
 
   it('falls back safely when stored widget data is invalid', () => {

@@ -32,6 +32,7 @@ import type {
 } from '../types';
 
 interface StoredPreferences {
+  acceptedPrivacyPolicyVersion: number;
   alarmBackground: AlarmFilePreference | null;
   alarmBackgroundPreset: AlarmBackgroundPresetId;
   alarmSound: AlarmFilePreference | null;
@@ -49,6 +50,7 @@ interface PreferencesContextValue extends StoredPreferences {
   colors: ThemeColors;
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
+  setAcceptedPrivacyPolicyVersion: (version: number) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
   setColorfulAccents: (enabled: boolean) => void;
   setAlarmBackground: (background: AlarmFilePreference | null) => void;
@@ -117,6 +119,8 @@ function isAlarmFilePreference(value: unknown): value is AlarmFilePreference {
 }
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
+  const [acceptedPrivacyPolicyVersion, setAcceptedPrivacyPolicyVersion] =
+    useState(0);
   const [alarmBackground, setAlarmBackground] =
     useState<AlarmFilePreference | null>(null);
   const [alarmBackgroundPreset, setAlarmBackgroundPreset] =
@@ -142,6 +146,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         const raw = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as Partial<StoredPreferences>) : {};
         if (!active) return;
+        if (
+          typeof parsed.acceptedPrivacyPolicyVersion === 'number' &&
+          Number.isInteger(parsed.acceptedPrivacyPolicyVersion) &&
+          parsed.acceptedPrivacyPolicyVersion >= 0
+        ) {
+          setAcceptedPrivacyPolicyVersion(parsed.acceptedPrivacyPolicyVersion);
+        }
         if (isAlarmFilePreference(parsed.alarmBackground)) {
           setAlarmBackground(parsed.alarmBackground);
         }
@@ -189,6 +200,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     void AsyncStorage.setItem(
       PREFERENCES_STORAGE_KEY,
       JSON.stringify({
+        acceptedPrivacyPolicyVersion,
         alarmBackground,
         alarmBackgroundPreset,
         alarmSound,
@@ -203,6 +215,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       }),
     );
   }, [
+    acceptedPrivacyPolicyVersion,
     alarmBackground,
     alarmBackgroundPreset,
     alarmSound,
@@ -224,6 +237,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
+      acceptedPrivacyPolicyVersion,
       alarmBackground,
       alarmBackgroundPreset,
       alarmSound,
@@ -236,6 +250,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
       reminderDeliveryMode,
+      setAcceptedPrivacyPolicyVersion,
       setColorfulAccents,
       setAlarmBackground,
       setAlarmBackgroundPreset,
@@ -254,6 +269,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       toggleTheme: () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
     }),
     [
+      acceptedPrivacyPolicyVersion,
       alarmBackground,
       alarmBackgroundPreset,
       alarmSound,

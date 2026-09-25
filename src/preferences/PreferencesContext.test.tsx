@@ -60,6 +60,7 @@ describe('PreferencesProvider reminder mode', () => {
     await renderProvider();
 
     expect(preferences.hydrated).toBe(true);
+    expect(preferences.acceptedPrivacyPolicyVersion).toBe(0);
     expect(preferences.reminderDeliveryMode).toBe('notification');
     expect(preferences.alarmBackground).toBeNull();
     expect(preferences.alarmBackgroundPreset).toBe('dawn');
@@ -76,6 +77,7 @@ describe('PreferencesProvider reminder mode', () => {
   it('restores a saved alarm preference', async () => {
     mockGetItem.mockResolvedValue(
       JSON.stringify({
+        acceptedPrivacyPolicyVersion: 1,
         alarmBackground: { name: 'night.jpg', uri: 'file:///night.jpg' },
         alarmBackgroundPreset: 'cosmos',
         alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
@@ -89,6 +91,7 @@ describe('PreferencesProvider reminder mode', () => {
     await renderProvider();
 
     expect(preferences.reminderDeliveryMode).toBe('alarm');
+    expect(preferences.acceptedPrivacyPolicyVersion).toBe(1);
     expect(preferences.alarmBackground).toEqual({
       name: 'night.jpg',
       uri: 'file:///night.jpg',
@@ -115,6 +118,21 @@ describe('PreferencesProvider reminder mode', () => {
     expect(mockSetItem).toHaveBeenLastCalledWith(
       '@planly/preferences/v1',
       expect.stringContaining('"hasSeenOnboarding":true'),
+    );
+  });
+
+  it('persists privacy policy acceptance', async () => {
+    await renderProvider();
+
+    await act(async () => {
+      preferences.setAcceptedPrivacyPolicyVersion(1);
+      await Promise.resolve();
+    });
+
+    expect(preferences.acceptedPrivacyPolicyVersion).toBe(1);
+    expect(mockSetItem).toHaveBeenLastCalledWith(
+      '@planly/preferences/v1',
+      expect.stringContaining('"acceptedPrivacyPolicyVersion":1'),
     );
   });
 });

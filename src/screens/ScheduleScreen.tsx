@@ -1,9 +1,7 @@
-import { MaterialIcons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +26,7 @@ import { AiSaveSnackbar } from '../components/ai/AiSaveSnackbar';
 import { useAiScheduler } from '../hooks/useAiScheduler';
 import { useMinuteClock } from '../hooks/useMinuteClock';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { useAddTaskNavigation } from '../navigation/AddTaskNavigationContext';
 import { useCalendarNavigation } from '../navigation/CalendarNavigationContext';
 import { useTaskNavigation } from '../navigation/TaskNavigationContext';
 import { usePreferences } from '../preferences/PreferencesContext';
@@ -156,6 +155,7 @@ export function ScheduleScreen() {
   const styles = useThemedStyles(createStyles);
   const reducedMotion = useReducedMotion();
   const { deleteTask, saveTask, toggleTask } = useTaskActions();
+  const { registerAddTaskHandler } = useAddTaskNavigation();
   const { mode, registerTodayHandler } = useCalendarNavigation();
   const { registerTaskHandler } = useTaskNavigation();
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -268,6 +268,11 @@ export function ScheduleScreen() {
   }, []);
 
   const aiScheduler = useAiScheduler(selectedDate, selectDate);
+
+  useEffect(
+    () => registerAddTaskHandler('schedule', aiScheduler.openActionSheet),
+    [aiScheduler.openActionSheet, registerAddTaskHandler],
+  );
 
   const dayTasks = useMemo(
     () =>
@@ -527,15 +532,6 @@ export function ScheduleScreen() {
         )}
       </ScrollView>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('schedule.addTask')}
-        onPress={aiScheduler.openActionSheet}
-        style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-      >
-        <MaterialIcons name="add" size={42} color={colors.white} />
-      </Pressable>
-
       <AiScheduleModal
         scheduler={aiScheduler}
         targetDate={selectedDate}
@@ -602,7 +598,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 116, paddingHorizontal: 16 },
+  content: { paddingBottom: 52, paddingHorizontal: 16 },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -633,22 +629,4 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minWidth: 0,
     width: 0,
   },
-  addButton: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 42,
-    bottom: 16,
-    elevation: 6,
-    height: 84,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    width: 84,
-    zIndex: 10,
-  },
-  pressed: { opacity: MOTION.pressedOpacity },
 });

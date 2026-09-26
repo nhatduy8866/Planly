@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import {
   GeminiProxyError,
   createGeminiProxyGateway,
+  getGeminiOfflineFallbackReason,
   getGeminiProxyMessageKey,
   shouldSurfaceGeminiProxyError,
   type GeminiProxyClient,
@@ -153,5 +154,24 @@ describe('Gemini proxy gateway', () => {
       'GEMINI_PROXY_AUTH_FAILED',
       'Session refresh failed.',
     ))).toBe('ai.cloudSessionExpired');
+  });
+
+  it.each([
+    [new GeminiProxyError('GEMINI_SIGN_IN_REQUIRED', 'Sign in.', 401), 'signed_out'],
+    [new GeminiProxyError('GEMINI_PROXY_AUTH_FAILED', 'Session failed.'), 'signed_out'],
+    [new GeminiProxyError('GEMINI_PROXY_REQUEST_FAILED', 'Limit.', 429, 'DAILY_LIMIT_REACHED'), 'daily_limit'],
+    [new GeminiProxyError('GEMINI_PROXY_REQUEST_FAILED', 'Network failed.'), 'network_unavailable'],
+    [new GeminiProxyError('GEMINI_PROXY_REQUEST_FAILED', 'Proxy timeout.', 502, 'GEMINI_PROXY_FAILED'), 'network_unavailable'],
+  ])('allows offline fallback for an expected availability failure', (error, reason) => {
+    expect(getGeminiOfflineFallbackReason(error)).toBe(reason);
+  });
+
+  it.each([
+    new GeminiProxyError('SUPABASE_NOT_CONFIGURED', 'Not configured.'),
+    new GeminiProxyError('GEMINI_PROXY_INVALID_RESPONSE', 'Invalid response.'),
+    new GeminiProxyError('GEMINI_PROXY_REQUEST_FAILED', 'Upstream failed.', 502, 'GEMINI_UPSTREAM_ERROR'),
+    new Error('Unexpected parser error'),
+  ])('does not allow offline fallback for configuration or response errors', (error) => {
+    expect(getGeminiOfflineFallbackReason(error)).toBeNull();
   });
 });

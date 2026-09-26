@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
   GeminiProxyError,
+  getGeminiOfflineFallbackReason,
   getGeminiProxyMessageKey,
 } from '../services/ai/geminiProxy';
 import { generateGeminiContent } from '../services/ai/geminiProxyClient';
@@ -88,9 +89,20 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
         }
       } catch (err) {
         console.warn('Lỗi nhận diện giọng nói qua Gemini:', err);
-        const errorMsg = err instanceof GeminiProxyError
-          ? t(getGeminiProxyMessageKey(err))
-          : t('ai.voiceError');
+        const fallbackReason = getGeminiOfflineFallbackReason(err);
+        const fallbackMessageKeys = {
+          signed_out: 'ai.voiceSignInRequired',
+          network_unavailable: 'ai.voiceNoConnection',
+          daily_limit: 'ai.voiceDailyLimit',
+        } as const;
+        const localizedFallbackMessage = fallbackReason
+          ? t(fallbackMessageKeys[fallbackReason])
+          : null;
+        const errorMsg = localizedFallbackMessage
+          ? localizedFallbackMessage
+          : err instanceof GeminiProxyError
+            ? t(getGeminiProxyMessageKey(err))
+            : t('ai.voiceError');
         if (isMountedRef.current) {
           setErrorMessage(errorMsg);
         }

@@ -10,13 +10,17 @@ import {
 
 import type { PlannerState, Task } from '../types';
 import type { AiDraftTask } from '../types/ai';
-import type { AiSchedulingProvider } from '../services/ai/aiProvider';
+import {
+  AiOfflineFallbackError,
+  type AiSchedulingProvider,
+} from '../services/ai/aiProvider';
 import { AiBatchScheduleError } from '../services/ai/batchIntent';
 import { GeminiProxyError } from '../services/ai/geminiProxy';
 import { AiScheduleClarificationError } from '../services/ai/scheduleClarification';
 import { useAiScheduler } from './useAiScheduler';
 
 const mockDispatch = jest.fn();
+const mockShowToast = jest.fn<(message: string) => void>();
 let mockPlannerState: PlannerState;
 const mockParseScheduleRequest = jest.fn<
   AiSchedulingProvider['parseScheduleRequest']
@@ -47,6 +51,10 @@ const mockRollbackTaskReminders = jest.fn<
 jest.mock('../store/PlannerContext', () => ({
   usePlannerDispatch: () => mockDispatch,
   usePlannerTasks: () => mockPlannerState.tasks,
+}));
+
+jest.mock('../components/AppToast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
 }));
 
 jest.mock('../preferences/PreferencesContext', () => {
@@ -168,6 +176,7 @@ describe('useAiScheduler', () => {
     jest.useFakeTimers();
     mockPlannerState = { tasks: [], hydrated: true };
     mockDispatch.mockReset();
+    mockShowToast.mockReset();
     mockParseScheduleRequest.mockReset();
     mockReplaceTaskReminders.mockReset();
     mockRollbackTaskReminders.mockReset();
@@ -187,6 +196,7 @@ describe('useAiScheduler', () => {
 
     expect(scheduler.step).toBe('draft_preview');
     expect(scheduler.promptText).toBe('Lên lịch học lúc 11h');
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
@@ -240,36 +250,63 @@ describe('useAiScheduler', () => {
     expect(scheduler.draftTasks).toEqual([]);
   });
 
-  it('asks the user to sign in when the protected Gemini proxy needs auth', async () => {
+  it('uses the offline result and explains when the user is signed out', async () => {
+    const proxyError = new GeminiProxyError(
+      'GEMINI_SIGN_IN_REQUIRED',
+      'Sign in to use Gemini features.',
+      401,
+    );
     mockParseScheduleRequest.mockRejectedValue(
-      new GeminiProxyError(
-        'GEMINI_SIGN_IN_REQUIRED',
-        'Sign in to use Gemini features.',
-        401,
-      ),
+      new AiOfflineFallbackError('signed_out', [makeDraft()], proxyError),
     );
 
     await submitPrompt('lập kế hoạch nâng cao cho ngày mai');
 
-    expect(scheduler.step).toBe('input_prompt');
-    expect(scheduler.infoMessage).toContain('Đăng nhập');
+    expect(scheduler.step).toBe('draft_preview');
+    expect(scheduler.infoMessage).toBeNull();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Bạn chưa đăng nhập. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+    );
   });
 
-  it('explains when the account has used all 50 daily AI requests', async () => {
+  it('uses the offline result and explains when the daily allowance is used', async () => {
+    const proxyError = new GeminiProxyError(
+      'GEMINI_PROXY_REQUEST_FAILED',
+      'Daily limit reached.',
+      429,
+      'DAILY_LIMIT_REACHED',
+    );
     mockParseScheduleRequest.mockRejectedValue(
-      new GeminiProxyError(
-        'GEMINI_PROXY_REQUEST_FAILED',
-        'Daily limit reached.',
-        429,
-        'DAILY_LIMIT_REACHED',
+      new AiOfflineFallbackError('daily_limit', [makeDraft()], proxyError),
+    );
+
+    await submitPrompt('lập kế hoạch nâng cao cho ngày mai');
+
+    expect(scheduler.step).toBe('draft_preview');
+    expect(scheduler.infoMessage).toBeNull();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Bạn đã hết lượt dùng AI hôm nay. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+    );
+  });
+
+  it('uses the offline result and explains when Gemini cannot connect', async () => {
+    mockParseScheduleRequest.mockRejectedValue(
+      new AiOfflineFallbackError(
+        'network_unavailable',
+        [makeDraft()],
+        new GeminiProxyError(
+          'GEMINI_PROXY_REQUEST_FAILED',
+          'Network unavailable.',
+        ),
       ),
     );
 
     await submitPrompt('lập kế hoạch nâng cao cho ngày mai');
 
-    expect(scheduler.step).toBe('input_prompt');
-    expect(scheduler.infoMessage).toContain('50 lượt AI');
-    expect(scheduler.infoMessage).toContain('07:00');
+    expect(scheduler.step).toBe('draft_preview');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Không thể kết nối Gemini. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+    );
   });
 
   it('updates only the selected AI draft before saving', async () => {

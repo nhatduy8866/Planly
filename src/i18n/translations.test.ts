@@ -26,10 +26,12 @@ describe('translations', () => {
     expect(policyLines[0]).toMatch(/^1\./);
     expect(policyLines[2]).toContain('Supabase');
     expect(policyLines[3]).toContain('Google Gemini');
+    expect(policyLines[3]).toContain('xử lý trên thiết bị');
     expect(policyLines[8]).toMatch(/^9\./);
     expect(translate('en', 'toast.syncCompleted')).toBe(
       'Data synced successfully',
     );
+    expect(translate('vi', 'ai.offlineDailyLimit')).not.toContain('50');
   });
 
   it('formats task time conflict details', () => {

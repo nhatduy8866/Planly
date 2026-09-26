@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useToast } from '../components/AppToast';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { getAlarmSchedulePreferences } from '../services/alarmPresets';
 import {
@@ -8,6 +9,7 @@ import {
 } from '../store/PlannerContext';
 import type { Task } from '../types';
 import type { AiDraftTask, AiModalStep, AiSchedulingContext, ScheduleConflict } from '../types/ai';
+import { AiOfflineFallbackError } from '../services/ai/aiProvider';
 import { defaultAiProvider } from '../services/ai/defaultAiProvider';
 import {
   GeminiProxyError,
@@ -42,6 +44,7 @@ export function useAiScheduler(
   targetDate: string,
   onNavigateDate?: (date: string) => void,
 ) {
+  const { showToast } = useToast();
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
   const {
@@ -170,7 +173,23 @@ export function useAiScheduler(
       const timer3 = setTimeout(() => setAnalyzingStep(4), 1050);
 
       try {
-        const parsedDrafts = await defaultAiProvider.parseScheduleRequest(text, context);
+        let parsedDrafts: AiDraftTask[];
+        try {
+          parsedDrafts = await defaultAiProvider.parseScheduleRequest(
+            text,
+            context,
+          );
+        } catch (err) {
+          if (!(err instanceof AiOfflineFallbackError)) throw err;
+
+          parsedDrafts = err.drafts;
+          const messageKey = {
+            signed_out: 'ai.offlineSignedOut',
+            network_unavailable: 'ai.offlineNoConnection',
+            daily_limit: 'ai.offlineDailyLimit',
+          } as const;
+          showToast(t(messageKey[err.reason]));
+        }
 
         // Nếu không có công việc nào (ví dụ: ngày trống mà yêu cầu sắp xếp lại, hoặc không nhận diện được việc)
         if (!parsedDrafts || parsedDrafts.length === 0) {
@@ -221,7 +240,7 @@ export function useAiScheduler(
         clearTimeout(timer3);
       }
     },
-    [context, tasks, t],
+    [context, showToast, tasks, t],
   );
 
   // Người dùng đồng ý tự động sắp xếp giờ cho các việc chưa có giờ (Màn 8 -> 9 hoặc 5)

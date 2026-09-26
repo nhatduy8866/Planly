@@ -18,7 +18,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết 
 - Xem nhanh công việc hôm nay bằng widget màn hình chính trên Android và iOS.
 - Tạo, cập nhật hoặc sắp xếp lại lịch bằng yêu cầu tiếng Việt tự nhiên qua văn bản hoặc giọng nói.
 - Tự chọn giờ bắt đầu chưa được sử dụng, phát hiện trùng giờ và đề xuất giờ thay thế.
-- Sử dụng Gemini khi có API key và tự fallback sang NLP offline.
+- Ưu tiên Gemini cho yêu cầu AI bằng văn bản; chỉ chuyển sang xử lý trên thiết bị khi chưa đăng nhập, không thể kết nối hoặc đã hết lượt dùng trong ngày.
 
 ### Công việc
 
@@ -100,11 +100,16 @@ npx supabase db push --linked
 npx supabase functions deploy gemini-proxy --use-api
 ```
 
-Các yêu cầu văn bản đơn giản vẫn dùng NLP offline. Lập lịch nâng cao và chuyển
-giọng nói thành văn bản cần Supabase được cấu hình, Edge Function đã deploy và
-người dùng đã đăng nhập. Mỗi tài khoản có tối đa 50 lượt gọi AI cloud mỗi ngày;
-lập lịch nâng cao và chuyển giọng nói cùng sử dụng hạn mức này. Các yêu cầu được
-xử lý hoàn toàn offline không tính vào hạn mức.
+Mọi yêu cầu AI bằng văn bản đều ưu tiên Gemini khi người dùng đã đăng nhập và có
+kết nối. Planly chỉ chuyển yêu cầu sang bộ phân tích trên thiết bị khi người dùng
+chưa đăng nhập, không thể kết nối Gemini hoặc đã hết lượt dùng trong ngày; lúc đó
+ứng dụng hiển thị một thông báo ngắn nêu lý do. Giao diện không hiển thị trạng
+thái online/offline hoặc số lượt còn lại. Nhập bằng giọng nói luôn cần Gemini;
+nếu Gemini không dùng được, ứng dụng hướng dẫn người dùng nhập bằng bàn phím.
+
+Mỗi tài khoản có tối đa 50 lượt gọi Gemini mỗi ngày. Tạo lịch bằng văn bản và
+chuyển giọng nói thành văn bản cùng sử dụng hạn mức này; yêu cầu được xử lý trên
+thiết bị không tính vào hạn mức.
 
 Chỉ dữ liệu công việc được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
 

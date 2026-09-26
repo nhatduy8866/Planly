@@ -81,6 +81,7 @@ export function AccountSyncModal({
     try {
       await signIn(email.trim(), password);
       setPassword('');
+      showToast(t('toast.signedIn'));
     } catch (signInError) {
       setError(errorMessage(signInError));
     } finally {
@@ -98,6 +99,9 @@ export function AccountSyncModal({
       setPassword('');
       if (result.needsEmailConfirmation) {
         setFeedback(t('sync.confirmEmail'));
+        showToast(t('toast.accountCreatedCheckEmail'));
+      } else {
+        showToast(t('toast.accountCreated'));
       }
     } catch (signUpError) {
       setError(errorMessage(signUpError));
@@ -114,6 +118,7 @@ export function AccountSyncModal({
       await signOut();
       setEmail('');
       setPassword('');
+      showToast(t('toast.signedOut'));
     } catch (signOutError) {
       setError(errorMessage(signOutError));
     } finally {

@@ -38,7 +38,7 @@ function makeDraft(overrides: Partial<AiDraftTask>): AiDraftTask {
 }
 
 describe('AiDraftPreviewView', () => {
-  it('opens the selected draft from its three-dot button', () => {
+  it('opens the selected draft when its card is pressed', () => {
     const onEditDraft = jest.fn();
     let tree: renderer.ReactTestRenderer | undefined;
 
@@ -52,18 +52,45 @@ describe('AiDraftPreviewView', () => {
           onBack={jest.fn()}
           onConfirm={jest.fn()}
           onEditDraft={onEditDraft}
-          onRefine={jest.fn()}
+          onRegenerate={jest.fn()}
           targetDate="2026-09-10"
         />,
       );
     });
 
-    const editButton = tree!.root.findByProps({
+    const taskCard = tree!.root.findByProps({
       accessibilityLabel: 'Chỉnh sửa Tập thể dục',
     });
-    act(() => editButton.props.onPress());
+    act(() => taskCard.props.onPress());
 
     expect(onEditDraft).toHaveBeenCalledWith('gym');
+    expect(tree!.root.findAllByProps({ name: 'more-vert' })).toHaveLength(0);
+    act(() => tree!.unmount());
+  });
+
+  it('returns to AI input when regenerate is pressed', () => {
+    const onRegenerate = jest.fn();
+    let tree: renderer.ReactTestRenderer | undefined;
+
+    act(() => {
+      tree = renderer.create(
+        <AiDraftPreviewView
+          drafts={[makeDraft({})]}
+          onBack={jest.fn()}
+          onConfirm={jest.fn()}
+          onEditDraft={jest.fn()}
+          onRegenerate={onRegenerate}
+          targetDate="2026-09-10"
+        />,
+      );
+    });
+
+    const regenerateButton = tree!.root.findByProps({
+      accessibilityLabel: 'Tạo lại',
+    });
+    act(() => regenerateButton.props.onPress());
+
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
     act(() => tree!.unmount());
   });
 
@@ -78,7 +105,7 @@ describe('AiDraftPreviewView', () => {
           onBack={jest.fn()}
           onConfirm={jest.fn()}
           onEditDraft={jest.fn()}
-          onRefine={jest.fn()}
+          onRegenerate={jest.fn()}
           targetDate="2026-09-10"
         />,
       );
@@ -100,7 +127,7 @@ describe('AiDraftPreviewView', () => {
           onBack={jest.fn()}
           onConfirm={jest.fn()}
           onEditDraft={jest.fn()}
-          onRefine={jest.fn()}
+          onRegenerate={jest.fn()}
           targetDate="2026-09-10"
         />,
       );

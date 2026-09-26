@@ -20,7 +20,6 @@ let mockPlannerState: PlannerState;
 const mockParseScheduleRequest = jest.fn<
   AiSchedulingProvider['parseScheduleRequest']
 >();
-const mockRefineSchedule = jest.fn<AiSchedulingProvider['refineSchedule']>();
 const mockReplaceTaskReminders = jest.fn<
   (
     tasks: Task[],
@@ -73,8 +72,6 @@ jest.mock('../services/ai/aiProvider', () => ({
   defaultAiProvider: {
     parseScheduleRequest: (...args: Parameters<AiSchedulingProvider['parseScheduleRequest']>) =>
       mockParseScheduleRequest(...args),
-    refineSchedule: (...args: Parameters<AiSchedulingProvider['refineSchedule']>) =>
-      mockRefineSchedule(...args),
   },
 }));
 
@@ -171,7 +168,6 @@ describe('useAiScheduler', () => {
     mockPlannerState = { tasks: [], hydrated: true };
     mockDispatch.mockReset();
     mockParseScheduleRequest.mockReset();
-    mockRefineSchedule.mockReset();
     mockReplaceTaskReminders.mockReset();
     mockRollbackTaskReminders.mockReset();
     mockReplaceTaskReminders.mockImplementation(async (tasks) => tasks);
@@ -179,6 +175,17 @@ describe('useAiScheduler', () => {
       async (_savedTasks, previousTasks) => previousTasks,
     );
     await renderScheduler();
+  });
+
+  it('keeps the submitted prompt available when creating the plan again', async () => {
+    mockParseScheduleRequest.mockResolvedValue([
+      makeDraft({ startTime: '11:00' }),
+    ]);
+
+    await submitPrompt('Lên lịch học lúc 11h');
+
+    expect(scheduler.step).toBe('draft_preview');
+    expect(scheduler.promptText).toBe('Lên lịch học lúc 11h');
   });
 
   afterEach(() => {
@@ -421,28 +428,5 @@ describe('useAiScheduler', () => {
       payload: { savedIds: [previous.id], previousTasks: [restored] },
     });
     expect(scheduler.saveFeedback).toBeNull();
-  });
-
-  it('rechecks conflicts introduced by refinement before previewing', async () => {
-    updateTasks([makeTask({ startTime: '09:00' })]);
-    mockParseScheduleRequest.mockResolvedValue([
-      makeDraft({ startTime: '11:00' }),
-    ]);
-    await submitPrompt();
-    expect(scheduler.step).toBe('draft_preview');
-
-    mockRefineSchedule.mockResolvedValue([
-      makeDraft({ startTime: '09:00' }),
-    ]);
-    await act(async () => {
-      const pending = scheduler.submitRefinement('Dời việc AI sang 9h30');
-      await Promise.resolve();
-      await jest.advanceTimersByTimeAsync(1200);
-      await pending;
-    });
-
-    expect(scheduler.step).toBe('conflict_resolution');
-    expect(scheduler.conflicts).toHaveLength(1);
-    expect(scheduler.conflicts[0].conflictingTask.id).toBe('existing-task');
   });
 });

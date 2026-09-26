@@ -65,7 +65,6 @@ export function useAiScheduler(
   const [analyzingStep, setAnalyzingStep] = useState<number>(1);
   const [draftTasks, setDraftTasks] = useState<AiDraftTask[]>([]);
   const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
-  const [refinementInput, setRefinementInput] = useState('');
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<AiSaveFeedback | null>(null);
   const [highlightedTaskIds, setHighlightedTaskIds] = useState<Set<string>>(
@@ -156,6 +155,7 @@ export function useAiScheduler(
     async (text: string) => {
       if (!text.trim()) return;
 
+      setPromptText(text.trim());
       setInfoMessage(null);
       setStep('analyzing');
       setAnalyzingStep(1);
@@ -290,12 +290,6 @@ export function useAiScheduler(
     }
   }, [draftTasks, conflicts, tasks]);
 
-  // Mở màn hình tinh chỉnh bằng AI (Màn 5 -> 6)
-  const openRefinement = useCallback(() => {
-    setRefinementInput('');
-    setStep('refinement_chat');
-  }, []);
-
   const updateDraftTask = useCallback((
     draftId: string,
     values: Pick<
@@ -316,59 +310,6 @@ export function useAiScheduler(
     );
     setConflicts([]);
   }, []);
-
-  // Gửi lệnh chỉnh sửa bằng AI (Màn 6 -> 4 -> 7)
-  const submitRefinement = useCallback(
-    async (instruction: string) => {
-      if (!instruction.trim()) return;
-
-      setStep('analyzing');
-      setAnalyzingStep(1);
-
-      const timer1 = setTimeout(() => setAnalyzingStep(2), 300);
-      const timer2 = setTimeout(() => setAnalyzingStep(3), 600);
-      const timer3 = setTimeout(() => setAnalyzingStep(4), 900);
-
-      try {
-        const refined = await defaultAiProvider.refineSchedule(
-          draftTasks,
-          instruction,
-          context,
-        );
-
-        setDraftTasks(refined);
-
-        const unscheduledCount = refined.filter(
-          (draft) => !draft.startTime,
-        ).length;
-        if (unscheduledCount > 0) {
-          setInfoMessage(t('ai.unscheduledAfterRefinement', { count: unscheduledCount }));
-          setStep('auto_slotting');
-          return;
-        }
-
-        const detected = detectConflicts(refined, tasks);
-        if (detected.length > 0) {
-          setConflicts(detected);
-          setInfoMessage(null);
-          setStep('conflict_resolution');
-          return;
-        }
-
-        setConflicts([]);
-        setInfoMessage(null);
-        setStep('updated_preview'); // Màn 7: Kế hoạch đã cập nhật
-      } catch (err) {
-        console.error('Lỗi tinh chỉnh AI:', err);
-        setStep('refinement_chat');
-      } finally {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        clearTimeout(timer3);
-      }
-    },
-    [draftTasks, context, tasks, t],
-  );
 
   // Xác nhận lưu vào lịch rồi đóng modal và phản hồi trên màn hình hiện tại.
   const confirmSaveToCalendar = useCallback(async () => {
@@ -547,8 +488,6 @@ export function useAiScheduler(
     analyzingStep,
     draftTasks,
     conflicts,
-    refinementInput,
-    setRefinementInput,
     infoMessage,
     setInfoMessage,
     openActionSheet,
@@ -559,9 +498,7 @@ export function useAiScheduler(
     handleDeclineAutoSlotting,
     handleSelectConflictSlot,
     handleApplyConflictResolution,
-    openRefinement,
     updateDraftTask,
-    submitRefinement,
     confirmSaveToCalendar,
     saveFeedback,
     highlightedTaskIds,

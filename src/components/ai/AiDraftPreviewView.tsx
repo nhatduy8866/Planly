@@ -14,24 +14,23 @@ import { MOTION } from '../../theme/motion';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { AiDraftTask } from '../../types/ai';
 import { formatDateRange, formatLongDate } from '../../utils/date';
+import { AnimatedEntryItem } from '../animation/AnimatedEntryItem';
 
 interface AiDraftPreviewViewProps {
-  isUpdated?: boolean; // True nếu là Screen 7 (Kế hoạch đã cập nhật)
   drafts: AiDraftTask[];
   targetDate: string;
   onConfirm: () => void;
   onEditDraft: (draftId: string) => void;
-  onRefine: () => void;
+  onRegenerate: () => void;
   onBack: () => void;
 }
 
 export function AiDraftPreviewView({
-  isUpdated = false,
   drafts,
   targetDate,
   onConfirm,
   onEditDraft,
-  onRefine,
+  onRegenerate,
   onBack,
 }: AiDraftPreviewViewProps) {
   const { colors, locale, t } = usePreferences();
@@ -57,9 +56,7 @@ export function AiDraftPreviewView({
         <Pressable onPress={onBack} style={styles.iconButton}>
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>
-          {t(isUpdated ? 'ai.updatedPreviewTitle' : 'ai.previewTitle')}
-        </Text>
+        <Text style={styles.headerTitle}>{t('ai.previewTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -74,86 +71,60 @@ export function AiDraftPreviewView({
         {drafts.map((task, index) => {
           const taskTime = task.startTime || t('ai.noTime');
 
-          // Tag nhãn
-          let tagLabel = t('ai.fromRequestTag');
-          let isUpdatedTag = false;
-
-          if (isUpdated) {
-            if (task.changeStatus === 'updated' || task.changeStatus === 'added') {
-              tagLabel = t('ai.updatedTag');
-              isUpdatedTag = true;
-            } else {
-              tagLabel = t('ai.unchangedTag');
-            }
-          }
-
           return (
-            <View key={`${task.id || 'draft'}-${index}`} style={styles.card}>
-              <View style={styles.cardTopRow}>
-                <View style={styles.timeWrap}>
-                  <View
-                    style={[
-                      styles.dot,
-                      task.priority === 'high'
-                        ? styles.dotHigh
-                        : task.priority === 'medium'
-                          ? styles.dotMedium
-                          : styles.dotNormal,
-                    ]}
-                  />
-                  <Text style={styles.timeText}>{taskTime}</Text>
+            <AnimatedEntryItem
+              index={index}
+              key={`${task.id || 'draft'}-${index}`}
+            >
+              <Pressable
+                accessibilityLabel={t('ai.editDraftTask', { title: task.title })}
+                accessibilityRole="button"
+                onPress={() => onEditDraft(task.id)}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.cardTopRow}>
+                  <View style={styles.timeWrap}>
+                    <View
+                      style={[
+                        styles.dot,
+                        task.priority === 'high'
+                          ? styles.dotHigh
+                          : task.priority === 'medium'
+                            ? styles.dotMedium
+                            : styles.dotNormal,
+                      ]}
+                    />
+                    <Text style={styles.timeText}>{taskTime}</Text>
+                  </View>
+
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{t('ai.fromRequestTag')}</Text>
+                  </View>
                 </View>
 
-                <View style={styles.tagWrap}>
-                  <View
-                    style={[
-                      styles.badge,
-                      isUpdatedTag ? styles.badgeUpdated : styles.badgeDefault,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        isUpdatedTag ? styles.badgeTextUpdated : styles.badgeTextDefault,
-                      ]}
-                    >
-                      {tagLabel}
+                <Text style={styles.taskTitle}>{task.title}</Text>
+
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <MaterialIcons name="event" size={14} color={colors.primary} />
+                    <Text style={[styles.metaText, { color: colors.primary, fontWeight: '700' }]}>
+                      {task.batchGroupId || uniqueDates.length > 1
+                        ? formatLongDate(task.date || primaryDate, locale)
+                        : formatLongDate(task.date || primaryDate, locale).split(',')[0]}
                     </Text>
                   </View>
-                  <Pressable
-                    accessibilityLabel={t('ai.editDraftTask', { title: task.title })}
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    onPress={() => onEditDraft(task.id)}
-                    style={({ pressed }) => [
-                      styles.editButton,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <MaterialIcons name="more-vert" size={20} color={colors.textMuted} />
-                  </Pressable>
+                  {task.batchGroupId ? (
+                    <View style={styles.metaItem}>
+                      <MaterialIcons name="repeat" size={14} color={colors.primary} />
+                      <Text style={styles.metaText}>{t('task.batchBadge')}</Text>
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-
-              <Text style={styles.taskTitle}>{task.title}</Text>
-
-              <View style={styles.metaRow}>
-                <View style={styles.metaItem}>
-                  <MaterialIcons name="event" size={14} color={colors.primary} />
-                  <Text style={[styles.metaText, { color: colors.primary, fontWeight: '700' }]}>
-                    {task.batchGroupId || uniqueDates.length > 1
-                      ? formatLongDate(task.date || primaryDate, locale)
-                      : formatLongDate(task.date || primaryDate, locale).split(',')[0]}
-                  </Text>
-                </View>
-                {task.batchGroupId ? (
-                  <View style={styles.metaItem}>
-                    <MaterialIcons name="repeat" size={14} color={colors.primary} />
-                    <Text style={styles.metaText}>{t('task.batchBadge')}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
+              </Pressable>
+            </AnimatedEntryItem>
           );
         })}
       </ScrollView>
@@ -169,13 +140,13 @@ export function AiDraftPreviewView({
         </Pressable>
 
         <Pressable
-          onPress={onRefine}
+          accessibilityLabel={t('ai.regeneratePlan')}
+          accessibilityRole="button"
+          onPress={onRegenerate}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
           <MaterialIcons name="refresh" size={18} color={colors.text} />
-          <Text style={styles.secondaryButtonText}>
-            {t(isUpdated ? 'ai.continueRefining' : 'ai.refinePlan')}
-          </Text>
+          <Text style={styles.secondaryButtonText}>{t('ai.regeneratePlan')}</Text>
         </Pressable>
       </View>
     </View>
@@ -258,38 +229,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  tagWrap: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
   badge: {
+    backgroundColor: colors.aiTag,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  badgeDefault: {
-    backgroundColor: colors.aiTag,
-  },
-  badgeUpdated: {
-    backgroundColor: colors.aiUpdatedTag,
-  },
   badgeText: {
+    color: colors.aiTagText,
     fontSize: 11,
     fontWeight: '700',
-  },
-  badgeTextDefault: {
-    color: colors.aiTagText,
-  },
-  badgeTextUpdated: {
-    color: colors.aiUpdatedTagText,
-  },
-  editButton: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
   },
   taskTitle: {
     color: colors.text,

@@ -8,8 +8,6 @@ export type AiModalStep =
   | 'input_prompt'        // Màn 3: Nhập yêu cầu (text/voice)
   | 'analyzing'           // Màn 4: AI phân tích & checklist
   | 'draft_preview'       // Màn 5: Xem trước kế hoạch
-  | 'refinement_chat'     // Màn 6: Chỉnh sửa bằng AI
-  | 'updated_preview'     // Màn 7: Kế hoạch đã cập nhật
   | 'auto_slotting'       // Tự động sắp xếp khi thiếu giờ
   | 'conflict_resolution'; // Xử lý xung đột trùng lịch
 

@@ -486,12 +486,15 @@ export function useAiScheduler(
     setSaveFeedback(null);
     setUndoingSave(false);
     setHighlightedTaskIds(new Set());
+    showToast(t('toast.aiChangesUndone'));
   }, [
     alarmPreferences,
     clearFeedbackTimer,
     dispatch,
     language,
     reminderDeliveryMode,
+    showToast,
+    t,
   ]);
 
   const viewSavedTasks = useCallback((date?: string) => {

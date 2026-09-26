@@ -497,6 +497,7 @@ describe('useAiScheduler', () => {
       type: 'rollback_task_batch',
       payload: { savedIds: [previous.id], previousTasks: [restored] },
     });
+    expect(mockShowToast).toHaveBeenCalledWith('Đã hoàn tác thay đổi của AI');
     expect(scheduler.saveFeedback).toBeNull();
   });
 });

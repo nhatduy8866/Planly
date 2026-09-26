@@ -8,6 +8,7 @@ import type { ThemeColors } from '../theme/colors';
 import { MOTION } from '../theme/motion';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { OnboardingModal } from './OnboardingModal';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 import { SettingsModal } from './SettingsModal';
 import { UserGuideModal } from './UserGuideModal';
 
@@ -33,6 +34,7 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
   const styles = useThemedStyles(createStyles);
   const [guideVisible, setGuideVisible] = useState(false);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
+  const [privacyPolicyVisible, setPrivacyPolicyVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
 
   function openGuide() {
@@ -103,28 +105,6 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
 
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceIcon}>
-              <MaterialIcons name="language" size={20} color={colors.primaryDark} />
-            </View>
-            <View style={styles.preferenceCopy}>
-              <Text style={styles.preferenceTitle}>{t('menu.language')}</Text>
-              <Text style={styles.preferenceValue}>
-                {t(language === 'vi' ? 'menu.vietnamese' : 'menu.english')}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel={t('settings.languageTitle')}
-              accessibilityRole="switch"
-              onValueChange={() => {
-                toggleLanguage();
-              }}
-              thumbColor={colors.white}
-              trackColor={{ false: colors.primary, true: colors.primary }}
-              value={language === 'en'}
-            />
-          </View>
-
-          <View style={styles.preferenceRow}>
-            <View style={styles.preferenceIcon}>
               <MaterialIcons name="palette" size={20} color={colors.primaryDark} />
             </View>
             <View style={styles.preferenceCopy}>
@@ -164,6 +144,28 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
               thumbColor={colors.white}
               trackColor={{ false: colors.border, true: colors.primary }}
               value={showTaskBadges}
+            />
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceIcon}>
+              <MaterialIcons name="language" size={20} color={colors.primaryDark} />
+            </View>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('menu.language')}</Text>
+              <Text style={styles.preferenceValue}>
+                {t(language === 'vi' ? 'menu.vietnamese' : 'menu.english')}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('settings.languageTitle')}
+              accessibilityRole="switch"
+              onValueChange={() => {
+                toggleLanguage();
+              }}
+              thumbColor={colors.white}
+              trackColor={{ false: colors.primary, true: colors.primary }}
+              value={language === 'en'}
             />
           </View>
 
@@ -219,7 +221,15 @@ export function AppMenu({ onRequestClose, visible }: AppMenuProps) {
 
       <OnboardingModal
         visible={onboardingVisible}
-        onFinish={() => setOnboardingVisible(false)}
+        onFinish={() => {
+          setOnboardingVisible(false);
+          setPrivacyPolicyVisible(true);
+        }}
+      />
+
+      <PrivacyPolicyModal
+        visible={privacyPolicyVisible}
+        onClose={() => setPrivacyPolicyVisible(false)}
       />
     </>
   );

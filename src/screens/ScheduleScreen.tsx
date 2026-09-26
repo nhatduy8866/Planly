@@ -591,7 +591,7 @@ export function ScheduleScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 52, paddingHorizontal: 16 },
+  content: { flexGrow: 1, paddingBottom: 52, paddingHorizontal: 16 },
   calendarCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

@@ -221,8 +221,6 @@ export function TasksScreen() {
           <EmptyState
             icon="task-alt"
             title={t(query ? 'tasks.noResultsTitle' : 'tasks.emptyTitle')}
-            actionLabel={query ? undefined : t('schedule.addTask')}
-            onAction={query ? undefined : aiScheduler.openActionSheet}
           />
         )}
         maxToRenderPerBatch={12}
@@ -308,7 +306,12 @@ export function TasksScreen() {
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1 },
-  content: { paddingBottom: 52, paddingHorizontal: 16, paddingTop: 14 },
+  content: {
+    flexGrow: 1,
+    paddingBottom: 52,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
   searchWrap: {
     alignItems: 'center',
     backgroundColor: colors.surface,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import React from 'react';
-import { AppState, Text } from 'react-native';
+import { AppState, StyleSheet, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 import type { Task } from '../types';
@@ -12,6 +12,7 @@ const mockSetAlarmSound = jest.fn();
 const mockSetAlarmSoundPreset = jest.fn();
 const mockSetAlarmVibrationEnabled = jest.fn();
 const mockSetCalendarMode = jest.fn();
+const mockToggleLanguage = jest.fn();
 const mockShowToast = jest.fn();
 const mockPlannerDispatch = jest.fn();
 const mockCancelTaskReminder = jest.fn(
@@ -139,7 +140,7 @@ jest.mock('../preferences/PreferencesContext', () => ({
     showTaskBadges: true,
     t: (key: string) => key,
     theme: 'light',
-    toggleLanguage: jest.fn(),
+    toggleLanguage: mockToggleLanguage,
     toggleTheme: jest.fn(),
   }),
 }));
@@ -203,6 +204,28 @@ describe('AppMenu settings', () => {
     expect(mockShowToast).not.toHaveBeenCalled();
   });
 
+  it('places the language switch after the task badge switch', () => {
+    act(() => {
+      tree = renderer.create(
+        <AppMenu visible={true} onRequestClose={jest.fn()} />,
+      );
+    });
+
+    const switchLabels = Array.from(new Set(
+      tree?.root
+        .findAll((node) => node.props.accessibilityRole === 'switch')
+        .map((node) => node.props.accessibilityLabel),
+    ));
+
+    expect(switchLabels).toEqual([
+      'menu.calendarView',
+      'settings.appearanceTitle',
+      'menu.colorfulAccents',
+      'menu.taskBadges',
+      'settings.languageTitle',
+    ]);
+  });
+
   it('opens the user guide and can replay onboarding', () => {
     const onRequestClose = jest.fn();
     act(() => {
@@ -230,6 +253,22 @@ describe('AppMenu settings', () => {
 
     expect(
       tree?.root.findByProps({ accessibilityLabel: 'onboarding.skip' }),
+    ).toBeDefined();
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'onboarding.changeLanguage' })
+        .props.onPress();
+    });
+    expect(mockToggleLanguage).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      tree?.root
+        .findByProps({ accessibilityLabel: 'onboarding.skip' })
+        .props.onPress();
+    });
+    expect(
+      tree?.root.findByProps({ testID: 'privacy-policy-content' }),
     ).toBeDefined();
   });
 
@@ -295,6 +334,14 @@ describe('AppMenu settings', () => {
     expect(policyContent?.type).toBe(Text);
     expect(policyContent?.props.children).toBe('privacy.content');
     expect(policyContent?.findAllByType(Text)).toHaveLength(1);
+
+    const dialogStyle = StyleSheet.flatten(
+      tree?.root.findByProps({ testID: 'privacy-policy-dialog' }).props.style,
+    );
+    expect(dialogStyle).toMatchObject({
+      borderRadius: 24,
+      maxHeight: '82%',
+    });
   });
 
   it('shows five preset sounds plus upload and lets users preview before selecting', async () => {

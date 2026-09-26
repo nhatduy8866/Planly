@@ -55,7 +55,7 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 
 export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
   const insets = useSafeAreaInsets();
-  const { colors, t } = usePreferences();
+  const { colors, language, t, toggleLanguage } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [pageIndex, setPageIndex] = useState(0);
   const page = ONBOARDING_PAGES[pageIndex];
@@ -97,17 +97,37 @@ export function OnboardingModal({ onFinish, visible }: OnboardingModalProps) {
               </View>
               <Text style={styles.brandText}>Planly</Text>
             </View>
-            <Pressable
-              accessibilityLabel={t('onboarding.skip')}
-              accessibilityRole="button"
-              onPress={finish}
-              style={({ pressed }) => [
-                styles.skipButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityLabel={t('onboarding.changeLanguage')}
+                accessibilityRole="button"
+                onPress={toggleLanguage}
+                style={({ pressed }) => [
+                  styles.languageButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialIcons
+                  name="language"
+                  size={16}
+                  color={colors.primaryDark}
+                />
+                <Text style={styles.languageButtonText}>
+                  {language === 'vi' ? 'EN' : 'VI'}
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={t('onboarding.skip')}
+                accessibilityRole="button"
+                onPress={finish}
+                style={({ pressed }) => [
+                  styles.skipButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.content}>
@@ -296,6 +316,11 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
     },
+    headerActions: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
     illustration: {
       alignItems: 'center',
       height: 190,
@@ -324,6 +349,22 @@ const createStyles = (colors: ThemeColors) =>
       shadowOpacity: 0.12,
       shadowRadius: 12,
       width: 116,
+    },
+    languageButton: {
+      alignItems: 'center',
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 4,
+      minHeight: 34,
+      paddingHorizontal: 9,
+    },
+    languageButtonText: {
+      color: colors.primaryDark,
+      fontSize: 12,
+      fontWeight: '900',
     },
     pressed: { opacity: MOTION.pressedOpacity },
     primaryButton: {

@@ -1,6 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import {
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -43,15 +42,15 @@ export function PrivacyPolicyModal({
   return (
     <MotionModal
       onRequestClose={required ? () => undefined : () => onClose?.()}
-      transparent={Platform.OS === 'web'}
+      transparent
       visible={visible}
     >
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View style={styles.card} testID="privacy-policy-dialog">
           <View
             style={[
               styles.header,
-              { paddingTop: Platform.OS === 'web' ? 18 : insets.top + 12 },
+              { paddingTop: 18 },
             ]}
           >
             <View style={styles.headerIcon}>
@@ -78,6 +77,7 @@ export function PrivacyPolicyModal({
           <ScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
+            style={styles.policyScroll}
           >
             <Text style={styles.policyText} testID="privacy-policy-content">
               {t('privacy.content')}
@@ -87,7 +87,7 @@ export function PrivacyPolicyModal({
           <View
             style={[
               styles.footer,
-              { paddingBottom: Platform.OS === 'web' ? 18 : Math.max(insets.bottom, 18) },
+              { paddingBottom: Math.max(insets.bottom, 18) },
             ]}
           >
             {required ? (
@@ -121,20 +121,21 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     backdrop: {
       alignItems: 'center',
-      backgroundColor: Platform.OS === 'web' ? colors.overlay : colors.background,
+      backgroundColor: colors.overlay,
       flex: 1,
       justifyContent: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 24,
     },
     card: {
       backgroundColor: colors.background,
       borderColor: colors.border,
-      borderRadius: Platform.OS === 'web' ? 24 : 0,
-      borderWidth: Platform.OS === 'web' ? 1 : 0,
-      flex: Platform.OS === 'web' ? undefined : 1,
-      maxHeight: Platform.OS === 'web' ? 720 : undefined,
-      maxWidth: 480,
+      borderRadius: 24,
+      borderWidth: 1,
+      maxHeight: '82%',
+      maxWidth: 440,
       overflow: 'hidden',
-      width: Platform.OS === 'web' ? '92%' : '100%',
+      width: '100%',
     },
     consent: {
       color: colors.textMuted,
@@ -178,6 +179,7 @@ const createStyles = (colors: ThemeColors) =>
       fontSize: 14,
       lineHeight: 22,
     },
+    policyScroll: { flexShrink: 1 },
     pressed: { opacity: MOTION.pressedOpacity },
     primaryButton: {
       alignItems: 'center',

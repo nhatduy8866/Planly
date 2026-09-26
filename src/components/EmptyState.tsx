@@ -129,6 +129,8 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
       alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
       paddingHorizontal: 36,
       paddingVertical: 34,
     },
@@ -146,7 +148,14 @@ const createStyles = (colors: ThemeColors) =>
       shadowRadius: 16,
       elevation: 3,
     },
-    title: { color: colors.text, fontSize: 17, fontWeight: '700' },
+    title: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '700',
+      maxWidth: 320,
+      textAlign: 'center',
+      width: '100%',
+    },
     description: {
       color: colors.textMuted,
       fontSize: 14,

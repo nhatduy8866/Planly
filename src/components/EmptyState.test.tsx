@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { StyleSheet, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
 import { EmptyState } from './EmptyState';
@@ -41,6 +42,13 @@ describe('EmptyState', () => {
     expect(tree).toBeDefined();
     const str = JSON.stringify(tree!.toJSON());
     expect(str).toContain('Không có công việc');
+    const title = tree!.root
+      .findAllByType(Text)
+      .find((node) => node.props.children === 'Không có công việc');
+    expect(StyleSheet.flatten(title?.props.style)).toMatchObject({
+      textAlign: 'center',
+      width: '100%',
+    });
 
     act(() => {
       tree!.unmount();

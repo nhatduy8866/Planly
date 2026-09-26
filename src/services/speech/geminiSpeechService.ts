@@ -60,7 +60,7 @@ export async function readAudioAsBase64(uri: string): Promise<string> {
  */
 export async function transcribeAudioWithGemini(
   uri: string,
-  mimeType = 'audio/mp4',
+  mimeType = 'audio/m4a',
   requestGeminiContent: GeminiContentGateway,
 ): Promise<string> {
   const base64Data = await readAudioAsBase64(uri);

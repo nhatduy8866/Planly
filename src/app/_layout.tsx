@@ -120,15 +120,15 @@ function AppShell() {
         </View>
       </View>
       <OnboardingModal
-        visible={
-          acceptedPrivacyPolicyVersion >= CURRENT_PRIVACY_POLICY_VERSION &&
-          !hasSeenOnboarding
-        }
+        visible={!hasSeenOnboarding}
         onFinish={() => setHasSeenOnboarding(true)}
       />
       <PrivacyPolicyModal
         required
-        visible={acceptedPrivacyPolicyVersion < CURRENT_PRIVACY_POLICY_VERSION}
+        visible={
+          hasSeenOnboarding &&
+          acceptedPrivacyPolicyVersion < CURRENT_PRIVACY_POLICY_VERSION
+        }
         onAccept={() => {
           setAcceptedPrivacyPolicyVersion(CURRENT_PRIVACY_POLICY_VERSION);
         }}

@@ -55,7 +55,7 @@ describe('geminiSpeechService', () => {
     await expect(
       transcribeAudioWithGemini(
         'file:///test.m4a',
-        'audio/mp4',
+        'audio/m4a',
         failingGateway,
       ),
     ).rejects.toThrow('GEMINI_SIGN_IN_REQUIRED');
@@ -65,7 +65,7 @@ describe('geminiSpeechService', () => {
     mockReadAsStringAsync.mockResolvedValueOnce('');
 
     await expect(
-      transcribeAudioWithGemini('file:///empty.m4a', 'audio/mp4', testGateway),
+      transcribeAudioWithGemini('file:///empty.m4a', 'audio/m4a', testGateway),
     ).rejects.toThrow('EMPTY_AUDIO_DATA');
   });
 
@@ -91,7 +91,7 @@ describe('geminiSpeechService', () => {
 
     const result = await transcribeAudioWithGemini(
       'file:///test.m4a',
-      'audio/mp4',
+      'audio/m4a',
       testGateway,
     );
 
@@ -106,7 +106,7 @@ describe('geminiSpeechService', () => {
 
     const body = JSON.parse(callArgs[1].body);
     expect(body.contents[0].parts[1].inlineData).toEqual({
-      mimeType: 'audio/mp4',
+      mimeType: 'audio/m4a',
       data: 'BASE64_AUDIO_CONTENT',
     });
     expect(body.generationConfig.thinkingConfig.thinkingLevel).toBe('MINIMAL');
@@ -129,7 +129,7 @@ describe('geminiSpeechService', () => {
     await expect(
       transcribeAudioWithGemini(
         'file:///test.m4a',
-        'audio/mp4',
+        'audio/m4a',
         testGateway,
       ),
     ).rejects.toThrow('Gemini test gateway failed with HTTP 503');

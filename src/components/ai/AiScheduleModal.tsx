@@ -24,7 +24,6 @@ import { AiAutoSlottingView } from './AiAutoSlottingView';
 import { AiConflictView } from './AiConflictView';
 import { AiDraftPreviewView } from './AiDraftPreviewView';
 import { AiInputView } from './AiInputView';
-import { AiRefinementView } from './AiRefinementView';
 
 interface AiScheduleModalProps {
   scheduler: ReturnType<typeof useAiScheduler>;
@@ -70,9 +69,7 @@ export function AiScheduleModal({
     handleDeclineAutoSlotting,
     handleSelectConflictSlot,
     handleApplyConflictResolution,
-    openRefinement,
     updateDraftTask,
-    submitRefinement,
     confirmSaveToCalendar,
   } = scheduler;
 
@@ -148,6 +145,7 @@ export function AiScheduleModal({
 
             {step === 'input_prompt' && (
               <AiInputView
+                initialPrompt={scheduler.promptText}
                 infoMessage={scheduler.infoMessage}
                 onSubmit={submitPrompt}
                 onClose={handleClose}
@@ -167,27 +165,8 @@ export function AiScheduleModal({
                 targetDate={targetDate}
                 onConfirm={() => void confirmSaveToCalendar()}
                 onEditDraft={setEditingDraftId}
-                onRefine={openRefinement}
+                onRegenerate={() => setStep('input_prompt')}
                 onBack={() => setStep('input_prompt')}
-              />
-            )}
-
-            {step === 'refinement_chat' && (
-              <AiRefinementView
-                onSubmit={submitRefinement}
-                onBack={() => setStep('draft_preview')}
-              />
-            )}
-
-            {step === 'updated_preview' && (
-              <AiDraftPreviewView
-                isUpdated
-                drafts={draftTasks}
-                targetDate={targetDate}
-                onConfirm={() => void confirmSaveToCalendar()}
-                onEditDraft={setEditingDraftId}
-                onRefine={openRefinement}
-                onBack={openRefinement}
               />
             )}
 

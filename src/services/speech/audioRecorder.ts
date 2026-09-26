@@ -105,15 +105,9 @@ export async function stopAudioRecording(): Promise<RecordingResult | null> {
       return null;
     }
 
-    // Xác định mimeType phù hợp với preset
-    let mimeType = 'audio/mp4';
-    if (Platform.OS === 'web') {
-      mimeType = 'audio/webm';
-    } else if (Platform.OS === 'android') {
-      mimeType = 'audio/mp4';
-    } else if (Platform.OS === 'ios') {
-      mimeType = 'audio/m4a';
-    }
+    // HIGH_QUALITY tạo WebM trên web và tệp .m4a (MPEG-4/AAC) trên Android/iOS.
+    // Gemini không hỗ trợ audio/mp4 cho audio-only, nên phải gửi đúng MIME M4A.
+    const mimeType = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
 
     return {
       uri,

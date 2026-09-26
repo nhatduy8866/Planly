@@ -389,6 +389,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/gemini-proxy/index.ts"
 
+[functions.delete-account]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-account/index.ts"
+
 [analytics]
 enabled = true
 port = 54327

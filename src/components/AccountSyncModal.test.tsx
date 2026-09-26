@@ -7,6 +7,7 @@ import { AccountSyncModal } from './AccountSyncModal';
 const mockShowToast = jest.fn<(message: string) => void>();
 const mockSignIn = jest.fn<(email: string, password: string) => Promise<void>>();
 const mockSignOut = jest.fn<() => Promise<void>>();
+const mockDeleteAccount = jest.fn<() => Promise<void>>();
 const mockSignUp = jest.fn<
   (email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>
 >();
@@ -37,6 +38,7 @@ jest.mock('./AppToast', () => ({
 jest.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
     configured: true,
+    deleteAccount: mockDeleteAccount,
     hydrated: true,
     signIn: mockSignIn,
     signOut: mockSignOut,
@@ -70,6 +72,7 @@ describe('AccountSyncModal feedback', () => {
     mockSignIn.mockResolvedValue(undefined);
     mockSignOut.mockResolvedValue(undefined);
     mockSignUp.mockResolvedValue({ needsEmailConfirmation: false });
+    mockDeleteAccount.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -133,5 +136,23 @@ describe('AccountSyncModal feedback', () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(mockShowToast).toHaveBeenCalledWith('toast.signedOut');
+  });
+
+  it('requires two confirmations before deleting the account', async () => {
+    mockUser = { email: 'user@example.com' };
+    renderModal();
+
+    act(() => {
+      tree?.root.findByProps({ accessibilityLabel: 'sync.deleteAccount' }).props.onPress();
+    });
+    act(() => {
+      tree?.root.findByProps({ accessibilityLabel: 'sync.deleteAccountContinue' }).props.onPress();
+    });
+    await act(async () => {
+      await tree?.root.findByProps({ accessibilityLabel: 'sync.deleteAccountFinalAction' }).props.onPress();
+    });
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith('toast.accountDeleted');
   });
 });

@@ -9,6 +9,7 @@ import {
 import { generateGeminiContent } from '../services/ai/geminiProxyClient';
 import {
   cancelAudioRecording,
+  deleteAudioRecording,
   startAudioRecording,
   stopAudioRecording,
   usePlanlyAudioRecorder,
@@ -57,11 +58,13 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
     clearTimer();
     setIsRecording(false);
 
+    let recordingUri: string | null = null;
     try {
       const recordingResult = await stopAudioRecording();
       if (!recordingResult) {
         return;
       }
+      recordingUri = recordingResult.uri;
 
       if (recordingResult.durationMs < MIN_RECORDING_DURATION_MS) {
         const shortMsg = t('ai.voiceTooShort');
@@ -117,6 +120,8 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
       if (isMountedRef.current) {
         setErrorMessage(t('ai.voiceError'));
       }
+    } finally {
+      await deleteAudioRecording(recordingUri);
     }
   }, [clearTimer, onError, onTranscript, t]);
 

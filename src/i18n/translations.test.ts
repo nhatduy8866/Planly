@@ -22,7 +22,7 @@ describe('translations', () => {
   it('includes privacy and sync feedback copy in both languages', () => {
     expect(translate('vi', 'privacy.title')).toBe('Chính sách quyền riêng tư');
     const policyLines = translate('vi', 'privacy.content').split('\n');
-    expect(policyLines).toHaveLength(9);
+    expect(policyLines).toHaveLength(10);
     expect(policyLines[0]).toMatch(/^1\./);
     expect(policyLines[2]).toContain('Supabase');
     expect(policyLines[3]).toContain('Google Gemini');

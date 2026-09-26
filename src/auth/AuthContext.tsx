@@ -20,6 +20,7 @@ export interface SignUpResult {
 
 interface AuthContextValue {
   configured: boolean;
+  deleteAccount: () => Promise<void>;
   hydrated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -84,16 +85,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.functions.invoke('delete-account', {
+      body: { confirm: true },
+    });
+    if (error) throw error;
+
+    const { error: signOutError } = await supabase.auth.signOut({
+      scope: 'local',
+    });
+    if (signOutError) throw signOutError;
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       configured: isSupabaseConfigured,
+      deleteAccount,
       hydrated,
       signIn,
       signOut,
       signUp,
       user,
     }),
-    [hydrated, signIn, signOut, signUp, user],
+    [deleteAccount, hydrated, signIn, signOut, signUp, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

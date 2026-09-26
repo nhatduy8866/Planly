@@ -36,7 +36,7 @@ function withAlarmScheduler(config, props = {}) {
   const alarmKitUsageDescription =
     props.alarmKitUsageDescription ||
     'Allow this app to schedule alarms that can alert you at the selected time.';
-  const addExactAlarmPermission = props.addExactAlarmPermission !== false;
+  const addExactAlarmPermission = props.addExactAlarmPermission === true;
   const addNotificationPermission = props.addNotificationPermission !== false;
   const addUseExactAlarmPermission = props.addUseExactAlarmPermission !== false;
   const iosAlarmSounds = normalizeIosAlarmSounds(props.iosAlarmSounds);

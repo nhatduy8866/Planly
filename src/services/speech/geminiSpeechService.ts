@@ -36,7 +36,7 @@ export async function readAudioAsBase64(uri: string): Promise<string> {
  */
 export async function transcribeAudioWithGemini(
   uri: string,
-  mimeType = 'audio/mp4',
+  mimeType = 'audio/m4a',
   apiKey?: string,
 ): Promise<string> {
   const key = apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;

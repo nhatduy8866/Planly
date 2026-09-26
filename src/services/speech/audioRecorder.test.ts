@@ -5,6 +5,7 @@ import {
   useAudioRecorder,
   type AudioRecorder,
 } from 'expo-audio';
+import { Platform } from 'react-native';
 
 import {
   startAudioRecording,
@@ -42,10 +43,16 @@ function makeRecorder(): AudioRecorder {
 }
 
 describe('audioRecorder', () => {
+  const originalPlatform = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetRecordingPermissions.mockResolvedValue({ granted: true } as never);
     mockSetAudioMode.mockResolvedValue(undefined);
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: originalPlatform,
+    });
   });
 
   it('creates the recorder through the public Expo hook', () => {
@@ -69,5 +76,20 @@ describe('audioRecorder', () => {
       uri: 'file:///recording.m4a',
     });
     expect(mockSetAudioMode).toHaveBeenLastCalledWith({ allowsRecording: false });
+  });
+
+  it('labels Android HIGH_QUALITY recordings as M4A for Gemini', async () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    const recorder = makeRecorder();
+
+    await expect(startAudioRecording(recorder)).resolves.toBe(true);
+
+    await expect(stopAudioRecording()).resolves.toMatchObject({
+      uri: 'file:///recording.m4a',
+      mimeType: 'audio/m4a',
+    });
   });
 });

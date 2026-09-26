@@ -21,6 +21,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { IconButton } from './IconButton';
 import { AppToastViewport, useToast } from './AppToast';
 import { MotionModal } from './animation/MotionModal';
+import { ConfirmModal } from './ConfirmModal';
 
 interface AccountSyncModalProps {
   onClose: () => void;
@@ -37,15 +38,26 @@ export function AccountSyncModal({
 }: AccountSyncModalProps) {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
-  const { configured, hydrated, signIn, signOut, signUp, user } = useAuth();
+  const {
+    configured,
+    deleteAccount,
+    hydrated,
+    signIn,
+    signOut,
+    signUp,
+    user,
+  } = useAuth();
   const { lastSyncedAt, pendingCount, status, syncNow } = useCloudSync();
   const { colors, locale, t } = usePreferences();
   const styles = useThemedStyles(createStyles);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState<'signIn' | 'signUp' | 'signOut' | null>(
+  const [busy, setBusy] = useState<
+    'deleteAccount' | 'signIn' | 'signUp' | 'signOut' | null
+  >(
     null,
   );
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastSyncLabel = useMemo(() => {
@@ -135,14 +147,33 @@ export function AccountSyncModal({
     }
   }
 
+  async function handleDeleteAccount() {
+    if (busy) return;
+    setDeleteConfirmStep(0);
+    setBusy('deleteAccount');
+    setError(null);
+    try {
+      await deleteAccount();
+      setEmail('');
+      setPassword('');
+      showToast(t('toast.accountDeleted'));
+    } catch (deleteError) {
+      setError(t('sync.deleteAccountFailed'));
+      console.warn('Account deletion failed:', errorMessage(deleteError));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
-    <MotionModal
-      onRequestClose={onClose}
-      transparent={Platform.OS === 'web'}
-      visible={visible}
-    >
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
+    <>
+      <MotionModal
+        onRequestClose={onClose}
+        transparent={Platform.OS === 'web'}
+        visible={visible}
+      >
+        <View style={styles.backdrop}>
+          <View style={styles.card}>
           <View
             style={[
               styles.header,
@@ -241,6 +272,29 @@ export function AccountSyncModal({
                 </Pressable>
 
                 <Pressable
+                  accessibilityLabel={t('sync.deleteAccount')}
+                  accessibilityRole="button"
+                  disabled={busy !== null}
+                  onPress={() => setDeleteConfirmStep(1)}
+                  style={({ pressed }) => [
+                    styles.dangerButton,
+                    busy !== null && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <MaterialIcons
+                    color={colors.danger}
+                    name="delete-forever"
+                    size={20}
+                  />
+                  <Text style={styles.dangerButtonText}>
+                    {busy === 'deleteAccount'
+                      ? t('sync.deletingAccount')
+                      : t('sync.deleteAccount')}
+                  </Text>
+                </Pressable>
+
+                <Pressable
                   accessibilityLabel={t('sync.signOut')}
                   accessibilityRole="button"
                   disabled={busy !== null}
@@ -325,10 +379,37 @@ export function AccountSyncModal({
             {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
           </ScrollView>
-          <AppToastViewport bottomOffset={16} />
+            <AppToastViewport bottomOffset={16} />
+          </View>
         </View>
-      </View>
-    </MotionModal>
+      </MotionModal>
+      <ConfirmModal
+        visible={deleteConfirmStep !== 0}
+        title={t(
+          deleteConfirmStep === 2
+            ? 'sync.deleteAccountFinalTitle'
+            : 'sync.deleteAccountTitle',
+        )}
+        message={t(
+          deleteConfirmStep === 2
+            ? 'sync.deleteAccountFinalMessage'
+            : 'sync.deleteAccountMessage',
+        )}
+        confirmText={t(
+          deleteConfirmStep === 2
+            ? 'sync.deleteAccountFinalAction'
+            : 'sync.deleteAccountContinue',
+        )}
+        onCancel={() => setDeleteConfirmStep(0)}
+        onConfirm={() => {
+          if (deleteConfirmStep === 1) {
+            setDeleteConfirmStep(2);
+            return;
+          }
+          void handleDeleteAccount();
+        }}
+      />
+    </>
   );
 }
 
@@ -364,6 +445,19 @@ const createStyles = (colors: ThemeColors) =>
     },
     content: { gap: 12, padding: 18 },
     disabled: { opacity: 0.55 },
+    dangerButton: {
+      alignItems: 'center',
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.danger,
+      borderRadius: 13,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      minHeight: 48,
+      paddingHorizontal: 16,
+    },
+    dangerButtonText: { color: colors.danger, fontSize: 14, fontWeight: '800' },
     error: { color: colors.danger, fontSize: 13, lineHeight: 18, textAlign: 'center' },
     feedback: { color: colors.primaryDark, fontSize: 13, lineHeight: 18, textAlign: 'center' },
     header: {

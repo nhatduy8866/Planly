@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   RecordingPresets,
   getRecordingPermissionsAsync,
@@ -16,6 +17,19 @@ export interface RecordingResult {
 
 let activeRecorder: AudioRecorder | null = null;
 let recordingStartTime = 0;
+
+export async function deleteAudioRecording(uri: string | null | undefined): Promise<void> {
+  if (!uri) return;
+  try {
+    if (Platform.OS === 'web') {
+      URL.revokeObjectURL(uri);
+      return;
+    }
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (error) {
+    console.warn('Lỗi xóa tệp ghi âm tạm thời:', error);
+  }
+}
 
 export function usePlanlyAudioRecorder(): AudioRecorder {
   return useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -64,11 +78,13 @@ export async function startAudioRecording(recorder: AudioRecorder): Promise<bool
 
     // Nếu đang có recorder cũ chưa dừng, dừng và dọn dẹp trước
     if (activeRecorder) {
+      const previousRecorder = activeRecorder;
       try {
-        await activeRecorder.stop();
+        await previousRecorder.stop();
       } catch {
         // bỏ qua lỗi dừng recorder cũ
       }
+      await deleteAudioRecording(previousRecorder.uri);
       activeRecorder = null;
     }
 
@@ -80,6 +96,7 @@ export async function startAudioRecording(recorder: AudioRecorder): Promise<bool
     return true;
   } catch (error) {
     console.warn('Lỗi bắt đầu ghi âm:', error);
+    await deleteAudioRecording(recorder.uri);
     activeRecorder = null;
     await leaveRecordingMode();
     return false;
@@ -116,6 +133,7 @@ export async function stopAudioRecording(): Promise<RecordingResult | null> {
     };
   } catch (error) {
     console.warn('Lỗi dừng ghi âm:', error);
+    await deleteAudioRecording(recorder.uri);
     return null;
   } finally {
     await leaveRecordingMode();
@@ -136,6 +154,7 @@ export async function cancelAudioRecording(): Promise<void> {
   } catch {
     // bỏ qua lỗi
   } finally {
+    await deleteAudioRecording(recorder.uri);
     await leaveRecordingMode();
   }
 }

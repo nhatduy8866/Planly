@@ -42,6 +42,11 @@ export type GeminiProxyMessageKey =
   | 'ai.quotaCheckFailed'
   | 'ai.cloudUnavailable';
 
+export type GeminiOfflineFallbackReason =
+  | 'signed_out'
+  | 'network_unavailable'
+  | 'daily_limit';
+
 export class GeminiProxyError extends Error {
   constructor(
     readonly code: GeminiProxyErrorCode,
@@ -168,6 +173,38 @@ export function shouldSurfaceGeminiProxyError(
     error instanceof GeminiProxyError &&
     (error.serverCode === 'DAILY_LIMIT_REACHED' || error.status === 429)
   );
+}
+
+export function getGeminiOfflineFallbackReason(
+  error: unknown,
+): GeminiOfflineFallbackReason | null {
+  if (!(error instanceof GeminiProxyError)) return null;
+
+  if (
+    error.code === 'GEMINI_SIGN_IN_REQUIRED' ||
+    error.code === 'GEMINI_PROXY_AUTH_FAILED' ||
+    error.serverCode === 'AUTH_REQUIRED' ||
+    error.status === 401
+  ) {
+    return 'signed_out';
+  }
+
+  if (
+    error.serverCode === 'DAILY_LIMIT_REACHED' ||
+    error.status === 429
+  ) {
+    return 'daily_limit';
+  }
+
+  if (
+    error.code === 'GEMINI_PROXY_REQUEST_FAILED' &&
+    ((!error.status && !error.serverCode) ||
+      error.serverCode === 'GEMINI_PROXY_FAILED')
+  ) {
+    return 'network_unavailable';
+  }
+
+  return null;
 }
 
 export function getGeminiProxyMessageKey(

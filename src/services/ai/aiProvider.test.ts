@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 
 import type { Task } from '../../types';
 import type { AiSchedulingContext } from '../../types/ai';
-import { PlanlyAiProvider } from './aiProvider';
+import { AiOfflineFallbackError, PlanlyAiProvider } from './aiProvider';
 import { GeminiProxyError, type GeminiContentGateway } from './geminiProxy';
 import { AiScheduleClarificationError } from './scheduleClarification';
 
@@ -45,14 +45,30 @@ const testGateway: GeminiContentGateway = async (model, request) => {
   return response.json();
 };
 
+function geminiResponse(items: object[]) {
+  return {
+    candidates: [{ content: { parts: [{ text: JSON.stringify(items) }] } }],
+  };
+}
+
 describe('PlanlyAiProvider', () => {
   it.each(['Mua sách', 'Them viec mua sach'])(
     'updates an existing %s at 20:00 without creating a task', async (title) => {
       const task = makeTask({ id: 'book-task', title, date: context.targetDate });
-      const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
+      const gateway = jest.fn<GeminiContentGateway>().mockResolvedValue(
+        geminiResponse([{
+          id: task.id,
+          title,
+          date: context.targetDate,
+          startTime: '20:00',
+          priority: 'medium',
+        }]),
+      );
+      const result = await new PlanlyAiProvider(gateway).parseScheduleRequest(
         'cap nhat viec mua sach vao luc 8h toi',
         { ...context, existingTasks: [task] },
       );
+      expect(gateway).toHaveBeenCalledTimes(1);
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({ id: task.id, title, startTime: '20:00', changeStatus: 'updated' });
     },
@@ -111,33 +127,47 @@ describe('PlanlyAiProvider', () => {
     global.fetch = originalFetch;
   });
 
-  it('uses deterministic local reorder and preserves task IDs even with an API key', async () => {
-    const fetchMock = jest.fn<typeof fetch>();
-    global.fetch = fetchMock;
-    const provider = new PlanlyAiProvider(testGateway);
+  it('uses Gemini for reorder requests and preserves existing task IDs', async () => {
     const task = makeTask({});
+    const gateway = jest.fn<GeminiContentGateway>().mockResolvedValue(
+      geminiResponse([{
+        id: task.id,
+        title: task.title,
+        date: task.date,
+        startTime: task.startTime,
+        priority: task.priority,
+      }]),
+    );
+    const provider = new PlanlyAiProvider(gateway);
 
     const result = await provider.parseScheduleRequest(
       'Sắp xếp lại lịch thứ Tư theo thứ tự ưu tiên',
       { ...context, allTasks: [task] },
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gateway).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(task.id);
     expect(result[0].date).toBe('2026-09-09');
   });
 
-  it('uses the offline parser for a simple, unambiguous request', async () => {
-    const fetchMock = jest.fn<typeof fetch>();
-    global.fetch = fetchMock;
+  it('uses Gemini for a simple, unambiguous request', async () => {
+    const gateway = jest.fn<GeminiContentGateway>().mockResolvedValue(
+      geminiResponse([{
+        id: '',
+        title: 'Họp nhóm',
+        date: '2026-09-08',
+        startTime: '14:00',
+        priority: 'none',
+      }]),
+    );
 
-    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
+    const result = await new PlanlyAiProvider(gateway).parseScheduleRequest(
       'Ngày mai lúc 14h họp nhóm',
       context,
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gateway).toHaveBeenCalledTimes(1);
     expect(result[0]).toMatchObject({
       date: '2026-09-08',
       startTime: '14:00',
@@ -145,25 +175,32 @@ describe('PlanlyAiProvider', () => {
     });
   });
 
-  it('updates an existing task locally instead of asking Gemini to create another one', async () => {
-    const fetchMock = jest.fn<typeof fetch>();
-    global.fetch = fetchMock;
+  it('uses Gemini to update an existing task without creating another one', async () => {
     const footballTask = makeTask({
       id: 'football-task',
       title: 'Lịch đá bóng',
       date: '2026-09-07',
       startTime: '02:00',
     });
+    const gateway = jest.fn<GeminiContentGateway>().mockResolvedValue(
+      geminiResponse([{
+        id: footballTask.id,
+        title: footballTask.title,
+        date: footballTask.date,
+        startTime: '14:00',
+        priority: footballTask.priority,
+      }]),
+    );
 
     const result = await new PlanlyAiProvider(
-      testGateway,
+      gateway,
     ).parseScheduleRequest('Chỉnh lịch đá bóng lại thành 14h', {
       ...context,
       existingTasks: [footballTask],
       allTasks: [footballTask],
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gateway).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('football-task');
     expect(result[0].startTime).toBe('14:00');
@@ -455,23 +492,30 @@ describe('PlanlyAiProvider', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to the offline parser when Gemini 3.5 Flash fails', async () => {
-    const fetchMock = jest
-      .fn<typeof fetch>()
-      .mockRejectedValue(new Error('network unavailable'));
-    global.fetch = fetchMock;
+  it('offers the offline result when the proxy cannot connect', async () => {
+    const gateway = jest.fn<GeminiContentGateway>().mockRejectedValue(
+      new GeminiProxyError(
+        'GEMINI_PROXY_REQUEST_FAILED',
+        'network unavailable',
+      ),
+    );
 
-    const result = await new PlanlyAiProvider(
-      testGateway,
-    ).parseScheduleRequest('Ngày mai họp nhóm lúc 9h', context);
+    const error = await new PlanlyAiProvider(gateway)
+      .parseScheduleRequest('Ngày mai họp nhóm lúc 9h', context)
+      .catch((caught: unknown) => caught);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result).toHaveLength(1);
-    expect(result[0].date).toBe('2026-09-08');
-    expect(result[0].startTime).toBe('09:00');
+    expect(gateway).toHaveBeenCalledTimes(1);
+    expect(error).toBeInstanceOf(AiOfflineFallbackError);
+    expect(error).toMatchObject({
+      reason: 'network_unavailable',
+      drafts: [expect.objectContaining({
+        date: '2026-09-08',
+        startTime: '09:00',
+      })],
+    });
   });
 
-  it('surfaces a missing authenticated session instead of hiding setup errors', async () => {
+  it('offers the offline result when there is no authenticated session', async () => {
     const gateway = jest
       .fn<GeminiContentGateway>()
       .mockRejectedValue(
@@ -487,10 +531,13 @@ describe('PlanlyAiProvider', () => {
         'Ngày mai họp nhóm lúc 9h',
         context,
       ),
-    ).rejects.toMatchObject({ code: 'GEMINI_SIGN_IN_REQUIRED' });
+    ).rejects.toMatchObject({
+      reason: 'signed_out',
+      drafts: [expect.objectContaining({ date: '2026-09-08' })],
+    });
   });
 
-  it('surfaces the daily account limit instead of silently falling back', async () => {
+  it('offers the offline result when the daily account limit is reached', async () => {
     const gateway = jest
       .fn<GeminiContentGateway>()
       .mockRejectedValue(
@@ -508,9 +555,28 @@ describe('PlanlyAiProvider', () => {
         context,
       ),
     ).rejects.toMatchObject({
-      serverCode: 'DAILY_LIMIT_REACHED',
-      status: 429,
+      reason: 'daily_limit',
+      drafts: [expect.objectContaining({ startTime: '09:00' })],
     });
+  });
+
+  it('does not use offline parsing for a Gemini upstream response error', async () => {
+    const upstreamError = new GeminiProxyError(
+      'GEMINI_PROXY_REQUEST_FAILED',
+      'Gemini request failed.',
+      502,
+      'GEMINI_UPSTREAM_ERROR',
+    );
+    const gateway = jest
+      .fn<GeminiContentGateway>()
+      .mockRejectedValue(upstreamError);
+
+    await expect(
+      new PlanlyAiProvider(gateway).parseScheduleRequest(
+        'Ngày mai họp nhóm lúc 9h',
+        context,
+      ),
+    ).rejects.toBe(upstreamError);
   });
 
   it('sanitizes invalid task fields returned by the cloud model', async () => {

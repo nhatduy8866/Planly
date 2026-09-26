@@ -11,7 +11,6 @@ import {
   AiScheduleClarificationError,
   findScheduleClarification,
 } from './scheduleClarification';
-import { analyzeScheduleRequest } from './scheduleRequestAnalysis';
 import {
   validateAiRefinementResult,
   validateAiScheduleResult,
@@ -20,8 +19,9 @@ import {
 import { resolveAiRecurrenceEndDate } from './batchIntent';
 import {
   GEMINI_FLASH_MODEL,
-  shouldSurfaceGeminiProxyError,
+  getGeminiOfflineFallbackReason,
   type GeminiContentGateway,
+  type GeminiOfflineFallbackReason,
   type GeminiModel,
 } from './geminiProxy';
 
@@ -39,6 +39,17 @@ export interface AiSchedulingProvider {
     instruction: string,
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]>;
+}
+
+export class AiOfflineFallbackError extends Error {
+  constructor(
+    readonly reason: GeminiOfflineFallbackReason,
+    readonly drafts: AiDraftTask[],
+    readonly originalError: unknown,
+  ) {
+    super(`Gemini unavailable; use on-device parsing (${reason}).`);
+    this.name = 'AiOfflineFallbackError';
+  }
 }
 const VALID_PRIORITIES: ReadonlySet<AiDraftTask['priority']> = new Set([
   'high',
@@ -165,22 +176,6 @@ function thinkingConfigForModel() {
   return {
     thinkingLevel: 'LOW',
   } as const;
-}
-
-function hasMeaningfulDraftChanges(
-  currentDrafts: AiDraftTask[],
-  nextDrafts: AiDraftTask[],
-): boolean {
-  if (currentDrafts.length !== nextDrafts.length) return true;
-  const currentById = new Map(currentDrafts.map((draft) => [draft.id, draft]));
-  return nextDrafts.some((draft) => {
-    const current = currentById.get(draft.id);
-    return !current ||
-      current.title !== draft.title ||
-      current.date !== draft.date ||
-      current.startTime !== draft.startTime ||
-      current.priority !== draft.priority;
-  });
 }
 
 interface CloudDraftDefaults {
@@ -334,7 +329,8 @@ function normalizeCloudDraft(
 }
 
 /**
- * Triển khai mặc định: Hỗ trợ Offline Heuristic NLP và Gemini Cloud LLM
+ * Triển khai mặc định: ưu tiên Gemini và chỉ dùng NLP trên thiết bị khi
+ * chưa đăng nhập, mất kết nối hoặc hết hạn mức hằng ngày.
  */
 export class PlanlyAiProvider implements AiSchedulingProvider {
   constructor(private readonly requestGeminiContent: GeminiContentGateway) {}
@@ -345,10 +341,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
   ): Promise<AiDraftTask[]> {
     const clarification = findScheduleClarification(prompt);
     if (clarification) throw clarification;
-
-    const localResult = parseVietnameseScheduleText(prompt, context);
-    const analysis = analyzeScheduleRequest(prompt, context, localResult);
-    if (analysis.route === 'offline') return localResult;
 
     const models = GEMINI_SCHEDULE_MODELS;
     try {
@@ -381,13 +373,19 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           return repairedResult;
         }
       }
+      throw new Error('Gemini did not return a valid schedule.');
     } catch (err) {
       if (err instanceof AiScheduleClarificationError) throw err;
-      if (shouldSurfaceGeminiProxyError(err)) throw err;
-      console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
+      const reason = getGeminiOfflineFallbackReason(err);
+      if (reason) {
+        throw new AiOfflineFallbackError(
+          reason,
+          parseVietnameseScheduleText(prompt, context),
+          err,
+        );
+      }
+      throw err;
     }
-
-    return localResult;
   }
 
   async refineSchedule(
@@ -395,17 +393,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     instruction: string,
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]> {
-    const localResult = refineVietnameseSchedule(
-      currentDrafts,
-      instruction,
-      context,
-    );
-    const analysis = analyzeScheduleRequest(instruction, context, localResult);
-    const canUseOffline =
-      analysis.route === 'offline' &&
-      hasMeaningfulDraftChanges(currentDrafts, localResult);
-    if (canUseOffline) return localResult;
-
     try {
       const cloudResult = await this.callGeminiRefineApi(
         currentDrafts,
@@ -444,11 +431,18 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           return repairedResult;
         }
       }
+      throw new Error('Gemini did not return a valid refined schedule.');
     } catch (err) {
-      if (shouldSurfaceGeminiProxyError(err)) throw err;
-      console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
+      const reason = getGeminiOfflineFallbackReason(err);
+      if (reason) {
+        throw new AiOfflineFallbackError(
+          reason,
+          refineVietnameseSchedule(currentDrafts, instruction, context),
+          err,
+        );
+      }
+      throw err;
     }
-    return localResult;
   }
 
   private async callGeminiApi(
@@ -626,8 +620,7 @@ Trả về duy nhất mảng JSON hợp lệ:
           }));
         });
       } catch (error) {
-        if (shouldSurfaceGeminiProxyError(error)) throw error;
-        continue;
+        throw error;
       }
     }
     return null;
@@ -715,8 +708,7 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
           };
         });
       } catch (error) {
-        if (shouldSurfaceGeminiProxyError(error)) throw error;
-        continue;
+        throw error;
       }
     }
     return null;

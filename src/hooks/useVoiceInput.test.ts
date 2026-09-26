@@ -187,8 +187,8 @@ describe('useVoiceInput', () => {
       await hook.stopListening();
     });
 
-    expect(hook.errorMessage).toBe('ai.cloudSignInRequired');
-    expect(onErrorMock).toHaveBeenCalledWith('ai.cloudSignInRequired');
+    expect(hook.errorMessage).toBe('ai.voiceSignInRequired');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceSignInRequired');
   });
 
   it('explains when voice transcription reaches the daily AI limit', async () => {
@@ -212,8 +212,31 @@ describe('useVoiceInput', () => {
       await hook.stopListening();
     });
 
-    expect(hook.errorMessage).toBe('ai.dailyLimitReached');
-    expect(onErrorMock).toHaveBeenCalledWith('ai.dailyLimitReached');
+    expect(hook.errorMessage).toBe('ai.voiceDailyLimit');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceDailyLimit');
+  });
+
+  it('suggests typing when voice recognition cannot connect', async () => {
+    mockStartAudioRecording.mockResolvedValueOnce(true);
+    mockStopAudioRecording.mockResolvedValueOnce({
+      uri: 'file:///sample.m4a',
+      durationMs: 2500,
+      mimeType: 'audio/mp4',
+    });
+    mockTranscribeAudioWithGemini.mockRejectedValueOnce(
+      new GeminiProxyError(
+        'GEMINI_PROXY_REQUEST_FAILED',
+        'Network unavailable.',
+      ),
+    );
+
+    await act(async () => {
+      await hook.startListening();
+      await hook.stopListening();
+    });
+
+    expect(hook.errorMessage).toBe('ai.voiceNoConnection');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceNoConnection');
   });
 
   it('cancels recording cleanly', async () => {

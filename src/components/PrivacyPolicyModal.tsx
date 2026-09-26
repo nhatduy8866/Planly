@@ -15,7 +15,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { MotionModal } from './animation/MotionModal';
 import { IconButton } from './IconButton';
 
-export const CURRENT_PRIVACY_POLICY_VERSION = 1;
+export const CURRENT_PRIVACY_POLICY_VERSION = 2;
 
 interface PrivacyPolicyModalProps {
   onAccept?: () => void;

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import type { Task } from '../../types';
 import type { AiSchedulingContext } from '../../types/ai';
 import { PlanlyAiProvider } from './aiProvider';
+import { GeminiProxyError, type GeminiContentGateway } from './geminiProxy';
 import { AiScheduleClarificationError } from './scheduleClarification';
 
 const context: AiSchedulingContext = {
@@ -29,11 +30,26 @@ function makeTask(overrides: Partial<Task>): Task {
   };
 }
 
+const testGateway: GeminiContentGateway = async (model, request) => {
+  const response = await fetch(
+    `https://gemini.test/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Gemini test gateway failed with HTTP ${response.status}.`);
+  }
+  return response.json();
+};
+
 describe('PlanlyAiProvider', () => {
   it.each(['Mua sách', 'Them viec mua sach'])(
     'updates an existing %s at 20:00 without creating a task', async (title) => {
       const task = makeTask({ id: 'book-task', title, date: context.targetDate });
-      const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+      const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
         'cap nhat viec mua sach vao luc 8h toi',
         { ...context, existingTasks: [task] },
       );
@@ -51,7 +67,7 @@ describe('PlanlyAiProvider', () => {
     } as Response);
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'cap nhat viec mua sach vao luc 8h toi', context,
     );
 
@@ -70,7 +86,7 @@ describe('PlanlyAiProvider', () => {
       .mockResolvedValueOnce(response([{ ...first, title: 'Tap the duc va 14h hoc tieng anh' }]))
       .mockResolvedValueOnce(response([first, second]));
     global.fetch = fetchMock;
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'tao lich 8h sang tap the duc va 14h hoc tieng anh', context,
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -98,7 +114,7 @@ describe('PlanlyAiProvider', () => {
   it('uses deterministic local reorder and preserves task IDs even with an API key', async () => {
     const fetchMock = jest.fn<typeof fetch>();
     global.fetch = fetchMock;
-    const provider = new PlanlyAiProvider('test-key');
+    const provider = new PlanlyAiProvider(testGateway);
     const task = makeTask({});
 
     const result = await provider.parseScheduleRequest(
@@ -116,7 +132,7 @@ describe('PlanlyAiProvider', () => {
     const fetchMock = jest.fn<typeof fetch>();
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'Ngày mai lúc 14h họp nhóm',
       context,
     );
@@ -140,7 +156,7 @@ describe('PlanlyAiProvider', () => {
     });
 
     const result = await new PlanlyAiProvider(
-      'test-key',
+      testGateway,
     ).parseScheduleRequest('Chỉnh lịch đá bóng lại thành 14h', {
       ...context,
       existingTasks: [footballTask],
@@ -180,7 +196,7 @@ describe('PlanlyAiProvider', () => {
     global.fetch = fetchMock;
 
     const result = await new PlanlyAiProvider(
-      'test-key',
+      testGateway,
     ).parseScheduleRequest('Ngày mai họp khách hàng lúc 9h', context);
 
     expect(result[0].date).toBe('2026-09-08');
@@ -213,7 +229,7 @@ describe('PlanlyAiProvider', () => {
     } as Response);
     global.fetch = fetchMock;
 
-    await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'Họp nhóm lúc 9h',
       context,
     );
@@ -269,7 +285,7 @@ describe('PlanlyAiProvider', () => {
       .mockResolvedValueOnce(response('Đọc sách'));
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'Lên lịch một việc',
       context,
     );
@@ -314,7 +330,7 @@ describe('PlanlyAiProvider', () => {
     } as Response);
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'MOI SANG THU 2 VA THU 5 HANG THANG VAO LUC 5H SE HOC YOGA den ngay 17/09/2026',
       context,
     );
@@ -361,7 +377,7 @@ describe('PlanlyAiProvider', () => {
     } as Response);
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'cứ cách nhật lúc 7h tưới cây',
       context,
     );
@@ -412,7 +428,7 @@ describe('PlanlyAiProvider', () => {
       }));
     global.fetch = fetchMock;
 
-    const result = await new PlanlyAiProvider('test-key').parseScheduleRequest(
+    const result = await new PlanlyAiProvider(testGateway).parseScheduleRequest(
       'mỗi sáng đi bộ lúc 6h đến ngày 09/09/2026',
       context,
     );
@@ -431,7 +447,7 @@ describe('PlanlyAiProvider', () => {
     global.fetch = fetchMock;
 
     await expect(
-      new PlanlyAiProvider('test-key').parseScheduleRequest(
+      new PlanlyAiProvider(testGateway).parseScheduleRequest(
         'tao lich 2h toi da bong',
         context,
       ),
@@ -446,13 +462,55 @@ describe('PlanlyAiProvider', () => {
     global.fetch = fetchMock;
 
     const result = await new PlanlyAiProvider(
-      'test-key',
+      testGateway,
     ).parseScheduleRequest('Ngày mai họp nhóm lúc 9h', context);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
     expect(result[0].date).toBe('2026-09-08');
     expect(result[0].startTime).toBe('09:00');
+  });
+
+  it('surfaces a missing authenticated session instead of hiding setup errors', async () => {
+    const gateway = jest
+      .fn<GeminiContentGateway>()
+      .mockRejectedValue(
+        new GeminiProxyError(
+          'GEMINI_SIGN_IN_REQUIRED',
+          'Sign in to use Gemini features.',
+          401,
+        ),
+      );
+
+    await expect(
+      new PlanlyAiProvider(gateway).parseScheduleRequest(
+        'Ngày mai họp nhóm lúc 9h',
+        context,
+      ),
+    ).rejects.toMatchObject({ code: 'GEMINI_SIGN_IN_REQUIRED' });
+  });
+
+  it('surfaces the daily account limit instead of silently falling back', async () => {
+    const gateway = jest
+      .fn<GeminiContentGateway>()
+      .mockRejectedValue(
+        new GeminiProxyError(
+          'GEMINI_PROXY_REQUEST_FAILED',
+          'Daily limit reached.',
+          429,
+          'DAILY_LIMIT_REACHED',
+        ),
+      );
+
+    await expect(
+      new PlanlyAiProvider(gateway).parseScheduleRequest(
+        'Ngày mai họp nhóm lúc 9h',
+        context,
+      ),
+    ).rejects.toMatchObject({
+      serverCode: 'DAILY_LIMIT_REACHED',
+      status: 429,
+    });
   });
 
   it('sanitizes invalid task fields returned by the cloud model', async () => {
@@ -485,7 +543,7 @@ describe('PlanlyAiProvider', () => {
     global.fetch = fetchMock;
 
     const result = await new PlanlyAiProvider(
-      'test-key',
+      testGateway,
     ).parseScheduleRequest('Lên lịch một việc', context);
 
     expect(result[0]).toMatchObject({
@@ -532,7 +590,7 @@ describe('PlanlyAiProvider', () => {
       source: 'direct_request' as const,
     };
 
-    const result = await new PlanlyAiProvider('test-key').refineSchedule(
+    const result = await new PlanlyAiProvider(testGateway).refineSchedule(
       [currentDraft],
       'Đổi giờ',
       context,

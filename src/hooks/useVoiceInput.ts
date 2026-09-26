@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
+  GeminiProxyError,
+  getGeminiProxyMessageKey,
+} from '../services/ai/geminiProxy';
+import { generateGeminiContent } from '../services/ai/geminiProxyClient';
+import {
   cancelAudioRecording,
   startAudioRecording,
   stopAudioRecording,
@@ -75,6 +80,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
         const transcript = await transcribeAudioWithGemini(
           recordingResult.uri,
           recordingResult.mimeType,
+          generateGeminiContent,
         );
 
         if (isMountedRef.current && transcript) {
@@ -82,7 +88,9 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
         }
       } catch (err) {
         console.warn('Lỗi nhận diện giọng nói qua Gemini:', err);
-        const errorMsg = t('ai.voiceError');
+        const errorMsg = err instanceof GeminiProxyError
+          ? t(getGeminiProxyMessageKey(err))
+          : t('ai.voiceError');
         if (isMountedRef.current) {
           setErrorMessage(errorMsg);
         }

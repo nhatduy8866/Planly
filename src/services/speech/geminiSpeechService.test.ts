@@ -7,6 +7,7 @@ import {
   jest,
 } from '@jest/globals';
 import * as FileSystem from 'expo-file-system/legacy';
+import type { GeminiContentGateway } from '../ai/geminiProxy';
 import { transcribeAudioWithGemini } from './geminiSpeechService';
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -15,6 +16,21 @@ jest.mock('expo-file-system/legacy', () => ({
     Base64: 'base64',
   },
 }));
+
+const testGateway: GeminiContentGateway = async (model, request) => {
+  const response = await fetch(
+    `https://gemini.test/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Gemini test gateway failed with HTTP ${response.status}.`);
+  }
+  return response.json();
+};
 
 describe('geminiSpeechService', () => {
   const originalFetch = global.fetch;
@@ -30,22 +46,26 @@ describe('geminiSpeechService', () => {
     global.fetch = originalFetch;
   });
 
-  it('throws MISSING_GEMINI_API_KEY when no key is provided and env is empty', async () => {
-    const originalKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    delete process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  it('surfaces an authenticated proxy failure', async () => {
+    mockReadAsStringAsync.mockResolvedValueOnce('BASE64_AUDIO_CONTENT');
+    const failingGateway = jest
+      .fn<GeminiContentGateway>()
+      .mockRejectedValue(new Error('GEMINI_SIGN_IN_REQUIRED'));
 
     await expect(
-      transcribeAudioWithGemini('file:///test.m4a', 'audio/m4a', ''),
-    ).rejects.toThrow('MISSING_GEMINI_API_KEY');
-
-    process.env.EXPO_PUBLIC_GEMINI_API_KEY = originalKey;
+      transcribeAudioWithGemini(
+        'file:///test.m4a',
+        'audio/m4a',
+        failingGateway,
+      ),
+    ).rejects.toThrow('GEMINI_SIGN_IN_REQUIRED');
   });
 
   it('throws EMPTY_AUDIO_DATA when audio file base64 is empty', async () => {
     mockReadAsStringAsync.mockResolvedValueOnce('');
 
     await expect(
-      transcribeAudioWithGemini('file:///empty.m4a', 'audio/m4a', 'test-key'),
+      transcribeAudioWithGemini('file:///empty.m4a', 'audio/m4a', testGateway),
     ).rejects.toThrow('EMPTY_AUDIO_DATA');
   });
 
@@ -71,8 +91,8 @@ describe('geminiSpeechService', () => {
 
     const result = await transcribeAudioWithGemini(
       'file:///test.m4a',
-      undefined,
-      'test-key',
+      'audio/m4a',
+      testGateway,
     );
 
     expect(mockReadAsStringAsync).toHaveBeenCalledWith('file:///test.m4a', {
@@ -82,7 +102,7 @@ describe('geminiSpeechService', () => {
 
     const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
     expect(callArgs[0]).toContain('gemini-3.5-flash');
-    expect(callArgs[0]).toContain('key=test-key');
+    expect(callArgs[0]).not.toContain('key=');
 
     const body = JSON.parse(callArgs[1].body);
     expect(body.contents[0].parts[1].inlineData).toEqual({
@@ -110,9 +130,9 @@ describe('geminiSpeechService', () => {
       transcribeAudioWithGemini(
         'file:///test.m4a',
         'audio/m4a',
-        'test-key',
+        testGateway,
       ),
-    ).rejects.toThrow('Gemini STT API error 503');
+    ).rejects.toThrow('Gemini test gateway failed with HTTP 503');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

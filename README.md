@@ -68,15 +68,7 @@ npm start
 
 ### Cấu hình biến môi trường
 
-Tạo `.env` từ `.env.example`. Các tích hợp dưới đây đều là tùy chọn; Planly vẫn chạy local-first khi chưa cấu hình.
-
-Để bật Gemini cho lập lịch nâng cao và chuyển giọng nói thành văn bản, điền:
-
-```bash
-EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-Nếu không có key, nhập lịch bằng văn bản vẫn dùng bộ phân tích NLP offline; nhập bằng giọng nói cần Gemini.
+Tạo `.env` từ `.env.example`. Planly vẫn chạy local-first khi chưa cấu hình Supabase.
 
 Để bật sao lưu và đồng bộ qua Supabase:
 
@@ -90,6 +82,29 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 ```
 
 4. Khởi động lại Metro, mở **Cài đặt → Sao lưu và đồng bộ**, sau đó tạo tài khoản hoặc đăng nhập.
+
+### Cấu hình Gemini an toàn
+
+Planly không đóng gói Gemini API key trong ứng dụng. Các yêu cầu Gemini đi qua
+Supabase Edge Function `gemini-proxy` và chỉ chấp nhận người dùng Supabase đã
+đăng nhập.
+
+1. Tạo Gemini API key trong Google AI Studio.
+2. Lưu `GEMINI_API_KEY` trong **Supabase Dashboard → Edge Functions → Secrets**.
+   Không thêm key này vào `.env` của ứng dụng hoặc source control.
+3. Liên kết Supabase CLI với project rồi deploy function:
+
+```bash
+npx supabase link --project-ref your_project_ref
+npx supabase db push --linked
+npx supabase functions deploy gemini-proxy --use-api
+```
+
+Các yêu cầu văn bản đơn giản vẫn dùng NLP offline. Lập lịch nâng cao và chuyển
+giọng nói thành văn bản cần Supabase được cấu hình, Edge Function đã deploy và
+người dùng đã đăng nhập. Mỗi tài khoản có tối đa 50 lượt gọi AI cloud mỗi ngày;
+lập lịch nâng cao và chuyển giọng nói cùng sử dụng hạn mức này. Các yêu cầu được
+xử lý hoàn toàn offline không tính vào hạn mức.
 
 Chỉ dữ liệu công việc được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
 

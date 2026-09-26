@@ -18,6 +18,12 @@ import {
   type AiScheduleValidationIssue,
 } from './scheduleResultValidator';
 import { resolveAiRecurrenceEndDate } from './batchIntent';
+import {
+  GEMINI_FLASH_MODEL,
+  shouldSurfaceGeminiProxyError,
+  type GeminiContentGateway,
+  type GeminiModel,
+} from './geminiProxy';
 
 /**
  * Giao diện nhà cung cấp dịch vụ AI (Interface Segregation Principle)
@@ -34,7 +40,6 @@ export interface AiSchedulingProvider {
     context: AiSchedulingContext,
   ): Promise<AiDraftTask[]>;
 }
-
 const VALID_PRIORITIES: ReadonlySet<AiDraftTask['priority']> = new Set([
   'high',
   'medium',
@@ -152,9 +157,7 @@ interface RepairRequest {
   previousDrafts: AiDraftTask[];
 }
 
-const GEMINI_FLASH_MODEL = 'gemini-3.5-flash' as const;
-type GeminiScheduleModel = typeof GEMINI_FLASH_MODEL;
-const GEMINI_SCHEDULE_MODELS: readonly GeminiScheduleModel[] = [
+const GEMINI_SCHEDULE_MODELS: readonly GeminiModel[] = [
   GEMINI_FLASH_MODEL,
 ];
 
@@ -334,15 +337,7 @@ function normalizeCloudDraft(
  * Triển khai mặc định: Hỗ trợ Offline Heuristic NLP và Gemini Cloud LLM
  */
 export class PlanlyAiProvider implements AiSchedulingProvider {
-  private apiKey: string | undefined;
-
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey;
-  }
-
-  private getApiKey(): string | undefined {
-    return this.apiKey || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  }
+  constructor(private readonly requestGeminiContent: GeminiContentGateway) {}
 
   async parseScheduleRequest(
     prompt: string,
@@ -353,15 +348,13 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
 
     const localResult = parseVietnameseScheduleText(prompt, context);
     const analysis = analyzeScheduleRequest(prompt, context, localResult);
-    const key = this.getApiKey();
-    if (analysis.route === 'offline' || !key) return localResult;
+    if (analysis.route === 'offline') return localResult;
 
     const models = GEMINI_SCHEDULE_MODELS;
     try {
       const cloudResult = await this.callGeminiApi(
         prompt,
         context,
-        key,
         models,
       );
       if (cloudResult) {
@@ -375,7 +368,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
         const repairedResult = await this.callGeminiApi(
           prompt,
           context,
-          key,
           GEMINI_SCHEDULE_MODELS,
           {
             issues: validation.issues,
@@ -391,6 +383,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
       }
     } catch (err) {
       if (err instanceof AiScheduleClarificationError) throw err;
+      if (shouldSurfaceGeminiProxyError(err)) throw err;
       console.warn('Lỗi gọi Gemini Cloud API, chuyển sang Offline NLP:', err);
     }
 
@@ -411,15 +404,13 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
     const canUseOffline =
       analysis.route === 'offline' &&
       hasMeaningfulDraftChanges(currentDrafts, localResult);
-    const key = this.getApiKey();
-    if (canUseOffline || !key) return localResult;
+    if (canUseOffline) return localResult;
 
     try {
       const cloudResult = await this.callGeminiRefineApi(
         currentDrafts,
         instruction,
         context,
-        key,
         GEMINI_SCHEDULE_MODELS,
       );
       if (cloudResult) {
@@ -435,7 +426,6 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
           currentDrafts,
           instruction,
           context,
-          key,
           GEMINI_SCHEDULE_MODELS,
           {
             issues: validation.issues,
@@ -455,6 +445,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
         }
       }
     } catch (err) {
+      if (shouldSurfaceGeminiProxyError(err)) throw err;
       console.warn('Lỗi gọi Gemini Refine API, chuyển sang Offline NLP:', err);
     }
     return localResult;
@@ -463,8 +454,7 @@ export class PlanlyAiProvider implements AiSchedulingProvider {
   private async callGeminiApi(
     prompt: string,
     context: AiSchedulingContext,
-    apiKey: string,
-    models: readonly GeminiScheduleModel[],
+    models: readonly GeminiModel[],
     repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
     const realToday = context.realToday || context.targetDate;
@@ -548,7 +538,6 @@ Trả về duy nhất mảng JSON hợp lệ:
 
     for (const model of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const payload = {
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
           generationConfig: {
@@ -557,18 +546,11 @@ Trả về duy nhất mảng JSON hợp lệ:
             thinkingConfig: thinkingConfigForModel(),
           },
         };
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          console.warn(`Gemini scheduling request failed (${model}, HTTP ${res.status}).`);
-          continue;
-        }
-        const data = await res.json();
+        const data = await this.requestGeminiContent(model, payload) as {
+          candidates?: {
+            content?: { parts?: { text?: string }[] };
+          }[];
+        };
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) continue;
 
@@ -643,7 +625,8 @@ Trả về duy nhất mảng JSON hợp lệ:
             batchGroupId,
           }));
         });
-      } catch {
+      } catch (error) {
+        if (shouldSurfaceGeminiProxyError(error)) throw error;
         continue;
       }
     }
@@ -654,8 +637,7 @@ Trả về duy nhất mảng JSON hợp lệ:
     currentDrafts: AiDraftTask[],
     instruction: string,
     context: AiSchedulingContext,
-    apiKey: string,
-    models: readonly GeminiScheduleModel[],
+    models: readonly GeminiModel[],
     repair?: RepairRequest,
   ): Promise<AiDraftTask[] | null> {
     const repairInstruction = repair
@@ -672,7 +654,6 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
 
     for (const model of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const payload = {
           contents: [{ role: 'user', parts: [{ text: promptText }] }],
           generationConfig: {
@@ -681,18 +662,11 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
             thinkingConfig: thinkingConfigForModel(),
           },
         };
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          console.warn(`Gemini refinement request failed (${model}, HTTP ${res.status}).`);
-          continue;
-        }
-        const data = await res.json();
+        const data = await this.requestGeminiContent(model, payload) as {
+          candidates?: {
+            content?: { parts?: { text?: string }[] };
+          }[];
+        };
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) continue;
 
@@ -740,15 +714,11 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
             id: normalizedId,
           };
         });
-      } catch {
+      } catch (error) {
+        if (shouldSurfaceGeminiProxyError(error)) throw error;
         continue;
       }
     }
     return null;
   }
 }
-
-/**
- * Singleton instance của AI Provider để toàn app sử dụng
- */
-export const defaultAiProvider: AiSchedulingProvider = new PlanlyAiProvider();

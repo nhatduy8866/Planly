@@ -44,6 +44,8 @@ describe('withReleaseSecurity', () => {
     expect(result).toContain("host?.endsWith('.example')");
     expect(result).toContain("value.startsWith('your_')");
     expect(result).toContain('def planlyValidEmail');
+    expect(result).toContain("parts[1].split('[.]', -1)");
+    expect(result).toContain("localPart ==~ '^[A-Za-z0-9._+-]+$'");
     expect(result.match(/signingConfig signingConfigs\.debug/g)).toHaveLength(1);
   });
 

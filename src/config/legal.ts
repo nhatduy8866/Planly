@@ -45,7 +45,7 @@ function readEmail(value: string | undefined): string | null {
     localPart.startsWith('.') ||
     localPart.endsWith('.') ||
     localPart.includes('..') ||
-    !/^[A-Za-z0-9.!#$%&'*+/=?^_{}|~-]+$/.test(localPart)
+    !/^[A-Za-z0-9._+-]+$/.test(localPart)
   ) return null;
   const labels = domain.split('.');
   if (

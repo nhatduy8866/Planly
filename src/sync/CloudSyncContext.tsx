@@ -12,18 +12,20 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../auth/AuthContext';
+import { usePreferences } from '../preferences/PreferencesContext';
 import {
   usePlannerDispatch,
   usePlannerHydrated,
+  usePersistPlannerTasks,
   usePlannerTasks,
 } from '../store/PlannerContext';
+import { SYNC_CACHE_OWNER_STORAGE_KEY } from '../storage/keys';
 import {
   fetchCloudPlannerSnapshot,
   pushCloudPlannerMutations,
 } from '../services/sync/cloudPlanner';
 import { diffPlannerData, mergePlannerSnapshots } from '../services/sync/merge';
 import {
-  clearSyncOutbox,
   enqueueSyncMutations,
   readSyncOutbox,
   removeProcessedSyncMutations,
@@ -31,7 +33,10 @@ import {
 import { supabase } from '../services/supabase';
 import type { Task } from '../types';
 import { haveSameTaskLists } from '../utils/taskEquality';
-import { cancelTaskReminder } from '../services/notifications';
+import {
+  clearLocalPlanlyData,
+  type LocalDataCleanupMode,
+} from '../services/localDataCleanup';
 
 export type CloudSyncStatus =
   | 'disabled'
@@ -44,6 +49,7 @@ export type CloudSyncStatus =
 interface CloudSyncContextValue {
   lastSyncedAt: string | null;
   pendingCount: number;
+  ready: boolean;
   status: CloudSyncStatus;
   syncNow: () => Promise<CloudSyncStatus | undefined>;
 }
@@ -54,17 +60,23 @@ interface PlannerSnapshot {
 }
 
 const RETRY_DELAY_MS = 15_000;
-const CACHE_OWNER_STORAGE_KEY = '@planly/sync/cache-owner/v1';
 
 const CloudSyncContext = createContext<CloudSyncContextValue | undefined>(
   undefined,
 );
 
 export function CloudSyncProvider({ children }: { children: ReactNode }) {
-  const { configured, hydrated: authHydrated, user } = useAuth();
+  const {
+    configured,
+    hydrated: authHydrated,
+    registerLocalDataCleanup,
+    user,
+  } = useAuth();
+  const { language, resetPreferences, theme } = usePreferences();
   const hydrated = usePlannerHydrated();
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
+  const persistTasksNow = usePersistPlannerTasks();
   const [status, setStatus] = useState<CloudSyncStatus>(
     configured ? 'signedOut' : 'disabled',
   );
@@ -86,6 +98,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     undefined,
   );
   const mountedRef = useRef(true);
+  const ownerTransitionQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const ownerTransitionGenerationRef = useRef(0);
   const syncNowRef = useRef<() => Promise<CloudSyncStatus | undefined>>(
     async () => undefined,
   );
@@ -101,6 +115,35 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     clearTimeout(retryTimerRef.current);
     retryTimerRef.current = undefined;
   }, []);
+
+  const enqueueOwnerTransition = useCallback(<T,>(work: () => Promise<T>) => {
+    const result = ownerTransitionQueueRef.current
+      .catch(() => undefined)
+      .then(work);
+    ownerTransitionQueueRef.current = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }, []);
+
+  const clearLocalData = useCallback(async (mode: LocalDataCleanupMode) => {
+    await clearLocalPlanlyData({
+      language,
+      mode,
+      persistTasks: async (nextTasks) => {
+        await persistTasksNow(nextTasks);
+        applyingCloudDataRef.current = true;
+        dispatch({
+          type: 'replace_from_sync',
+          payload: { tasks: nextTasks },
+        });
+      },
+      resetPreferences,
+      tasks: latestTasksRef.current,
+      theme,
+    });
+  }, [dispatch, language, persistTasksNow, resetPreferences, theme]);
 
   const performSync = useCallback(async () => {
     const userId = latestUserIdRef.current;
@@ -119,7 +162,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         fetchCloudPlannerSnapshot(supabase, userId),
         readSyncOutbox(userId),
       ]);
-      if (latestUserIdRef.current !== userId) return;
+      if (
+        latestUserIdRef.current !== userId ||
+        preparedOwnerIdRef.current !== userId
+      ) return;
 
       const currentTasks = latestTasksRef.current;
       const merged = mergePlannerSnapshots(
@@ -141,7 +187,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
         userId,
         merged.mutationsToPush,
       );
-      if (latestUserIdRef.current !== userId) return;
+      if (
+        latestUserIdRef.current !== userId ||
+        preparedOwnerIdRef.current !== userId
+      ) return;
 
       const remaining = await removeProcessedSyncMutations(
         merged.consumedMutations,
@@ -149,7 +198,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       const remainingForUser = remaining.filter(
         (mutation) => mutation.ownerId === userId,
       );
-      if (!mountedRef.current) return;
+      if (
+        !mountedRef.current ||
+        latestUserIdRef.current !== userId ||
+        preparedOwnerIdRef.current !== userId
+      ) return;
       setPendingCount(remainingForUser.length);
       setLastSyncedAt(new Date().toISOString());
       const nextStatus = remainingForUser.length > 0 ? 'pending' : 'synced';
@@ -157,11 +210,19 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
       if (remainingForUser.length > 0) rerunRequestedRef.current = true;
       return nextStatus;
     } catch {
-      if (!mountedRef.current || latestUserIdRef.current !== userId) {
+      if (
+        !mountedRef.current ||
+        latestUserIdRef.current !== userId ||
+        preparedOwnerIdRef.current !== userId
+      ) {
         return undefined;
       }
       const queued = await readSyncOutbox(userId);
-      if (!mountedRef.current) return undefined;
+      if (
+        !mountedRef.current ||
+        latestUserIdRef.current !== userId ||
+        preparedOwnerIdRef.current !== userId
+      ) return undefined;
       setPendingCount(queued.length);
       setStatus('error');
       retryTimerRef.current = setTimeout(() => {
@@ -209,6 +270,31 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     };
   }, [clearRetry]);
 
+  useEffect(() => registerLocalDataCleanup(async (mode) => {
+    const generation = ownerTransitionGenerationRef.current + 1;
+    const cleanupOwnerId = latestUserIdRef.current;
+    ownerTransitionGenerationRef.current = generation;
+    preparedOwnerIdRef.current = undefined;
+    setPreparedOwnerId(undefined);
+    clearRetry();
+    await enqueueOwnerTransition(() => clearLocalData(mode));
+    if (
+      !mountedRef.current ||
+      ownerTransitionGenerationRef.current !== generation ||
+      latestUserIdRef.current !== cleanupOwnerId
+    ) return;
+    setLastSyncedAt(null);
+    setPendingCount(0);
+    preparedOwnerIdRef.current = null;
+    setPreparedOwnerId(null);
+    setStatus('signedOut');
+  }), [
+    clearLocalData,
+    clearRetry,
+    enqueueOwnerTransition,
+    registerLocalDataCleanup,
+  ]);
+
   useEffect(() => {
     if (!hydrated) return;
     const ownerId = user?.id ?? null;
@@ -251,68 +337,90 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     if (!configured) return;
 
     const userId = user?.id ?? null;
+    const generation = ownerTransitionGenerationRef.current + 1;
+    ownerTransitionGenerationRef.current = generation;
     let active = true;
-    void AsyncStorage.getItem(CACHE_OWNER_STORAGE_KEY).then(
-      async (cachedOwnerId) => {
-        if (!active || latestUserIdRef.current !== userId) return;
+    preparedOwnerIdRef.current = undefined;
+    setPreparedOwnerId(undefined);
+    void enqueueOwnerTransition(async () => {
+      const cachedOwnerId = await AsyncStorage.getItem(
+        SYNC_CACHE_OWNER_STORAGE_KEY,
+      );
+      if (
+        !active ||
+        ownerTransitionGenerationRef.current !== generation ||
+        latestUserIdRef.current !== userId
+      ) return;
 
-        if (!userId) {
-          if (cachedOwnerId) {
-            const localTasks = latestTasksRef.current;
-            await Promise.all(
-              localTasks.map(async (task) => {
-                try {
-                  await cancelTaskReminder(task.notificationId);
-                } catch {
-                  // The reminder may already have fired or been removed.
-                }
-              }),
-            );
-            applyingCloudDataRef.current = true;
-            dispatch({
-              type: 'replace_from_sync',
-              payload: { tasks: [] },
-            });
-            await Promise.all([
-              AsyncStorage.removeItem(CACHE_OWNER_STORAGE_KEY),
-              clearSyncOutbox(),
-            ]);
-          }
-          if (active) {
-            clearRetry();
-            setLastSyncedAt(null);
-            setPendingCount(0);
-            setPreparedOwnerId(null);
-            setStatus('signedOut');
-          }
-          return;
+      if (!userId) {
+        if (cachedOwnerId) {
+          await clearLocalData('signOut');
         }
+        if (
+          !active ||
+          ownerTransitionGenerationRef.current !== generation ||
+          latestUserIdRef.current !== null
+        ) return;
+        clearRetry();
+        setLastSyncedAt(null);
+        setPendingCount(0);
+        preparedOwnerIdRef.current = null;
+        setPreparedOwnerId(null);
+        setStatus('signedOut');
+        return;
+      }
 
-        if (cachedOwnerId && cachedOwnerId !== userId) {
-          applyingCloudDataRef.current = true;
-          dispatch({
-            type: 'replace_from_sync',
-            payload: { tasks: [] },
-          });
-        }
-        await AsyncStorage.setItem(CACHE_OWNER_STORAGE_KEY, userId);
-        if (active && latestUserIdRef.current === userId) {
-          setPreparedOwnerId(userId);
-        }
-      },
-    );
+      if (cachedOwnerId && cachedOwnerId !== userId) {
+        await clearLocalData('signOut');
+      }
+      if (
+        !active ||
+        ownerTransitionGenerationRef.current !== generation ||
+        latestUserIdRef.current !== userId
+      ) return;
+
+      await AsyncStorage.setItem(SYNC_CACHE_OWNER_STORAGE_KEY, userId);
+      if (
+        active &&
+        ownerTransitionGenerationRef.current === generation &&
+        latestUserIdRef.current === userId
+      ) {
+        preparedOwnerIdRef.current = userId;
+        setPreparedOwnerId(userId);
+      }
+    }).catch(() => {
+      if (
+        active &&
+        ownerTransitionGenerationRef.current === generation &&
+        latestUserIdRef.current === userId
+      ) {
+        setStatus('error');
+      }
+    });
 
     return () => {
       active = false;
     };
-  }, [authHydrated, clearRetry, configured, dispatch, hydrated, user?.id]);
+  }, [
+    authHydrated,
+    clearLocalData,
+    clearRetry,
+    configured,
+    enqueueOwnerTransition,
+    hydrated,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (!configured || !authHydrated || !hydrated || !user) return;
     if (preparedOwnerId !== user.id) return;
 
     void readSyncOutbox(user.id).then((queued) => {
-      if (mountedRef.current) setPendingCount(queued.length);
+      if (
+        mountedRef.current &&
+        latestUserIdRef.current === user.id &&
+        preparedOwnerIdRef.current === user.id
+      ) setPendingCount(queued.length);
     });
     void syncNow();
   }, [authHydrated, configured, hydrated, preparedOwnerId, syncNow, user]);
@@ -324,9 +432,14 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, []);
 
+  const ready = !configured || (
+    authHydrated &&
+    hydrated &&
+    preparedOwnerId === (user?.id ?? null)
+  );
   const value = useMemo<CloudSyncContextValue>(
-    () => ({ lastSyncedAt, pendingCount, status, syncNow }),
-    [lastSyncedAt, pendingCount, status, syncNow],
+    () => ({ lastSyncedAt, pendingCount, ready, status, syncNow }),
+    [lastSyncedAt, pendingCount, ready, status, syncNow],
   );
 
   return (

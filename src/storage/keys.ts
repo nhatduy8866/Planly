@@ -1,5 +1,6 @@
 export const LEGACY_PLANNER_STORAGE_KEY = '@planly/planner/v1';
 export const TASKS_STORAGE_KEY = '@planly/tasks/v1';
 export const PREFERENCES_STORAGE_KEY = '@planly/preferences/v1';
+export const SYNC_CACHE_OWNER_STORAGE_KEY = '@planly/sync/cache-owner/v1';
 export const TODAY_WIDGET_COMPLETIONS_STORAGE_KEY =
   '@planly/widget/completions/v1';

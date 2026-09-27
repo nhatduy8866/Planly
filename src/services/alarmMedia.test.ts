@@ -10,7 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-import { pickAlarmMedia } from './alarmMedia';
+import { clearStoredAlarmMedia, pickAlarmMedia } from './alarmMedia';
 
 jest.mock('expo-document-picker', () => ({
   getDocumentAsync: jest.fn(),
@@ -18,12 +18,14 @@ jest.mock('expo-document-picker', () => ({
 
 jest.mock('expo-file-system/legacy', () => ({
   copyAsync: jest.fn(async () => undefined),
+  deleteAsync: jest.fn(async () => undefined),
   documentDirectory: 'file:///documents/',
   makeDirectoryAsync: jest.fn(async () => undefined),
 }));
 
 const getDocumentAsync = jest.mocked(DocumentPicker.getDocumentAsync);
 const copyAsync = jest.mocked(FileSystem.copyAsync);
+const deleteAsync = jest.mocked(FileSystem.deleteAsync);
 const makeDirectoryAsync = jest.mocked(FileSystem.makeDirectoryAsync);
 
 describe('alarm media picker', () => {
@@ -102,5 +104,19 @@ describe('alarm media picker', () => {
       reason: 'fileTooLarge',
     });
     expect(copyAsync).not.toHaveBeenCalled();
+  });
+
+  it('removes all copied custom alarm media during account deletion', async () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+
+    await clearStoredAlarmMedia();
+
+    expect(deleteAsync).toHaveBeenCalledWith(
+      'file:///documents/planly-alarm-media/',
+      { idempotent: true },
+    );
   });
 });

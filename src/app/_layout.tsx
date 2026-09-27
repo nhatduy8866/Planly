@@ -37,11 +37,12 @@ import {
   usePlannerHydrated,
   usePlannerTasks,
 } from '../store/PlannerContext';
-import { CloudSyncProvider } from '../sync/CloudSyncContext';
+import { CloudSyncProvider, useCloudSync } from '../sync/CloudSyncContext';
 import type { ThemeColors } from '../theme/colors';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 function AppShell() {
+  const { ready: cloudSyncReady } = useCloudSync();
   const plannerHydrated = usePlannerHydrated();
   const tasks = usePlannerTasks();
   const dispatch = usePlannerDispatch();
@@ -64,7 +65,7 @@ function AppShell() {
   const { requestTask } = useTaskNavigation();
   const { completeTask } = useTaskActions();
   const styles = useThemedStyles(createStyles);
-  const appReady = plannerHydrated && preferencesHydrated;
+  const appReady = plannerHydrated && preferencesHydrated && cloudSyncReady;
   const alarmPreferences = getAlarmSchedulePreferences(
     alarmSoundPreset,
     alarmSound,

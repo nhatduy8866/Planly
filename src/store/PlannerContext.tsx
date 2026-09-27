@@ -29,6 +29,9 @@ const PlannerHydratedContext = createContext<boolean | undefined>(undefined);
 const PlannerDispatchContext = createContext<Dispatch<PlannerAction> | undefined>(
   undefined,
 );
+const PlannerPersistenceContext = createContext<
+  ((tasks: Task[]) => Promise<void>) | undefined
+>(undefined);
 
 function normalizeStoredTask(task: Task): Task {
   return {
@@ -76,7 +79,7 @@ function useDebouncedStorageWrite<T>(
   key: string,
   value: T,
   enabled: boolean,
-): void {
+): (nextValue: T) => Promise<void> {
   const latestValueRef = useRef(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -85,25 +88,34 @@ function useDebouncedStorageWrite<T>(
     latestValueRef.current = value;
   }, [value]);
 
-  const flush = useCallback(() => {
-    if (!enabled) return;
+  const writeValue = useCallback((nextValue: T): Promise<void> => {
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(nextValue);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+
+    const nextWrite = writeQueueRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(key, serialized));
+    writeQueueRef.current = nextWrite.catch(() => undefined);
+    return nextWrite;
+  }, [key]);
+
+  const persistNow = useCallback((nextValue: T): Promise<void> => {
+    latestValueRef.current = nextValue;
     if (timerRef.current !== undefined) {
       clearTimeout(timerRef.current);
       timerRef.current = undefined;
     }
+    return writeValue(nextValue);
+  }, [writeValue]);
 
-    let serialized: string;
-    try {
-      serialized = JSON.stringify(latestValueRef.current);
-    } catch {
-      return;
-    }
-
-    writeQueueRef.current = writeQueueRef.current
-      .catch(() => undefined)
-      .then(() => AsyncStorage.setItem(key, serialized))
-      .catch(() => undefined);
-  }, [enabled, key]);
+  const flush = useCallback(() => {
+    if (!enabled) return;
+    void persistNow(latestValueRef.current).catch(() => undefined);
+  }, [enabled, persistNow]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -128,6 +140,8 @@ function useDebouncedStorageWrite<T>(
       flush();
     };
   }, [enabled, flush]);
+
+  return persistNow;
 }
 
 export function PlannerProvider({ children }: { children: ReactNode }) {
@@ -173,15 +187,21 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useDebouncedStorageWrite(TASKS_STORAGE_KEY, state.tasks, state.hydrated);
+  const persistTasksNow = useDebouncedStorageWrite(
+    TASKS_STORAGE_KEY,
+    state.tasks,
+    state.hydrated,
+  );
 
   return (
     <PlannerHydratedContext.Provider value={state.hydrated}>
-      <PlannerDispatchContext.Provider value={dispatch}>
-        <PlannerTasksContext.Provider value={state.tasks}>
-          {children}
-        </PlannerTasksContext.Provider>
-      </PlannerDispatchContext.Provider>
+      <PlannerPersistenceContext.Provider value={persistTasksNow}>
+        <PlannerDispatchContext.Provider value={dispatch}>
+          <PlannerTasksContext.Provider value={state.tasks}>
+            {children}
+          </PlannerTasksContext.Provider>
+        </PlannerDispatchContext.Provider>
+      </PlannerPersistenceContext.Provider>
     </PlannerHydratedContext.Provider>
   );
 }
@@ -208,4 +228,12 @@ export function usePlannerDispatch(): Dispatch<PlannerAction> {
     throw new Error('usePlannerDispatch must be used inside PlannerProvider');
   }
   return dispatch;
+}
+
+export function usePersistPlannerTasks(): (tasks: Task[]) => Promise<void> {
+  const persistTasks = useContext(PlannerPersistenceContext);
+  if (!persistTasks) {
+    throw new Error('usePersistPlannerTasks must be used inside PlannerProvider');
+  }
+  return persistTasks;
 }

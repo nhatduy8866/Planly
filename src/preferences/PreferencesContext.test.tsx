@@ -135,4 +135,31 @@ describe('PreferencesProvider reminder mode', () => {
       expect.stringContaining('"acceptedPrivacyPolicyVersion":1'),
     );
   });
+
+  it('resets personal settings and policy acknowledgement for account deletion', async () => {
+    mockGetItem.mockResolvedValue(JSON.stringify({
+      acceptedPrivacyPolicyVersion: 1,
+      alarmBackground: { name: 'night.jpg', uri: 'file:///night.jpg' },
+      alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
+      hasSeenOnboarding: true,
+      language: 'en',
+      theme: 'dark',
+    }));
+    await renderProvider();
+
+    await act(async () => {
+      await preferences.resetPreferences();
+    });
+
+    expect(preferences.acceptedPrivacyPolicyVersion).toBe(0);
+    expect(preferences.alarmBackground).toBeNull();
+    expect(preferences.alarmSound).toBeNull();
+    expect(preferences.hasSeenOnboarding).toBe(false);
+    expect(preferences.language).toBe('vi');
+    expect(preferences.theme).toBe('light');
+    expect(mockSetItem).toHaveBeenLastCalledWith(
+      '@planly/preferences/v1',
+      expect.stringContaining('"acceptedPrivacyPolicyVersion":0'),
+    );
+  });
 });

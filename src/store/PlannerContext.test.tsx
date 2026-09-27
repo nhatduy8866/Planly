@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 import type { Task } from '../types';
 import {
   PlannerProvider,
+  usePersistPlannerTasks,
   usePlannerDispatch,
   usePlannerHydrated,
   usePlannerTasks,
@@ -49,6 +50,7 @@ describe('PlannerProvider persistence', () => {
   let planner!: {
     dispatch: ReturnType<typeof usePlannerDispatch>;
     hydrated: boolean;
+    persistTasks: ReturnType<typeof usePersistPlannerTasks>;
     tasks: Task[];
   };
 
@@ -56,6 +58,7 @@ describe('PlannerProvider persistence', () => {
     planner = {
       dispatch: usePlannerDispatch(),
       hydrated: usePlannerHydrated(),
+      persistTasks: usePersistPlannerTasks(),
       tasks: usePlannerTasks(),
     };
     return null;
@@ -141,5 +144,21 @@ describe('PlannerProvider persistence', () => {
     );
     expect(tasksCall).toBeDefined();
     expect(JSON.parse(tasksCall![1])).toEqual([taskWithColor]);
+  });
+
+  it('cancels a pending snapshot and makes an explicit empty write terminal', async () => {
+    mockGetItem.mockImplementation(async (key) =>
+      key === '@planly/tasks/v1' ? JSON.stringify([task]) : null,
+    );
+    await renderProvider();
+
+    await act(async () => {
+      await planner.persistTasks([]);
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(mockSetItem).toHaveBeenCalledTimes(1);
+    expect(mockSetItem).toHaveBeenLastCalledWith('@planly/tasks/v1', '[]');
   });
 });

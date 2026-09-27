@@ -1,3 +1,5 @@
+import { readJsonBodyWithLimit } from "../_shared/requestBody.ts";
+
 const MAX_REQUEST_BYTES = 1_024;
 
 const corsHeaders = {
@@ -67,14 +69,6 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > MAX_REQUEST_BYTES) {
-    return jsonResponse(
-      { code: "REQUEST_TOO_LARGE", message: "Request payload is too large." },
-      413,
-    );
-  }
-
   const userId = await getAuthenticatedUserId(request);
   if (!userId) {
     return jsonResponse(
@@ -83,22 +77,20 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  let body: Record<string, unknown> | null = null;
-  try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+  const bodyResult = await readJsonBodyWithLimit(request, MAX_REQUEST_BYTES);
+  if (!bodyResult.ok) {
+    if (bodyResult.reason === "too_large") {
       return jsonResponse(
         { code: "REQUEST_TOO_LARGE", message: "Request payload is too large." },
         413,
       );
     }
-    body = asRecord(JSON.parse(rawBody));
-  } catch {
     return jsonResponse(
       { code: "INVALID_JSON", message: "Request body must be valid JSON." },
       400,
     );
   }
+  const body = asRecord(bodyResult.value);
   if (body?.confirm !== true || Object.keys(body).some((key) => key !== "confirm")) {
     return jsonResponse(
       { code: "CONFIRMATION_REQUIRED", message: "Account deletion must be confirmed." },

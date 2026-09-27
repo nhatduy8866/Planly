@@ -14,6 +14,11 @@ const releaseSigningBlock = `
             .orElse(providers.environmentVariable(name))
             .getOrNull()
     }
+    def planlyReleaseEnvironmentValue = { String name ->
+        def value = providers.environmentVariable(name).getOrNull()
+        value = value == null ? null : value.trim()
+        !value || value.startsWith('your_') ? null : value
+    }
     def planlyReleaseSigning = [
         storeFile: planlyReleaseValue('PLANLY_UPLOAD_STORE_FILE'),
         storePassword: planlyReleaseValue('PLANLY_UPLOAD_STORE_PASSWORD'),
@@ -21,11 +26,43 @@ const releaseSigningBlock = `
         keyPassword: planlyReleaseValue('PLANLY_UPLOAD_KEY_PASSWORD'),
     ]
     def planlyRequiredLegalConfig = [
-        dataController: planlyReleaseValue('EXPO_PUBLIC_DATA_CONTROLLER_NAME'),
-        privacyContact: planlyReleaseValue('EXPO_PUBLIC_PRIVACY_CONTACT_EMAIL'),
-        privacyPolicyUrl: planlyReleaseValue('EXPO_PUBLIC_PRIVACY_POLICY_URL'),
-        accountDeletionUrl: planlyReleaseValue('EXPO_PUBLIC_ACCOUNT_DELETION_URL'),
+        dataController: planlyReleaseEnvironmentValue('EXPO_PUBLIC_DATA_CONTROLLER_NAME'),
+        privacyContact: planlyReleaseEnvironmentValue('EXPO_PUBLIC_PRIVACY_CONTACT_EMAIL'),
+        privacyPolicyUrl: planlyReleaseEnvironmentValue('EXPO_PUBLIC_PRIVACY_POLICY_URL'),
+        accountDeletionUrl: planlyReleaseEnvironmentValue('EXPO_PUBLIC_ACCOUNT_DELETION_URL'),
     ]
+    def planlyValidHttpsUrl = { String value ->
+        if (!value) return false
+        try {
+            def uri = new java.net.URI(value)
+            def host = uri.host == null
+                ? null
+                : uri.host.toLowerCase().replaceFirst(/\.$/, '')
+            def reservedHost = host == 'localhost' || host?.endsWith('.localhost') ||
+                host == 'example.com' || host?.endsWith('.example.com') ||
+                host == 'example' || host?.endsWith('.example') ||
+                host == 'invalid' || host?.endsWith('.invalid') ||
+                host == 'test' || host?.endsWith('.test')
+            return uri.scheme?.equalsIgnoreCase('https') && host && !reservedHost
+        } catch (Exception ignored) {
+            return false
+        }
+    }
+    def planlyValidEmail = { String value ->
+        if (!value || value.length() > 254) return false
+        def parts = value.split('@', -1)
+        if (parts.length != 2) return false
+        def localPart = parts[0]
+        def labels = parts[1].split('\\.', -1)
+        if (!localPart || localPart.length() > 64 ||
+            localPart.startsWith('.') || localPart.endsWith('.') ||
+            localPart.contains('..') ||
+            !(localPart ==~ /^[A-Za-z0-9.!#\$%&'*+\/=?^_{}|~-]+$/) ||
+            labels.length < 2) return false
+        return labels.every {
+            it ==~ /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/
+        }
+    }
     def planlyReleaseRequested = gradle.startParameter.taskNames.any {
         it.toLowerCase().contains('release')
     }
@@ -34,15 +71,15 @@ const releaseSigningBlock = `
         def missingLegal = planlyRequiredLegalConfig.findAll { !it.value }.keySet()
         def invalidLegal = []
         if (planlyRequiredLegalConfig.privacyContact &&
-            !planlyRequiredLegalConfig.privacyContact.contains('@')) {
+            !planlyValidEmail(planlyRequiredLegalConfig.privacyContact)) {
             invalidLegal.add('privacyContact')
         }
         if (planlyRequiredLegalConfig.privacyPolicyUrl &&
-            !planlyRequiredLegalConfig.privacyPolicyUrl.startsWith('https://')) {
+            !planlyValidHttpsUrl(planlyRequiredLegalConfig.privacyPolicyUrl)) {
             invalidLegal.add('privacyPolicyUrl')
         }
         if (planlyRequiredLegalConfig.accountDeletionUrl &&
-            !planlyRequiredLegalConfig.accountDeletionUrl.startsWith('https://')) {
+            !planlyValidHttpsUrl(planlyRequiredLegalConfig.accountDeletionUrl)) {
             invalidLegal.add('accountDeletionUrl')
         }
         if (!missingSigning.isEmpty() || !missingLegal.isEmpty() ||
@@ -137,7 +174,7 @@ function withReleaseSecurity(config) {
 module.exports = createRunOncePlugin(
   withReleaseSecurity,
   pluginName,
-  '1.0.0',
+  '1.0.1',
 );
 
 module.exports.configureReleaseSigning = configureReleaseSigning;

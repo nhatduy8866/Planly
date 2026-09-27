@@ -103,7 +103,7 @@ export async function transcribeAudioWithGemini(
         },
       };
       const data = await withTimeout(
-        requestGeminiContent(model, payload),
+        requestGeminiContent(model, payload, 'transcribe'),
         TRANSCRIPTION_TIMEOUT_MS,
       ) as {
         candidates?: {

@@ -2,6 +2,13 @@
 
 Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết hợp lịch biểu và danh sách công việc trong một giao diện tối giản. Ứng dụng được xây dựng bằng React Native, Expo và TypeScript theo hướng local-first.
 
+## Trạng thái phiên bản
+
+- Phiên bản ứng dụng: **1.0.0**.
+- Luồng Android development build đã được kiểm tra trên emulator.
+- Mã nguồn, migration, Edge Functions và kiểm soát release đã sẵn sàng để bàn giao.
+- Trước khi phát hành công khai, chủ ứng dụng vẫn phải cung cấp thông tin pháp lý thật, upload keystore, triển khai Supabase và hoàn tất [checklist phát hành](docs/RELEASE_COMPLIANCE_CHECKLIST.md).
+
 ## Tính năng hiện có
 
 ### Lịch biểu
@@ -34,6 +41,15 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết 
 - Đăng ký hoặc đăng nhập bằng email để sao lưu, khôi phục và đồng bộ công việc qua Supabase.
 
 Dữ liệu công việc luôn được lưu cục bộ bằng AsyncStorage để ứng dụng tiếp tục hoạt động khi mất mạng. Phiên đăng nhập trên Android/iOS được lưu bằng SecureStore của hệ điều hành. Khi Supabase được cấu hình và người dùng đăng nhập, Planly tự động đồng bộ dữ liệu giữa các thiết bị.
+
+## Bảo mật và quyền riêng tư
+
+- Giao diện dữ liệu tài khoản chỉ được mở sau khi cache cục bộ đã được chuẩn bị đúng owner; sync cũ không được phép ghi lại task sau khi đăng xuất hoặc chuyển tài khoản.
+- Đăng xuất xóa task cache của tài khoản nhưng giữ tùy chọn local. Xóa tài khoản còn dọn outbox, reminder, trạng thái widget, preferences và media báo thức tùy chỉnh.
+- Gemini API key chỉ tồn tại trong Supabase Edge Function secrets. Proxy chỉ cho phép ba tác vụ Planly (`schedule`, `refine`, `transcribe`), dùng model/schema/prompt do server kiểm soát và giới hạn request theo byte khi đọc stream.
+- Hạn mức mặc định là 50 lượt Gemini mỗi tài khoản mỗi ngày và tối đa 5.000 bản ghi task mỗi tài khoản. Database cũng giới hạn độ dài các trường văn bản.
+- Android reminder dùng notification channel riêng tư `planly-reminders-v4`, không công khai toàn bộ nội dung trên lock screen.
+- Release Android dừng build nếu thiếu signing hoặc metadata pháp lý hợp lệ. URL pháp lý phải dùng HTTPS và không được là placeholder/reserved domain.
 
 ## Công nghệ
 
@@ -83,6 +99,8 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
 
 4. Khởi động lại Metro, mở **Cài đặt → Sao lưu và đồng bộ**, sau đó tạo tài khoản hoặc đăng nhập.
 
+`supabase/config.toml` là cấu hình tham chiếu cho local development. Với project Supabase hosted, cần bật email confirmation, đặt mật khẩu tối thiểu 8 ký tự và bật secure password change trong Dashboard trước khi phát hành.
+
 ### Cấu hình Gemini an toàn
 
 Planly không đóng gói Gemini API key trong ứng dụng. Các yêu cầu Gemini đi qua
@@ -126,13 +144,41 @@ PLANLY_UPLOAD_KEY_ALIAS=...
 PLANLY_UPLOAD_KEY_PASSWORD=...
 ```
 
-Trước khi build, cũng phải điền bốn biến pháp lý trong `.env`: tên đơn vị kiểm
-soát dữ liệu, email liên hệ, URL chính sách quyền riêng tư và URL xóa tài khoản.
-Gradle sẽ dừng mọi task release nếu thiếu cấu hình ký hoặc cấu hình pháp lý; bản
-debug vẫn chạy bình thường. Không commit keystore hay mật khẩu vào repository.
+Trước khi build, cũng phải cung cấp bốn biến pháp lý: tên đơn vị kiểm soát dữ
+liệu, email liên hệ, URL chính sách quyền riêng tư và URL xóa tài khoản. Expo CLI
+tự nạp chúng từ `.env`; nếu gọi Gradle trực tiếp, các giá trị này phải có trong
+environment của tiến trình. Gradle sẽ dừng mọi task release nếu thiếu cấu hình
+ký hoặc cấu hình pháp lý; bản debug vẫn chạy bình thường. Không commit keystore
+hay mật khẩu vào repository.
 
 Các việc cần chủ ứng dụng, tài khoản store hoặc quyết định pháp lý được liệt kê
 trong [checklist phát hành](docs/RELEASE_COMPLIANCE_CHECKLIST.md).
+
+Tạo lại native project sau khi thay đổi plugin hoặc cấu hình Expo:
+
+```bash
+npx expo prebuild --platform android
+```
+
+Build APK trên Windows:
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug
+
+# Chỉ chạy sau khi PLANLY_UPLOAD_* và bốn EXPO_PUBLIC_* pháp lý
+# đã được đặt trong environment của terminal hiện tại.
+.\gradlew.bat assembleRelease
+```
+
+Kết quả:
+
+- APK debug có thể cài thử ngay: `android/app/build/outputs/apk/debug/app-debug.apk`.
+- APK release đã ký: `android/app/build/outputs/apk/release/app-release.apk`.
+
+`assembleRelease` chỉ thành công khi đã có upload keystore và bốn giá trị pháp lý thật. APK debug không dùng để tải lên store.
+
+### Chạy ứng dụng Android
 
 Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu hình Android SDK và đang chạy emulator:
 
@@ -192,11 +238,14 @@ Planly/
 └── package.json
 ```
 
-## Phạm vi tiếp theo
+## Checklist bàn giao
 
-- Bổ sung lịch sử khôi phục dữ liệu và quản lý phiên đăng nhập chi tiết hơn.
-- Task lặp lại và các quy tắc nhắc lịch nâng cao.
-- Tích hợp lịch hệ thống và widget màn hình khóa.
+- Chạy toàn bộ migration trong `supabase/migrations`.
+- Deploy `gemini-proxy` và `delete-account`, sau đó đặt `GEMINI_API_KEY` trong Edge Function secrets.
+- Đồng bộ chính sách Auth trên Supabase hosted.
+- Điền metadata pháp lý thật và kiểm tra các URL công khai.
+- Tạo, sao lưu an toàn upload keystore và cấu hình signing.
+- Chạy typecheck/test phù hợp, build APK release và kiểm thử trên thiết bị thật trước khi phân phối.
 
 ## License
 

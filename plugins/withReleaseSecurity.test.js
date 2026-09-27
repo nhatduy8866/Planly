@@ -39,6 +39,13 @@ describe('withReleaseSecurity', () => {
     expect(result).toContain(
       "planlyReleaseEnvironmentValue('EXPO_PUBLIC_PRIVACY_POLICY_URL')",
     );
+    expect(result).toContain(
+      "planlyReleaseValue('PLANLY_INTERNAL_RELEASE')?.trim()",
+    );
+    expect(result).toContain('if (!planlyInternalRelease)');
+    expect(result).toContain(
+      'planlyInternalRelease\n            ? []',
+    );
     expect(result).toContain("new java.net.URI(value)");
     expect(result).toContain("uri.scheme?.equalsIgnoreCase('https')");
     expect(result).toContain("host?.endsWith('.example')");

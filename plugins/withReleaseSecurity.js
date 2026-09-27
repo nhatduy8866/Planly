@@ -25,6 +25,9 @@ const releaseSigningBlock = `
         keyAlias: planlyReleaseValue('PLANLY_UPLOAD_KEY_ALIAS'),
         keyPassword: planlyReleaseValue('PLANLY_UPLOAD_KEY_PASSWORD'),
     ]
+    def planlyInternalRelease = 'true'.equalsIgnoreCase(
+        planlyReleaseValue('PLANLY_INTERNAL_RELEASE')?.trim()
+    )
     def planlyRequiredLegalConfig = [
         dataController: planlyReleaseEnvironmentValue('EXPO_PUBLIC_DATA_CONTROLLER_NAME'),
         privacyContact: planlyReleaseEnvironmentValue('EXPO_PUBLIC_PRIVACY_CONTACT_EMAIL'),
@@ -69,19 +72,23 @@ const releaseSigningBlock = `
     }
     if (planlyReleaseRequested) {
         def missingSigning = planlyReleaseSigning.findAll { !it.value }.keySet()
-        def missingLegal = planlyRequiredLegalConfig.findAll { !it.value }.keySet()
+        def missingLegal = planlyInternalRelease
+            ? []
+            : planlyRequiredLegalConfig.findAll { !it.value }.keySet()
         def invalidLegal = []
-        if (planlyRequiredLegalConfig.privacyContact &&
-            !planlyValidEmail(planlyRequiredLegalConfig.privacyContact)) {
-            invalidLegal.add('privacyContact')
-        }
-        if (planlyRequiredLegalConfig.privacyPolicyUrl &&
-            !planlyValidHttpsUrl(planlyRequiredLegalConfig.privacyPolicyUrl)) {
-            invalidLegal.add('privacyPolicyUrl')
-        }
-        if (planlyRequiredLegalConfig.accountDeletionUrl &&
-            !planlyValidHttpsUrl(planlyRequiredLegalConfig.accountDeletionUrl)) {
-            invalidLegal.add('accountDeletionUrl')
+        if (!planlyInternalRelease) {
+            if (planlyRequiredLegalConfig.privacyContact &&
+                !planlyValidEmail(planlyRequiredLegalConfig.privacyContact)) {
+                invalidLegal.add('privacyContact')
+            }
+            if (planlyRequiredLegalConfig.privacyPolicyUrl &&
+                !planlyValidHttpsUrl(planlyRequiredLegalConfig.privacyPolicyUrl)) {
+                invalidLegal.add('privacyPolicyUrl')
+            }
+            if (planlyRequiredLegalConfig.accountDeletionUrl &&
+                !planlyValidHttpsUrl(planlyRequiredLegalConfig.accountDeletionUrl)) {
+                invalidLegal.add('accountDeletionUrl')
+            }
         }
         if (!missingSigning.isEmpty() || !missingLegal.isEmpty() ||
             !invalidLegal.isEmpty()) {
@@ -175,7 +182,7 @@ function withReleaseSecurity(config) {
 module.exports = createRunOncePlugin(
   withReleaseSecurity,
   pluginName,
-  '1.0.2',
+  '1.0.3',
 );
 
 module.exports.configureReleaseSigning = configureReleaseSigning;

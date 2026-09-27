@@ -178,6 +178,33 @@ Kết quả:
 
 `assembleRelease` chỉ thành công khi đã có upload keystore và bốn giá trị pháp lý thật. APK debug không dùng để tải lên store.
 
+#### Bản release lưu hành nội bộ
+
+Khi chỉ phân phối nội bộ, có thể bỏ qua bốn biến pháp lý bằng cách đặt
+`PLANLY_INTERNAL_RELEASE=true`. Bản này vẫn phải dùng keystore riêng để APK có
+thể cài độc lập và nhận các bản nâng cấp được ký cùng khóa:
+
+```powershell
+$env:PLANLY_INTERNAL_RELEASE='true'
+$env:PLANLY_UPLOAD_STORE_FILE='C:\secure-path\planly-internal.jks'
+$env:PLANLY_UPLOAD_STORE_PASSWORD='...'
+$env:PLANLY_UPLOAD_KEY_ALIAS='planly-internal'
+$env:PLANLY_UPLOAD_KEY_PASSWORD='...'
+
+cd android
+.\gradlew.bat assembleRelease `
+  -Pandroid.enableMinifyInReleaseBuilds=true `
+  -Pandroid.enableShrinkResourcesInReleaseBuilds=true
+```
+
+Lệnh trên tạo APK universal để nhóm đánh giá có thể dùng trên cả thiết bị ARM
+và emulator x86/x86_64. Nếu toàn bộ điện thoại mục tiêu đều dùng ARM64, có thể
+thêm `-PreactNativeArchitectures=arm64-v8a` để giảm dung lượng.
+
+APK nội bộ giữ nguyên tính năng ứng dụng nhưng không dành cho Play Store hoặc
+phát hành công khai. Hãy sao lưu keystore và thông tin ký; mất khóa sẽ không thể
+cập nhật lên bản cài hiện có.
+
 ### Chạy ứng dụng Android
 
 Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu hình Android SDK và đang chạy emulator:

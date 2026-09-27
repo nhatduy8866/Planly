@@ -1,3 +1,9 @@
+import { readJsonBodyWithLimit } from "../_shared/requestBody.ts";
+import {
+  buildUpstreamGeminiRequest,
+  isGeminiOperation,
+} from "./requestPolicy.ts";
+
 const ALLOWED_MODEL = "gemini-3.5-flash";
 const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
 const GEMINI_TIMEOUT_MS = 45_000;
@@ -138,28 +144,6 @@ async function consumeDailyQuota(userId: string): Promise<DailyQuota | null> {
   }
 }
 
-function validateGeminiRequest(value: unknown): Record<string, unknown> | null {
-  const request = asRecord(value);
-  if (
-    !request || !Array.isArray(request.contents) || !request.contents.length
-  ) {
-    return null;
-  }
-
-  const allowedKeys = new Set(["contents", "generationConfig"]);
-  if (Object.keys(request).some((key) => !allowedKeys.has(key))) {
-    return null;
-  }
-  if (
-    request.generationConfig !== undefined &&
-    !asRecord(request.generationConfig)
-  ) {
-    return null;
-  }
-
-  return request;
-}
-
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -171,13 +155,6 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > MAX_REQUEST_BYTES) {
-    return jsonResponse(
-      { code: "REQUEST_TOO_LARGE", message: "Request payload is too large." },
-      413,
-    );
-  }
   const userId = await getAuthenticatedUserId(request);
   if (!userId) {
     return jsonResponse(
@@ -194,12 +171,28 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  let body: Record<string, unknown> | null = null;
-  try {
-    body = asRecord(await request.json());
-  } catch {
+  const bodyResult = await readJsonBodyWithLimit(request, MAX_REQUEST_BYTES);
+  if (!bodyResult.ok) {
+    if (bodyResult.reason === "too_large") {
+      return jsonResponse(
+        { code: "REQUEST_TOO_LARGE", message: "Request payload is too large." },
+        413,
+      );
+    }
     return jsonResponse(
       { code: "INVALID_JSON", message: "Request body must be valid JSON." },
+      400,
+    );
+  }
+  const body = asRecord(bodyResult.value);
+  if (
+    !body ||
+    Object.keys(body).some(
+      (key) => key !== "model" && key !== "operation" && key !== "request",
+    )
+  ) {
+    return jsonResponse(
+      { code: "INVALID_REQUEST", message: "Invalid Gemini request payload." },
       400,
     );
   }
@@ -213,20 +206,22 @@ Deno.serve(async (request: Request) => {
       400,
     );
   }
-  const geminiRequest = validateGeminiRequest(body.request);
+  if (!isGeminiOperation(body.operation)) {
+    return jsonResponse(
+      { code: "INVALID_OPERATION", message: "Invalid Gemini operation." },
+      400,
+    );
+  }
+  const geminiRequest = buildUpstreamGeminiRequest(
+    body.operation,
+    body.request,
+  );
   if (!geminiRequest) {
     return jsonResponse(
       { code: "INVALID_REQUEST", message: "Invalid Gemini request payload." },
       400,
     );
   }
-  if (JSON.stringify(geminiRequest).length > MAX_REQUEST_BYTES) {
-    return jsonResponse(
-      { code: "REQUEST_TOO_LARGE", message: "Request payload is too large." },
-      413,
-    );
-  }
-
   const quota = await consumeDailyQuota(userId);
   if (!quota) {
     return jsonResponse(

@@ -3,10 +3,12 @@ import type { Session } from '@supabase/supabase-js';
 export const GEMINI_FLASH_MODEL = 'gemini-3.5-flash' as const;
 
 export type GeminiModel = typeof GEMINI_FLASH_MODEL;
+export type GeminiOperation = 'refine' | 'schedule' | 'transcribe';
 export type GeminiRequest = Record<string, unknown>;
 export type GeminiContentGateway = (
   model: GeminiModel,
   request: GeminiRequest,
+  operation: GeminiOperation,
 ) => Promise<unknown>;
 
 export interface GeminiProxyClient {
@@ -20,7 +22,11 @@ export interface GeminiProxyClient {
     invoke: (
       functionName: string,
       options: {
-        body: { model: GeminiModel; request: GeminiRequest };
+        body: {
+          model: GeminiModel;
+          operation: GeminiOperation;
+          request: GeminiRequest;
+        };
         headers: { Authorization: string };
       },
     ) => Promise<{ data: unknown; error: unknown }>;
@@ -96,7 +102,7 @@ async function readFunctionError(error: unknown): Promise<{
 export function createGeminiProxyGateway(
   client: GeminiProxyClient | null,
 ): GeminiContentGateway {
-  return async (model, request) => {
+  return async (model, request, operation) => {
     if (!client) {
       throw new GeminiProxyError(
         'SUPABASE_NOT_CONFIGURED',
@@ -123,7 +129,7 @@ export function createGeminiProxyGateway(
     }
 
     const { data, error } = await client.functions.invoke('gemini-proxy', {
-      body: { model, request },
+      body: { model, operation, request },
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (error) {

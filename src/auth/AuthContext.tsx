@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -18,10 +19,18 @@ export interface SignUpResult {
   needsEmailConfirmation: boolean;
 }
 
+export type LocalDataCleanupMode = 'signOut' | 'deleteAccount';
+export type LocalDataCleanupHandler = (
+  mode: LocalDataCleanupMode,
+) => Promise<void>;
+
 interface AuthContextValue {
   configured: boolean;
   deleteAccount: () => Promise<void>;
   hydrated: boolean;
+  registerLocalDataCleanup: (
+    handler: LocalDataCleanupHandler,
+  ) => () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
@@ -33,6 +42,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [hydrated, setHydrated] = useState(!isSupabaseConfigured);
+  const localDataCleanupRef = useRef<LocalDataCleanupHandler | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -79,11 +89,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needsEmailConfirmation: data.session === null };
   }, []);
 
+  const registerLocalDataCleanup = useCallback((
+    handler: LocalDataCleanupHandler,
+  ) => {
+    localDataCleanupRef.current = handler;
+    return () => {
+      if (localDataCleanupRef.current === handler) {
+        localDataCleanupRef.current = null;
+      }
+    };
+  }, []);
+
+  const cleanLocalData = useCallback(async (mode: LocalDataCleanupMode) => {
+    const handler = localDataCleanupRef.current;
+    if (!handler) {
+      throw new Error('LOCAL_DATA_CLEANUP_UNAVAILABLE');
+    }
+    await handler(mode);
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
+    let cleanupError: unknown;
+    try {
+      await cleanLocalData('signOut');
+    } catch (caught) {
+      if (
+        caught instanceof Error &&
+        caught.message === 'LOCAL_DATA_CLEANUP_UNAVAILABLE'
+      ) throw caught;
+      cleanupError = caught;
+    }
     const { error } = await supabase.auth.signOut();
+    if (cleanupError) throw cleanupError;
     if (error) throw error;
-  }, []);
+  }, [cleanLocalData]);
 
   const deleteAccount = useCallback(async () => {
     if (!supabase) throw new Error('Supabase is not configured.');
@@ -92,23 +132,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) throw error;
 
+    let cleanupError: unknown;
+    try {
+      await cleanLocalData('deleteAccount');
+    } catch (caught) {
+      cleanupError = caught;
+    }
+
+    // The remote account no longer exists. Gate account-owned UI even if the
+    // local SDK cannot complete its final session cleanup.
+    setUser(null);
     const { error: signOutError } = await supabase.auth.signOut({
       scope: 'local',
     });
+    if (cleanupError) throw cleanupError;
     if (signOutError) throw signOutError;
-  }, []);
+  }, [cleanLocalData]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       configured: isSupabaseConfigured,
       deleteAccount,
       hydrated,
+      registerLocalDataCleanup,
       signIn,
       signOut,
       signUp,
       user,
     }),
-    [deleteAccount, hydrated, signIn, signOut, signUp, user],
+    [
+      deleteAccount,
+      hydrated,
+      registerLocalDataCleanup,
+      signIn,
+      signOut,
+      signUp,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

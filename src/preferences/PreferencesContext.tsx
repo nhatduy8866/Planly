@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -50,6 +51,7 @@ interface PreferencesContextValue extends StoredPreferences {
   colors: ThemeColors;
   hydrated: boolean;
   locale: 'vi-VN' | 'en-US';
+  resetPreferences: () => Promise<void>;
   setAcceptedPrivacyPolicyVersion: (version: number) => void;
   setHasSeenOnboarding: (seen: boolean) => void;
   setColorfulAccents: (enabled: boolean) => void;
@@ -70,6 +72,21 @@ interface PreferencesContextValue extends StoredPreferences {
 const PreferencesContext = createContext<PreferencesContextValue | undefined>(
   undefined,
 );
+
+const DEFAULT_PREFERENCES: StoredPreferences = {
+  acceptedPrivacyPolicyVersion: 0,
+  alarmBackground: null,
+  alarmBackgroundPreset: DEFAULT_ALARM_BACKGROUND_PRESET,
+  alarmSound: null,
+  alarmSoundPreset: DEFAULT_ALARM_SOUND_PRESET,
+  alarmVibrationEnabled: true,
+  colorfulAccents: true,
+  hasSeenOnboarding: false,
+  language: 'vi',
+  reminderDeliveryMode: 'notification',
+  showTaskBadges: true,
+  theme: 'light',
+};
 
 function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark';
@@ -120,23 +137,45 @@ function isAlarmFilePreference(value: unknown): value is AlarmFilePreference {
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [acceptedPrivacyPolicyVersion, setAcceptedPrivacyPolicyVersion] =
-    useState(0);
+    useState(DEFAULT_PREFERENCES.acceptedPrivacyPolicyVersion);
   const [alarmBackground, setAlarmBackground] =
-    useState<AlarmFilePreference | null>(null);
+    useState<AlarmFilePreference | null>(DEFAULT_PREFERENCES.alarmBackground);
   const [alarmBackgroundPreset, setAlarmBackgroundPreset] =
-    useState<AlarmBackgroundPresetId>(DEFAULT_ALARM_BACKGROUND_PRESET);
-  const [alarmSound, setAlarmSound] = useState<AlarmFilePreference | null>(null);
+    useState<AlarmBackgroundPresetId>(DEFAULT_PREFERENCES.alarmBackgroundPreset);
+  const [alarmSound, setAlarmSound] = useState<AlarmFilePreference | null>(
+    DEFAULT_PREFERENCES.alarmSound,
+  );
   const [alarmSoundPreset, setAlarmSoundPreset] =
-    useState<AlarmSoundPresetId>(DEFAULT_ALARM_SOUND_PRESET);
-  const [alarmVibrationEnabled, setAlarmVibrationEnabled] = useState(true);
-  const [theme, setTheme] = useState<ThemeMode>('light');
-  const [language, setLanguage] = useState<Language>('vi');
-  const [colorfulAccents, setColorfulAccents] = useState(true);
-  const [showTaskBadges, setShowTaskBadges] = useState(true);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+    useState<AlarmSoundPresetId>(DEFAULT_PREFERENCES.alarmSoundPreset);
+  const [alarmVibrationEnabled, setAlarmVibrationEnabled] = useState(
+    DEFAULT_PREFERENCES.alarmVibrationEnabled,
+  );
+  const [theme, setTheme] = useState<ThemeMode>(DEFAULT_PREFERENCES.theme);
+  const [language, setLanguage] = useState<Language>(
+    DEFAULT_PREFERENCES.language,
+  );
+  const [colorfulAccents, setColorfulAccents] = useState(
+    DEFAULT_PREFERENCES.colorfulAccents,
+  );
+  const [showTaskBadges, setShowTaskBadges] = useState(
+    DEFAULT_PREFERENCES.showTaskBadges,
+  );
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(
+    DEFAULT_PREFERENCES.hasSeenOnboarding,
+  );
   const [reminderDeliveryMode, setReminderDeliveryMode] =
-    useState<ReminderDeliveryMode>('notification');
+    useState<ReminderDeliveryMode>(DEFAULT_PREFERENCES.reminderDeliveryMode);
   const [hydrated, setHydrated] = useState(false);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const persistPreferences = useCallback((preferences: StoredPreferences) => {
+    const serialized = JSON.stringify(preferences);
+    const nextWrite = writeQueueRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, serialized));
+    writeQueueRef.current = nextWrite.catch(() => undefined);
+    return nextWrite;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -197,23 +236,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    void AsyncStorage.setItem(
-      PREFERENCES_STORAGE_KEY,
-      JSON.stringify({
-        acceptedPrivacyPolicyVersion,
-        alarmBackground,
-        alarmBackgroundPreset,
-        alarmSound,
-        alarmSoundPreset,
-        alarmVibrationEnabled,
-        colorfulAccents,
-        hasSeenOnboarding,
-        language,
-        reminderDeliveryMode,
-        showTaskBadges,
-        theme,
-      }),
-    );
+    void persistPreferences({
+      acceptedPrivacyPolicyVersion,
+      alarmBackground,
+      alarmBackgroundPreset,
+      alarmSound,
+      alarmSoundPreset,
+      alarmVibrationEnabled,
+      colorfulAccents,
+      hasSeenOnboarding,
+      language,
+      reminderDeliveryMode,
+      showTaskBadges,
+      theme,
+    }).catch(() => undefined);
   }, [
     acceptedPrivacyPolicyVersion,
     alarmBackground,
@@ -225,6 +261,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     hasSeenOnboarding,
     hydrated,
     language,
+    persistPreferences,
     reminderDeliveryMode,
     showTaskBadges,
     theme,
@@ -234,6 +271,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     (key, values) => translate(language, key, values),
     [language],
   );
+
+  const resetPreferences = useCallback(async () => {
+    setAcceptedPrivacyPolicyVersion(DEFAULT_PREFERENCES.acceptedPrivacyPolicyVersion);
+    setAlarmBackground(DEFAULT_PREFERENCES.alarmBackground);
+    setAlarmBackgroundPreset(DEFAULT_PREFERENCES.alarmBackgroundPreset);
+    setAlarmSound(DEFAULT_PREFERENCES.alarmSound);
+    setAlarmSoundPreset(DEFAULT_PREFERENCES.alarmSoundPreset);
+    setAlarmVibrationEnabled(DEFAULT_PREFERENCES.alarmVibrationEnabled);
+    setColorfulAccents(DEFAULT_PREFERENCES.colorfulAccents);
+    setHasSeenOnboarding(DEFAULT_PREFERENCES.hasSeenOnboarding);
+    setLanguage(DEFAULT_PREFERENCES.language);
+    setReminderDeliveryMode(DEFAULT_PREFERENCES.reminderDeliveryMode);
+    setShowTaskBadges(DEFAULT_PREFERENCES.showTaskBadges);
+    setTheme(DEFAULT_PREFERENCES.theme);
+    await persistPreferences(DEFAULT_PREFERENCES);
+  }, [persistPreferences]);
 
   const value = useMemo<PreferencesContextValue>(
     () => ({
@@ -250,6 +303,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       language,
       locale: language === 'vi' ? 'vi-VN' : 'en-US',
       reminderDeliveryMode,
+      resetPreferences,
       setAcceptedPrivacyPolicyVersion,
       setColorfulAccents,
       setAlarmBackground,
@@ -280,6 +334,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       hydrated,
       language,
       reminderDeliveryMode,
+      resetPreferences,
       showTaskBadges,
       t,
       theme,

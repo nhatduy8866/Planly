@@ -44,7 +44,11 @@ function makeClient(options?: {
 describe('Gemini proxy gateway', () => {
   it('requires Supabase configuration', async () => {
     await expect(
-      createGeminiProxyGateway(null)('gemini-3.5-flash', { contents: [] }),
+      createGeminiProxyGateway(null)(
+        'gemini-3.5-flash',
+        { contents: [] },
+        'schedule',
+      ),
     ).rejects.toMatchObject({ code: 'SUPABASE_NOT_CONFIGURED' });
   });
 
@@ -52,7 +56,11 @@ describe('Gemini proxy gateway', () => {
     const { client, invoke } = makeClient({ session: null });
 
     await expect(
-      createGeminiProxyGateway(client)('gemini-3.5-flash', { contents: [] }),
+      createGeminiProxyGateway(client)(
+        'gemini-3.5-flash',
+        { contents: [] },
+        'schedule',
+      ),
     ).rejects.toMatchObject({ code: 'GEMINI_SIGN_IN_REQUIRED', status: 401 });
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -64,11 +72,12 @@ describe('Gemini proxy gateway', () => {
     await expect(
       createGeminiProxyGateway(client)('gemini-3.5-flash', {
         contents: [{ role: 'user', parts: [{ text: 'test' }] }],
-      }),
+      }, 'schedule'),
     ).resolves.toEqual(response);
     expect(invoke).toHaveBeenCalledWith('gemini-proxy', {
       body: {
         model: 'gemini-3.5-flash',
+        operation: 'schedule',
         request: {
           contents: [{ role: 'user', parts: [{ text: 'test' }] }],
         },
@@ -83,7 +92,11 @@ describe('Gemini proxy gateway', () => {
     });
 
     await expect(
-      createGeminiProxyGateway(client)('gemini-3.5-flash', { contents: [] }),
+      createGeminiProxyGateway(client)(
+        'gemini-3.5-flash',
+        { contents: [] },
+        'schedule',
+      ),
     ).rejects.toEqual(expect.objectContaining({
       code: 'GEMINI_PROXY_REQUEST_FAILED',
       message: 'Function returned 503',
@@ -109,6 +122,7 @@ describe('Gemini proxy gateway', () => {
     const error = await createGeminiProxyGateway(client)(
       'gemini-3.5-flash',
       { contents: [] },
+      'schedule',
     ).catch((caught: unknown) => caught);
 
     expect(error).toEqual(expect.objectContaining({

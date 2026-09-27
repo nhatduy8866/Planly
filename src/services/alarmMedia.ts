@@ -21,6 +21,12 @@ const FALLBACK_EXTENSION: Record<AlarmMediaKind, string> = {
   sound: '.mp3',
 };
 
+function alarmMediaDirectory(): string | null {
+  return FileSystem.documentDirectory
+    ? `${FileSystem.documentDirectory}planly-alarm-media/`
+    : null;
+}
+
 export class AlarmMediaError extends Error {
   constructor(
     readonly reason: 'fileTooLarge' | 'unsupported',
@@ -53,10 +59,8 @@ export async function pickAlarmMedia(
     throw new AlarmMediaError('fileTooLarge');
   }
 
-  const documentDirectory = FileSystem.documentDirectory;
-  if (!documentDirectory) throw new AlarmMediaError('unsupported');
-
-  const mediaDirectory = `${documentDirectory}planly-alarm-media/`;
+  const mediaDirectory = alarmMediaDirectory();
+  if (!mediaDirectory) throw new AlarmMediaError('unsupported');
   await FileSystem.makeDirectoryAsync(mediaDirectory, { intermediates: true });
   const storedUri = `${mediaDirectory}${kind}-${Date.now()}${fileExtension(
     asset.name,
@@ -65,4 +69,11 @@ export async function pickAlarmMedia(
   await FileSystem.copyAsync({ from: asset.uri, to: storedUri });
 
   return { name: asset.name, uri: storedUri };
+}
+
+export async function clearStoredAlarmMedia(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  const mediaDirectory = alarmMediaDirectory();
+  if (!mediaDirectory) return;
+  await FileSystem.deleteAsync(mediaDirectory, { idempotent: true });
 }

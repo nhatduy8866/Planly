@@ -540,7 +540,11 @@ Trả về duy nhất mảng JSON hợp lệ:
             thinkingConfig: thinkingConfigForModel(),
           },
         };
-        const data = await this.requestGeminiContent(model, payload) as {
+        const data = await this.requestGeminiContent(
+          model,
+          payload,
+          'schedule',
+        ) as {
           candidates?: {
             content?: { parts?: { text?: string }[] };
           }[];
@@ -655,7 +659,11 @@ Luôn giữ nguyên id và batchGroupId của công việc cũ; Planly sẽ tự
             thinkingConfig: thinkingConfigForModel(),
           },
         };
-        const data = await this.requestGeminiContent(model, payload) as {
+        const data = await this.requestGeminiContent(
+          model,
+          payload,
+          'refine',
+        ) as {
           candidates?: {
             content?: { parts?: { text?: string }[] };
           }[];

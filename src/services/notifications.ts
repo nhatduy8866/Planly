@@ -20,7 +20,7 @@ import {
 
 // Version the channel when changing sound/importance because Android keeps those
 // settings immutable after a channel is created on an installed device.
-const CHANNEL_ID = 'planly-reminders-v3';
+const CHANNEL_ID = 'planly-reminders-v4';
 const CHANNEL_COLOR = '#4F46E5';
 export const TASK_REMINDER_SOURCE = 'planly-task-reminder';
 export const TASK_COMPLETE_ACTION_IDENTIFIER = 'planly_complete_task';
@@ -133,7 +133,7 @@ async function ensureAndroidChannel(language: Language): Promise<void> {
     name: language === 'vi' ? 'Nhắc lịch Planly' : 'Planly reminders',
     importance: Notifications.AndroidImportance.MAX,
     lightColor: CHANNEL_COLOR,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     showBadge: false,
     vibrationPattern: [0, 200, 150, 200],
   })

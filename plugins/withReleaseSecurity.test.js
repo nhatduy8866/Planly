@@ -36,6 +36,14 @@ describe('withReleaseSecurity', () => {
     expect(result).toContain('signingConfig signingConfigs.release');
     expect(result).toContain('storeFile file(planlyReleaseSigning.storeFile)');
     expect(result).toContain("contains('release')");
+    expect(result).toContain(
+      "planlyReleaseEnvironmentValue('EXPO_PUBLIC_PRIVACY_POLICY_URL')",
+    );
+    expect(result).toContain("new java.net.URI(value)");
+    expect(result).toContain("uri.scheme?.equalsIgnoreCase('https')");
+    expect(result).toContain("host?.endsWith('.example')");
+    expect(result).toContain("value.startsWith('your_')");
+    expect(result).toContain('def planlyValidEmail');
     expect(result.match(/signingConfig signingConfigs\.debug/g)).toHaveLength(1);
   });
 

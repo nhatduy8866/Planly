@@ -33,7 +33,7 @@ jest.mock('../utils/expoRuntime', () => ({
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { MAX: 7 },
   AndroidNotificationPriority: { MAX: 'max' },
-  AndroidNotificationVisibility: { PUBLIC: 1 },
+  AndroidNotificationVisibility: { PRIVATE: 0, PUBLIC: 1 },
   IosAuthorizationStatus: { PROVISIONAL: 3 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
   cancelScheduledNotificationAsync: jest.fn(async () => undefined),
@@ -130,11 +130,11 @@ describe('notification foundation', () => {
     });
 
     expect(setNotificationChannelAsync).toHaveBeenCalledWith(
-      'planly-reminders-v3',
+      'planly-reminders-v4',
       expect.objectContaining({
         enableVibrate: true,
         importance: 7,
-        lockscreenVisibility: 1,
+        lockscreenVisibility: 0,
       }),
     );
     expect(setNotificationChannelAsync.mock.calls[0]?.[1]).not.toHaveProperty(
@@ -212,7 +212,7 @@ describe('notification foundation', () => {
           }),
           priority: 'max',
         }),
-        trigger: expect.objectContaining({ channelId: 'planly-reminders-v3' }),
+        trigger: expect.objectContaining({ channelId: 'planly-reminders-v4' }),
       }),
     );
     expect(scheduleNotificationAsync.mock.calls[0]?.[0].content).not.toHaveProperty(

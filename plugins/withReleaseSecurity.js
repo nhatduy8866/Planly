@@ -35,9 +35,10 @@ const releaseSigningBlock = `
         if (!value) return false
         try {
             def uri = new java.net.URI(value)
-            def host = uri.host == null
-                ? null
-                : uri.host.toLowerCase().replaceFirst(/\.$/, '')
+            def host = uri.host == null ? null : uri.host.toLowerCase()
+            if (host?.endsWith('.')) {
+                host = host.substring(0, host.length() - 1)
+            }
             def reservedHost = host == 'localhost' || host?.endsWith('.localhost') ||
                 host == 'example.com' || host?.endsWith('.example.com') ||
                 host == 'example' || host?.endsWith('.example') ||
@@ -53,14 +54,14 @@ const releaseSigningBlock = `
         def parts = value.split('@', -1)
         if (parts.length != 2) return false
         def localPart = parts[0]
-        def labels = parts[1].split('\\.', -1)
+        def labels = parts[1].split('[.]', -1)
         if (!localPart || localPart.length() > 64 ||
             localPart.startsWith('.') || localPart.endsWith('.') ||
             localPart.contains('..') ||
-            !(localPart ==~ /^[A-Za-z0-9.!#\$%&'*+\/=?^_{}|~-]+$/) ||
+            !(localPart ==~ '^[A-Za-z0-9._+-]+$') ||
             labels.length < 2) return false
         return labels.every {
-            it ==~ /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/
+            it ==~ '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$'
         }
     }
     def planlyReleaseRequested = gradle.startParameter.taskNames.any {
@@ -132,7 +133,7 @@ function configureReleaseSigning(contents) {
   );
   return safeReleaseBuild.replace(
     signingMarker,
-    `${releaseSigningBlock}${signingMarker}${releaseSigningConfig}`,
+    () => `${releaseSigningBlock}${signingMarker}${releaseSigningConfig}`,
   );
 }
 
@@ -174,7 +175,7 @@ function withReleaseSecurity(config) {
 module.exports = createRunOncePlugin(
   withReleaseSecurity,
   pluginName,
-  '1.0.1',
+  '1.0.2',
 );
 
 module.exports.configureReleaseSigning = configureReleaseSigning;

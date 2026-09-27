@@ -6,10 +6,12 @@ import {
   type AudioRecorder,
 } from 'expo-audio';
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   startAudioRecording,
   stopAudioRecording,
+  cancelAudioRecording,
   usePlanlyAudioRecorder,
 } from './audioRecorder';
 
@@ -22,6 +24,14 @@ jest.mock('expo-audio', () => ({
   setAudioModeAsync: jest.fn(),
   useAudioRecorder: jest.fn(),
 }));
+
+jest.mock('expo-file-system/legacy', () => ({
+  deleteAsync: jest.fn(async () => undefined),
+}));
+
+const mockDeleteAsync = FileSystem.deleteAsync as jest.MockedFunction<
+  typeof FileSystem.deleteAsync
+>;
 
 const mockGetRecordingPermissions = getRecordingPermissionsAsync as jest.MockedFunction<
   typeof getRecordingPermissionsAsync
@@ -91,5 +101,21 @@ describe('audioRecorder', () => {
       uri: 'file:///recording.m4a',
       mimeType: 'audio/m4a',
     });
+  });
+
+  it('deletes a cancelled native recording', async () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    const recorder = makeRecorder();
+
+    await startAudioRecording(recorder);
+    await cancelAudioRecording();
+
+    expect(mockDeleteAsync).toHaveBeenCalledWith(
+      'file:///recording.m4a',
+      { idempotent: true },
+    );
   });
 });

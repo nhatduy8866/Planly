@@ -7,11 +7,6 @@
     "scheme": "planly",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FAF7F0"
-    },
     "androidStatusBar": {
       "backgroundColor": "#FAF7F0",
       "barStyle": "dark-content",
@@ -23,6 +18,12 @@
     },
     "android": {
       "package": "com.planly.app",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FAF7F0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -47,6 +48,7 @@
       [
         "./plugins/withAlarmScheduler",
         {
+          "addExactAlarmPermission": false,
           "addUseExactAlarmPermission": true,
           "alarmKitUsageDescription": "Cho phép Planly đặt báo thức cho công việc của bạn.",
           "androidAlarmSounds": [
@@ -67,6 +69,14 @@
       ],
       "expo-font",
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FAF7F0"
+        }
+      ],
       "expo-status-bar",
       "expo-audio",
       [
@@ -104,7 +114,10 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-secure-store",
+      "./plugins/withReleaseSecurity"
     ],
     "experiments": {
       "typedRoutes": true

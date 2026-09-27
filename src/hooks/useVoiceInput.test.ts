@@ -13,6 +13,7 @@ import {
   startAudioRecording,
   stopAudioRecording,
   cancelAudioRecording,
+  deleteAudioRecording,
   usePlanlyAudioRecorder,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
@@ -21,6 +22,7 @@ import { GeminiProxyError } from '../services/ai/geminiProxy';
 const mockStartAudioRecording = jest.fn<typeof startAudioRecording>();
 const mockStopAudioRecording = jest.fn<typeof stopAudioRecording>();
 const mockCancelAudioRecording = jest.fn<typeof cancelAudioRecording>();
+const mockDeleteAudioRecording = jest.fn<typeof deleteAudioRecording>();
 const mockTranscribeAudioWithGemini = jest.fn<typeof transcribeAudioWithGemini>();
 const mockRecorder = {} as ReturnType<typeof usePlanlyAudioRecorder>;
 
@@ -34,6 +36,8 @@ jest.mock('../services/speech/audioRecorder', () => ({
     mockStartAudioRecording(...args),
   stopAudioRecording: () => mockStopAudioRecording(),
   cancelAudioRecording: () => mockCancelAudioRecording(),
+  deleteAudioRecording: (...args: Parameters<typeof deleteAudioRecording>) =>
+    mockDeleteAudioRecording(...args),
 }));
 
 jest.mock('../services/speech/geminiSpeechService', () => ({
@@ -144,6 +148,9 @@ describe('useVoiceInput', () => {
       expect.any(Function),
     );
     expect(onTranscriptMock).toHaveBeenCalledWith('Mai 9h họp team');
+    expect(mockDeleteAudioRecording).toHaveBeenCalledWith(
+      'file:///sample.m4a',
+    );
   });
 
   it('shows error when recording is too short', async () => {
@@ -165,6 +172,9 @@ describe('useVoiceInput', () => {
     expect(mockTranscribeAudioWithGemini).not.toHaveBeenCalled();
     expect(hook.errorMessage).toBe('ai.voiceTooShort');
     expect(onErrorMock).toHaveBeenCalledWith('ai.voiceTooShort');
+    expect(mockDeleteAudioRecording).toHaveBeenCalledWith(
+      'file:///sample.m4a',
+    );
   });
 
   it('asks the user to sign in when voice transcription needs auth', async () => {
@@ -189,6 +199,9 @@ describe('useVoiceInput', () => {
 
     expect(hook.errorMessage).toBe('ai.voiceSignInRequired');
     expect(onErrorMock).toHaveBeenCalledWith('ai.voiceSignInRequired');
+    expect(mockDeleteAudioRecording).toHaveBeenCalledWith(
+      'file:///sample.m4a',
+    );
   });
 
   it('explains when voice transcription reaches the daily AI limit', async () => {

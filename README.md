@@ -33,7 +33,7 @@ Planly là ứng dụng lập kế hoạch cá nhân cho Android và iOS, kết 
 - Bật/tắt màu nhấn và badge số lượng công việc trên lịch.
 - Đăng ký hoặc đăng nhập bằng email để sao lưu, khôi phục và đồng bộ công việc qua Supabase.
 
-Dữ liệu công việc luôn được lưu cục bộ bằng AsyncStorage để ứng dụng tiếp tục hoạt động khi mất mạng. Khi Supabase được cấu hình và người dùng đăng nhập, Planly tự động đồng bộ dữ liệu giữa các thiết bị.
+Dữ liệu công việc luôn được lưu cục bộ bằng AsyncStorage để ứng dụng tiếp tục hoạt động khi mất mạng. Phiên đăng nhập trên Android/iOS được lưu bằng SecureStore của hệ điều hành. Khi Supabase được cấu hình và người dùng đăng nhập, Planly tự động đồng bộ dữ liệu giữa các thiết bị.
 
 ## Công nghệ
 
@@ -98,6 +98,7 @@ Supabase Edge Function `gemini-proxy` và chỉ chấp nhận người dùng Sup
 npx supabase link --project-ref your_project_ref
 npx supabase db push --linked
 npx supabase functions deploy gemini-proxy --use-api
+npx supabase functions deploy delete-account --use-api
 ```
 
 Mọi yêu cầu AI bằng văn bản đều ưu tiên Gemini khi người dùng đã đăng nhập và có
@@ -112,6 +113,26 @@ chuyển giọng nói thành văn bản cùng sử dụng hạn mức này; yêu
 thiết bị không tính vào hạn mức.
 
 Chỉ dữ liệu công việc được đưa lên cloud. ID thông báo, quyền báo thức và URI tệp âm thanh/hình nền tùy chỉnh vẫn nằm riêng trên từng thiết bị. Khi dữ liệu được khôi phục, Planly tự tạo lại reminder phù hợp cho thiết bị hiện tại.
+
+### Tạo bản Android release
+
+Bản release không dùng debug keystore. Tạo và bảo quản upload keystore riêng,
+sau đó cung cấp các biến môi trường hoặc Gradle properties sau:
+
+```bash
+PLANLY_UPLOAD_STORE_FILE=C:\secure-path\planly-upload.jks
+PLANLY_UPLOAD_STORE_PASSWORD=...
+PLANLY_UPLOAD_KEY_ALIAS=...
+PLANLY_UPLOAD_KEY_PASSWORD=...
+```
+
+Trước khi build, cũng phải điền bốn biến pháp lý trong `.env`: tên đơn vị kiểm
+soát dữ liệu, email liên hệ, URL chính sách quyền riêng tư và URL xóa tài khoản.
+Gradle sẽ dừng mọi task release nếu thiếu cấu hình ký hoặc cấu hình pháp lý; bản
+debug vẫn chạy bình thường. Không commit keystore hay mật khẩu vào repository.
+
+Các việc cần chủ ứng dụng, tài khoản store hoặc quyết định pháp lý được liệt kê
+trong [checklist phát hành](docs/RELEASE_COMPLIANCE_CHECKLIST.md).
 
 Sau khi Metro khởi động, quét mã QR bằng Expo Go. Nếu máy đã cấu hình Android SDK và đang chạy emulator:
 

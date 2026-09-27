@@ -31,6 +31,7 @@ import {
 import { supabase } from '../services/supabase';
 import type { Task } from '../types';
 import { haveSameTaskLists } from '../utils/taskEquality';
+import { cancelTaskReminder } from '../services/notifications';
 
 export type CloudSyncStatus =
   | 'disabled'
@@ -257,6 +258,16 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 
         if (!userId) {
           if (cachedOwnerId) {
+            const localTasks = latestTasksRef.current;
+            await Promise.all(
+              localTasks.map(async (task) => {
+                try {
+                  await cancelTaskReminder(task.notificationId);
+                } catch {
+                  // The reminder may already have fired or been removed.
+                }
+              }),
+            );
             applyingCloudDataRef.current = true;
             dispatch({
               type: 'replace_from_sync',

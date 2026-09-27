@@ -95,6 +95,14 @@ export function AiInputView({
       >
         <Text style={styles.title}>{t('ai.inputTitle')}</Text>
         <Text style={styles.description}>{t('ai.inputDescription')}</Text>
+        <View style={styles.aiDisclosure}>
+          <MaterialIcons
+            name="privacy-tip"
+            size={17}
+            color={colors.textMuted}
+          />
+          <Text style={styles.aiDisclosureText}>{t('ai.dataDisclosure')}</Text>
+        </View>
 
         {voiceError ? (
           <View style={styles.infoBanner}>
@@ -262,6 +270,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
+  },
+  aiDisclosure: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    padding: 11,
+  },
+  aiDisclosureText: {
+    color: colors.textMuted,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
   inputCard: {
     backgroundColor: colors.surface,

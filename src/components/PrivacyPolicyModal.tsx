@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { legalConfig } from '../config/legal';
 import { usePreferences } from '../preferences/PreferencesContext';
 import type { ThemeColors } from '../theme/colors';
 import { MOTION } from '../theme/motion';
@@ -15,7 +17,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { MotionModal } from './animation/MotionModal';
 import { IconButton } from './IconButton';
 
-export const CURRENT_PRIVACY_POLICY_VERSION = 2;
+export const CURRENT_PRIVACY_POLICY_VERSION = 3;
 
 interface PrivacyPolicyModalProps {
   onAccept?: () => void;
@@ -79,9 +81,52 @@ export function PrivacyPolicyModal({
             showsVerticalScrollIndicator={false}
             style={styles.policyScroll}
           >
+            {legalConfig.dataControllerName ? (
+              <Text style={styles.legalDetail}>
+                {t('privacy.controller', {
+                  name: legalConfig.dataControllerName,
+                })}
+              </Text>
+            ) : null}
+            {legalConfig.privacyContactEmail ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() =>
+                  void Linking.openURL(
+                    `mailto:${legalConfig.privacyContactEmail}`,
+                  )
+                }
+              >
+                <Text style={styles.link}>
+                  {t('privacy.contact', {
+                    email: legalConfig.privacyContactEmail,
+                  })}
+                </Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.policyText} testID="privacy-policy-content">
               {t('privacy.content')}
             </Text>
+            {legalConfig.privacyPolicyUrl ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() =>
+                  void Linking.openURL(legalConfig.privacyPolicyUrl!)
+                }
+              >
+                <Text style={styles.link}>{t('privacy.openPublished')}</Text>
+              </Pressable>
+            ) : null}
+            {legalConfig.accountDeletionUrl ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() =>
+                  void Linking.openURL(legalConfig.accountDeletionUrl!)
+                }
+              >
+                <Text style={styles.link}>{t('privacy.openDeletion')}</Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
 
           <View
@@ -173,6 +218,17 @@ const createStyles = (colors: ThemeColors) =>
       height: 44,
       justifyContent: 'center',
       width: 44,
+    },
+    legalDetail: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    link: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+      textDecorationLine: 'underline',
     },
     policyText: {
       color: colors.text,

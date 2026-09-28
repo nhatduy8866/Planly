@@ -5,16 +5,12 @@ export type ReminderDeliveryMode = 'notification' | 'alarm';
 export type AlarmSoundPresetId =
   | 'classic'
   | 'sunrise'
-  | 'gentle'
   | 'pulse'
   | 'digital';
 
 export type AlarmBackgroundPresetId =
   | 'dawn'
   | 'aurora'
-  | 'forest'
-  | 'ocean'
-  | 'cosmos'
   | 'gentleDark'
   | 'gentleLight';
 

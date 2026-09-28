@@ -104,7 +104,6 @@ function isAlarmSoundPresetId(value: unknown): value is AlarmSoundPresetId {
   return (
     value === 'classic' ||
     value === 'sunrise' ||
-    value === 'gentle' ||
     value === 'pulse' ||
     value === 'digital'
   );
@@ -116,9 +115,6 @@ function isAlarmBackgroundPresetId(
   return (
     value === 'dawn' ||
     value === 'aurora' ||
-    value === 'forest' ||
-    value === 'ocean' ||
-    value === 'cosmos' ||
     value === 'gentleDark' ||
     value === 'gentleLight'
   );

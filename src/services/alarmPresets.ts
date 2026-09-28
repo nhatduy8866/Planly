@@ -25,12 +25,6 @@ export const ALARM_SOUND_PRESETS = [
     source: require('../../assets/alarm/sounds/planly_sunrise.wav'),
   },
   {
-    id: 'gentle',
-    labelKey: 'settings.alarmSoundGentle',
-    nativeName: 'planly_gentle.wav',
-    source: require('../../assets/alarm/sounds/planly_gentle.wav'),
-  },
-  {
     id: 'pulse',
     labelKey: 'settings.alarmSoundPulse',
     nativeName: 'planly_pulse.wav',
@@ -58,27 +52,6 @@ export const ALARM_BACKGROUND_PRESETS = [
     id: 'aurora',
     labelKey: 'settings.alarmBackgroundAurora',
     source: require('../../assets/alarm/backgrounds/aurora.png'),
-  },
-  {
-    appearance: 'dark',
-    color: undefined,
-    id: 'forest',
-    labelKey: 'settings.alarmBackgroundForest',
-    source: require('../../assets/alarm/backgrounds/forest.png'),
-  },
-  {
-    appearance: 'dark',
-    color: undefined,
-    id: 'ocean',
-    labelKey: 'settings.alarmBackgroundOcean',
-    source: require('../../assets/alarm/backgrounds/ocean.png'),
-  },
-  {
-    appearance: 'dark',
-    color: undefined,
-    id: 'cosmos',
-    labelKey: 'settings.alarmBackgroundCosmos',
-    source: require('../../assets/alarm/backgrounds/cosmos.png'),
   },
   {
     appearance: 'dark',

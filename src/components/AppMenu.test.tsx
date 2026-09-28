@@ -375,7 +375,6 @@ describe('AppMenu settings', () => {
     expect(soundOptions).toEqual([
       'settings.alarmSoundClassic',
       'settings.alarmSoundSunrise',
-      'settings.alarmSoundGentle',
       'settings.alarmSoundPulse',
       'settings.alarmSoundDigital',
       'settings.alarmSoundUpload',
@@ -441,9 +440,6 @@ describe('AppMenu settings', () => {
     expect(backgroundOptions).toEqual([
       'settings.alarmBackgroundDawn',
       'settings.alarmBackgroundAurora',
-      'settings.alarmBackgroundForest',
-      'settings.alarmBackgroundOcean',
-      'settings.alarmBackgroundCosmos',
       'settings.alarmBackgroundGentleDark',
       'settings.alarmBackgroundGentleLight',
       'settings.alarmBackgroundUpload',

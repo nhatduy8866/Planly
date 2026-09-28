@@ -14,11 +14,13 @@ import {
   startAudioRecording,
   stopAudioRecording,
   usePlanlyAudioRecorder,
+  usePlanlyAudioRecorderState,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
 
 const MAX_RECORDING_DURATION_SECONDS = 30;
 const MIN_RECORDING_DURATION_MS = 600;
+const MIN_SPEECH_LEVEL_DB = -55;
 
 interface UseVoiceInputOptions {
   onTranscript: (transcript: string) => void;
@@ -29,6 +31,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
   const { configured, user } = useAuth();
   const { t } = usePreferences();
   const recorder = usePlanlyAudioRecorder();
+  const recorderState = usePlanlyAudioRecorderState(recorder);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -36,7 +39,16 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const durationRef = useRef(0);
+  const peakMeteringRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    const metering = recorderState.metering;
+    if (!isRecording || typeof metering !== 'number') return;
+    peakMeteringRef.current = peakMeteringRef.current === null
+      ? metering
+      : Math.max(peakMeteringRef.current, metering);
+  }, [isRecording, recorderState.metering]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -74,6 +86,18 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
           setErrorMessage(shortMsg);
         }
         onError?.(shortMsg);
+        return;
+      }
+
+      if (
+        peakMeteringRef.current !== null &&
+        peakMeteringRef.current < MIN_SPEECH_LEVEL_DB
+      ) {
+        const noSpeechMsg = t('ai.voiceNoSpeech');
+        if (isMountedRef.current) {
+          setErrorMessage(noSpeechMsg);
+        }
+        onError?.(noSpeechMsg);
         return;
       }
 
@@ -155,6 +179,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
     setIsRecording(true);
     setDurationSeconds(0);
     durationRef.current = 0;
+    peakMeteringRef.current = null;
 
     clearTimer();
     timerRef.current = setInterval(() => {

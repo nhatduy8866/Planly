@@ -1,8 +1,11 @@
 import type { Session } from '@supabase/supabase-js';
 
 export const GEMINI_FLASH_MODEL = 'gemini-3.5-flash' as const;
+export const GEMINI_TRANSCRIBE_MODEL = 'gemini-3.5-transcribe' as const;
 
-export type GeminiModel = typeof GEMINI_FLASH_MODEL;
+export type GeminiModel =
+  | typeof GEMINI_FLASH_MODEL
+  | typeof GEMINI_TRANSCRIBE_MODEL;
 export type GeminiOperation = 'refine' | 'schedule' | 'transcribe';
 export type GeminiRequest = Record<string, unknown>;
 export type GeminiContentGateway = (

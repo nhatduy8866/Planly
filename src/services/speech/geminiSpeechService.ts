@@ -2,12 +2,12 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import {
-  GEMINI_FLASH_MODEL,
+  GEMINI_TRANSCRIBE_MODEL,
   type GeminiContentGateway,
   type GeminiModel,
 } from '../ai/geminiProxy';
 
-const GEMINI_MODELS: readonly GeminiModel[] = [GEMINI_FLASH_MODEL];
+const GEMINI_MODELS: readonly GeminiModel[] = [GEMINI_TRANSCRIBE_MODEL];
 const TRANSCRIPTION_TIMEOUT_MS = 45_000;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -113,12 +113,27 @@ export async function transcribeAudioWithGemini(
         }[];
       };
       const responseParts = data?.candidates?.[0]?.content?.parts;
-      const candidateText = Array.isArray(responseParts)
+      const generatedText = Array.isArray(responseParts)
         ? responseParts
             .filter((part) => !part?.thought && typeof part?.text === 'string')
             .map((part) => part.text)
             .join('\n')
         : '';
+      const interactionSteps = (data as {
+        steps?: {
+          type?: string;
+          content?: { type?: string; text?: string }[];
+        }[];
+      })?.steps;
+      const transcribedText = Array.isArray(interactionSteps)
+        ? interactionSteps
+            .filter((step) => step?.type === 'model_output')
+            .flatMap((step) => Array.isArray(step.content) ? step.content : [])
+            .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+            .map((part) => part.text)
+            .join('\n')
+        : '';
+      const candidateText = transcribedText || generatedText;
       if (candidateText) {
         const cleanText = candidateText.trim().replace(/^["'“](.*)["'”]$/, '$1').trim();
         if (cleanText) {

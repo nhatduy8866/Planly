@@ -6,7 +6,10 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
+  useAudioRecorderState,
   type AudioRecorder,
+  type RecorderState,
+  type RecordingOptions,
 } from 'expo-audio';
 
 export interface RecordingResult {
@@ -17,6 +20,15 @@ export interface RecordingResult {
 
 let activeRecorder: AudioRecorder | null = null;
 let recordingStartTime = 0;
+
+const PLANLY_RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+  android: {
+    ...RecordingPresets.HIGH_QUALITY.android,
+    audioSource: 'voice_recognition',
+  },
+} satisfies RecordingOptions;
 
 export async function deleteAudioRecording(uri: string | null | undefined): Promise<void> {
   if (!uri) return;
@@ -32,7 +44,11 @@ export async function deleteAudioRecording(uri: string | null | undefined): Prom
 }
 
 export function usePlanlyAudioRecorder(): AudioRecorder {
-  return useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  return useAudioRecorder(PLANLY_RECORDING_OPTIONS);
+}
+
+export function usePlanlyAudioRecorderState(recorder: AudioRecorder): RecorderState {
+  return useAudioRecorderState(recorder, 200);
 }
 
 async function leaveRecordingMode(): Promise<void> {

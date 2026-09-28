@@ -55,9 +55,10 @@ describe('AiInputView voice status', () => {
     expect(tree!.root.findByProps({
       accessibilityLabel: 'ai.voiceListening',
     })).toBeDefined();
-    expect(tree!.root.findByProps({
-      children: 'ai.dataDisclosure',
-    })).toBeDefined();
+    const renderedText = JSON.stringify(tree!.toJSON());
+    expect(renderedText).not.toContain('ai.inputSubtitle');
+    expect(renderedText).not.toContain('ai.inputDescription');
+    expect(renderedText).not.toContain('ai.dataDisclosure');
 
     act(() => tree!.unmount());
   });

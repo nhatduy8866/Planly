@@ -112,6 +112,23 @@ describe('AccountSyncModal feedback', () => {
     expect(mockShowToast).toHaveBeenCalledWith('toast.signedIn');
   });
 
+  it('hides technical details when sign-in fails', async () => {
+    mockSignIn.mockRejectedValueOnce(
+      new Error('Supabase auth subphase failed'),
+    );
+    renderModal();
+    fillCredentials();
+
+    await act(async () => {
+      await tree?.root.findByProps({ accessibilityLabel: 'sync.signIn' }).props.onPress();
+    });
+
+    const renderedText = JSON.stringify(tree!.toJSON());
+    expect(renderedText).toContain('sync.signInFailed');
+    expect(renderedText).not.toContain('Supabase');
+    expect(renderedText).not.toContain('subphase');
+  });
+
   it('shows the confirmation toast after creating an account', async () => {
     mockSignUp.mockResolvedValue({ needsEmailConfirmation: true });
     renderModal();

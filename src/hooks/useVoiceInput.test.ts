@@ -15,6 +15,7 @@ import {
   cancelAudioRecording,
   deleteAudioRecording,
   usePlanlyAudioRecorder,
+  usePlanlyAudioRecorderState,
 } from '../services/speech/audioRecorder';
 import { transcribeAudioWithGemini } from '../services/speech/geminiSpeechService';
 import { GeminiProxyError } from '../services/ai/geminiProxy';
@@ -25,6 +26,18 @@ const mockCancelAudioRecording = jest.fn<typeof cancelAudioRecording>();
 const mockDeleteAudioRecording = jest.fn<typeof deleteAudioRecording>();
 const mockTranscribeAudioWithGemini = jest.fn<typeof transcribeAudioWithGemini>();
 const mockRecorder = {} as ReturnType<typeof usePlanlyAudioRecorder>;
+let mockAuthConfigured = true;
+let mockAuthUser: { id: string } | null = { id: 'user-1' };
+let mockRecorderState: ReturnType<typeof usePlanlyAudioRecorderState> = {
+  metering: undefined,
+} as ReturnType<typeof usePlanlyAudioRecorderState>;
+
+jest.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({
+    configured: mockAuthConfigured,
+    user: mockAuthUser,
+  }),
+}));
 
 jest.mock('../services/ai/geminiProxyClient', () => ({
   generateGeminiContent: jest.fn(),
@@ -32,6 +45,7 @@ jest.mock('../services/ai/geminiProxyClient', () => ({
 
 jest.mock('../services/speech/audioRecorder', () => ({
   usePlanlyAudioRecorder: () => mockRecorder,
+  usePlanlyAudioRecorderState: () => mockRecorderState,
   startAudioRecording: (...args: Parameters<typeof startAudioRecording>) =>
     mockStartAudioRecording(...args),
   stopAudioRecording: () => mockStopAudioRecording(),
@@ -80,9 +94,19 @@ describe('useVoiceInput', () => {
     });
   }
 
+  async function remountHook() {
+    act(() => {
+      renderer.unmount();
+    });
+    await renderHook();
+  }
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockAuthConfigured = true;
+    mockAuthUser = { id: 'user-1' };
+    mockRecorderState = { metering: undefined } as ReturnType<typeof usePlanlyAudioRecorderState>;
     onTranscriptMock = jest.fn();
     onErrorMock = jest.fn();
     await renderHook();
@@ -113,6 +137,33 @@ describe('useVoiceInput', () => {
     expect(hook.isRecording).toBe(false);
     expect(hook.errorMessage).toBe('ai.voicePermissionDenied');
     expect(onErrorMock).toHaveBeenCalledWith('ai.voicePermissionDenied');
+  });
+
+  it('asks for sign-in before starting a recording', async () => {
+    mockAuthUser = null;
+    await remountHook();
+
+    await act(async () => {
+      await hook.startListening();
+    });
+
+    expect(mockStartAudioRecording).not.toHaveBeenCalled();
+    expect(hook.errorMessage).toBe('ai.voiceSignInRequired');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceSignInRequired');
+  });
+
+  it('does not start recording when voice input is unavailable', async () => {
+    mockAuthConfigured = false;
+    mockAuthUser = null;
+    await remountHook();
+
+    await act(async () => {
+      await hook.startListening();
+    });
+
+    expect(mockStartAudioRecording).not.toHaveBeenCalled();
+    expect(hook.errorMessage).toBe('ai.voiceUnavailable');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceUnavailable');
   });
 
   it('records and transcribes successfully when stopped', async () => {
@@ -175,6 +226,29 @@ describe('useVoiceInput', () => {
     expect(mockDeleteAudioRecording).toHaveBeenCalledWith(
       'file:///sample.m4a',
     );
+  });
+
+  it('does not upload a silent recording', async () => {
+    mockRecorderState = { metering: -120 } as ReturnType<typeof usePlanlyAudioRecorderState>;
+    await remountHook();
+    mockStartAudioRecording.mockResolvedValueOnce(true);
+    mockStopAudioRecording.mockResolvedValueOnce({
+      uri: 'file:///silent.m4a',
+      durationMs: 2500,
+      mimeType: 'audio/m4a',
+    });
+
+    await act(async () => {
+      await hook.startListening();
+    });
+    await act(async () => {
+      await hook.stopListening();
+    });
+
+    expect(mockTranscribeAudioWithGemini).not.toHaveBeenCalled();
+    expect(hook.errorMessage).toBe('ai.voiceNoSpeech');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceNoSpeech');
+    expect(mockDeleteAudioRecording).toHaveBeenCalledWith('file:///silent.m4a');
   });
 
   it('asks the user to sign in when voice transcription needs auth', async () => {

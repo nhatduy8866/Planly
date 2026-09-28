@@ -4,7 +4,8 @@ import {
   isGeminiOperation,
 } from "./requestPolicy.ts";
 
-const ALLOWED_MODEL = "gemini-3.5-flash";
+const GENERATION_MODEL = "gemini-3.5-flash";
+const TRANSCRIPTION_MODEL = "gemini-3.5-transcribe";
 const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
 const GEMINI_TIMEOUT_MS = 45_000;
 const QUOTA_TIMEOUT_MS = 10_000;
@@ -197,7 +198,10 @@ Deno.serve(async (request: Request) => {
     );
   }
 
-  if (body?.model !== ALLOWED_MODEL) {
+  const expectedModel = body.operation === "transcribe"
+    ? TRANSCRIPTION_MODEL
+    : GENERATION_MODEL;
+  if (body?.model !== expectedModel) {
     return jsonResponse(
       {
         code: "MODEL_NOT_ALLOWED",
@@ -255,8 +259,11 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    const upstreamUrl = body.operation === "transcribe"
+      ? "https://generativelanguage.googleapis.com/v1beta/interactions"
+      : `https://generativelanguage.googleapis.com/v1beta/models/${GENERATION_MODEL}:generateContent`;
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${ALLOWED_MODEL}:generateContent`,
+      upstreamUrl,
       {
         method: "POST",
         headers: {

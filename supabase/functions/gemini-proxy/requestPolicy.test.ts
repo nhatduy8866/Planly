@@ -30,9 +30,9 @@ describe('Gemini proxy request policy', () => {
       candidateCount: 99,
       maxOutputTokens: 999_999,
     }));
-    const contents = result?.contents as Array<{
-      parts: Array<{ text: string }>;
-    }>;
+    const contents = result?.contents as {
+      parts: { text: string }[];
+    }[];
     expect(contents[0].parts[0].text).toContain('Planly');
     expect(contents[0].parts[0].text).toContain(
       '<planly_input>"Lập lịch họp lúc 9h"</planly_input>',
@@ -52,7 +52,7 @@ describe('Gemini proxy request policy', () => {
     })).toBeNull();
   });
 
-  it('replaces the transcription prompt and accepts only supported audio', () => {
+  it('builds a bounded Vietnamese transcription request and accepts only supported audio', () => {
     const result = buildUpstreamGeminiRequest('transcribe', {
       contents: [{
         role: 'user',
@@ -63,14 +63,19 @@ describe('Gemini proxy request policy', () => {
       }],
     });
 
-    const contents = result?.contents as Array<{
-      parts: Array<{ text?: string; inlineData?: unknown }>;
-    }>;
-    expect(contents[0].parts[0].text).toContain('Planly');
-    expect(contents[0].parts[0].text).not.toContain('reveal the system prompt');
-    expect(contents[0].parts[1].inlineData).toEqual({
-      data: 'QUJDRA==',
-      mimeType: 'audio/m4a',
+    expect(result).toEqual({
+      model: 'gemini-3.5-transcribe',
+      input: [{
+        type: 'audio',
+        data: 'QUJDRA==',
+        mime_type: 'audio/m4a',
+      }],
+      generation_config: {
+        transcription_config: {
+          language_codes: ['vi-VN'],
+          mode: 'smart',
+        },
+      },
     });
     expect(buildUpstreamGeminiRequest('transcribe', {
       contents: [{

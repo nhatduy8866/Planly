@@ -69,20 +69,17 @@ describe('geminiSpeechService', () => {
     ).rejects.toThrow('EMPTY_AUDIO_DATA');
   });
 
-  it('successfully transcribes audio and trims quotes from result', async () => {
+  it('successfully transcribes audio with the dedicated model', async () => {
     mockReadAsStringAsync.mockResolvedValueOnce('BASE64_AUDIO_CONTENT');
 
     const fetchMock = jest.fn<any>().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        candidates: [
+        status: 'completed',
+        steps: [
           {
-            content: {
-              parts: [
-                { thought: true, text: 'Phân tích âm thanh' },
-                { text: '“Mai 9h sáng họp team”' },
-              ],
-            },
+            type: 'model_output',
+            content: [{ type: 'text', text: '“Mai 9h sáng họp team”' }],
           },
         ],
       }),
@@ -101,7 +98,7 @@ describe('geminiSpeechService', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const callArgs = fetchMock.mock.calls[0] as [string, { body: string }];
-    expect(callArgs[0]).toContain('gemini-3.5-flash');
+    expect(callArgs[0]).toContain('gemini-3.5-transcribe');
     expect(callArgs[0]).not.toContain('key=');
 
     const body = JSON.parse(callArgs[1].body);

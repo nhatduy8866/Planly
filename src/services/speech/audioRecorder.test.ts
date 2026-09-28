@@ -3,6 +3,7 @@ import {
   getRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
+  useAudioRecorderState,
   type AudioRecorder,
 } from 'expo-audio';
 import { Platform } from 'react-native';
@@ -23,6 +24,7 @@ jest.mock('expo-audio', () => ({
   requestRecordingPermissionsAsync: jest.fn(),
   setAudioModeAsync: jest.fn(),
   useAudioRecorder: jest.fn(),
+  useAudioRecorderState: jest.fn(),
 }));
 
 jest.mock('expo-file-system/legacy', () => ({
@@ -41,6 +43,9 @@ const mockSetAudioMode = setAudioModeAsync as jest.MockedFunction<
 >;
 const mockUseAudioRecorder = useAudioRecorder as jest.MockedFunction<
   typeof useAudioRecorder
+>;
+const mockUseAudioRecorderState = useAudioRecorderState as jest.MockedFunction<
+  typeof useAudioRecorderState
 >;
 
 function makeRecorder(): AudioRecorder {
@@ -70,7 +75,22 @@ describe('audioRecorder', () => {
     mockUseAudioRecorder.mockReturnValue(recorder);
 
     expect(usePlanlyAudioRecorder()).toBe(recorder);
-    expect(mockUseAudioRecorder).toHaveBeenCalledWith({ extension: '.m4a' });
+    expect(mockUseAudioRecorder).toHaveBeenCalledWith({
+      extension: '.m4a',
+      isMeteringEnabled: true,
+      android: { audioSource: 'voice_recognition' },
+    });
+  });
+
+  it('polls recorder volume often enough to detect silent input', () => {
+    const recorder = makeRecorder();
+    const state = { metering: -24 } as never;
+    mockUseAudioRecorderState.mockReturnValue(state);
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { usePlanlyAudioRecorderState } = require('./audioRecorder') as typeof import('./audioRecorder');
+    expect(usePlanlyAudioRecorderState(recorder)).toBe(state);
+    expect(mockUseAudioRecorderState).toHaveBeenCalledWith(recorder, 200);
   });
 
   it('records with the managed recorder and restores audio mode after stopping', async () => {

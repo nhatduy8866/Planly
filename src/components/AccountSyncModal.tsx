@@ -95,7 +95,8 @@ export function AccountSyncModal({
       setPassword('');
       showToast(t('toast.signedIn'));
     } catch (signInError) {
-      setError(errorMessage(signInError));
+      console.warn('Sign-in failed:', errorMessage(signInError));
+      setError(t('sync.signInFailed'));
     } finally {
       setBusy(null);
     }
@@ -116,7 +117,8 @@ export function AccountSyncModal({
         showToast(t('toast.accountCreated'));
       }
     } catch (signUpError) {
-      setError(errorMessage(signUpError));
+      console.warn('Account creation failed:', errorMessage(signUpError));
+      setError(t('sync.signUpFailed'));
     } finally {
       setBusy(null);
     }
@@ -132,7 +134,8 @@ export function AccountSyncModal({
       setPassword('');
       showToast(t('toast.signedOut'));
     } catch (signOutError) {
-      setError(errorMessage(signOutError));
+      console.warn('Sign-out failed:', errorMessage(signOutError));
+      setError(t('sync.signOutFailed'));
     } finally {
       setBusy(null);
     }

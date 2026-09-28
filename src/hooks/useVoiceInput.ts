@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAuth } from '../auth/AuthContext';
 import { usePreferences } from '../preferences/PreferencesContext';
 import {
   GeminiProxyError,
@@ -25,6 +26,7 @@ interface UseVoiceInputOptions {
 }
 
 export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
+  const { configured, user } = useAuth();
   const { t } = usePreferences();
   const recorder = usePlanlyAudioRecorder();
   const [isRecording, setIsRecording] = useState(false);
@@ -128,6 +130,20 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
   const startListening = useCallback(async () => {
     setErrorMessage(null);
 
+    if (!configured) {
+      const unavailableMsg = t('ai.voiceUnavailable');
+      setErrorMessage(unavailableMsg);
+      onError?.(unavailableMsg);
+      return;
+    }
+
+    if (!user) {
+      const signInMsg = t('ai.voiceSignInRequired');
+      setErrorMessage(signInMsg);
+      onError?.(signInMsg);
+      return;
+    }
+
     const started = await startAudioRecording(recorder);
     if (!started) {
       const permMsg = t('ai.voicePermissionDenied');
@@ -150,7 +166,7 @@ export function useVoiceInput({ onTranscript, onError }: UseVoiceInputOptions) {
         void stopListening();
       }
     }, 1000);
-  }, [clearTimer, onError, recorder, stopListening, t]);
+  }, [clearTimer, configured, onError, recorder, stopListening, t, user]);
 
   const toggleRecording = useCallback(() => {
     if (isTranscribing) {

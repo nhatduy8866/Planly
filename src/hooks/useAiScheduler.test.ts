@@ -265,7 +265,7 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('draft_preview');
     expect(scheduler.infoMessage).toBeNull();
     expect(mockShowToast).toHaveBeenCalledWith(
-      'Bạn chưa đăng nhập. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+      'Chưa đăng nhập. Yêu cầu được xử lý trên thiết bị.',
     );
   });
 
@@ -285,7 +285,7 @@ describe('useAiScheduler', () => {
     expect(scheduler.step).toBe('draft_preview');
     expect(scheduler.infoMessage).toBeNull();
     expect(mockShowToast).toHaveBeenCalledWith(
-      'Bạn đã hết lượt dùng AI hôm nay. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+      'Đã hết lượt AI hôm nay. Yêu cầu được xử lý trên thiết bị.',
     );
   });
 
@@ -305,7 +305,7 @@ describe('useAiScheduler', () => {
 
     expect(scheduler.step).toBe('draft_preview');
     expect(mockShowToast).toHaveBeenCalledWith(
-      'Không thể kết nối Gemini. Planly đã xử lý yêu cầu này ngay trên thiết bị.',
+      'Mất kết nối. Yêu cầu được xử lý trên thiết bị.',
     );
   });
 

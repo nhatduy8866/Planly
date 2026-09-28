@@ -25,6 +25,15 @@ const mockCancelAudioRecording = jest.fn<typeof cancelAudioRecording>();
 const mockDeleteAudioRecording = jest.fn<typeof deleteAudioRecording>();
 const mockTranscribeAudioWithGemini = jest.fn<typeof transcribeAudioWithGemini>();
 const mockRecorder = {} as ReturnType<typeof usePlanlyAudioRecorder>;
+let mockAuthConfigured = true;
+let mockAuthUser: { id: string } | null = { id: 'user-1' };
+
+jest.mock('../auth/AuthContext', () => ({
+  useAuth: () => ({
+    configured: mockAuthConfigured,
+    user: mockAuthUser,
+  }),
+}));
 
 jest.mock('../services/ai/geminiProxyClient', () => ({
   generateGeminiContent: jest.fn(),
@@ -80,9 +89,18 @@ describe('useVoiceInput', () => {
     });
   }
 
+  async function remountHook() {
+    act(() => {
+      renderer.unmount();
+    });
+    await renderHook();
+  }
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockAuthConfigured = true;
+    mockAuthUser = { id: 'user-1' };
     onTranscriptMock = jest.fn();
     onErrorMock = jest.fn();
     await renderHook();
@@ -113,6 +131,33 @@ describe('useVoiceInput', () => {
     expect(hook.isRecording).toBe(false);
     expect(hook.errorMessage).toBe('ai.voicePermissionDenied');
     expect(onErrorMock).toHaveBeenCalledWith('ai.voicePermissionDenied');
+  });
+
+  it('asks for sign-in before starting a recording', async () => {
+    mockAuthUser = null;
+    await remountHook();
+
+    await act(async () => {
+      await hook.startListening();
+    });
+
+    expect(mockStartAudioRecording).not.toHaveBeenCalled();
+    expect(hook.errorMessage).toBe('ai.voiceSignInRequired');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceSignInRequired');
+  });
+
+  it('does not start recording when voice input is unavailable', async () => {
+    mockAuthConfigured = false;
+    mockAuthUser = null;
+    await remountHook();
+
+    await act(async () => {
+      await hook.startListening();
+    });
+
+    expect(mockStartAudioRecording).not.toHaveBeenCalled();
+    expect(hook.errorMessage).toBe('ai.voiceUnavailable');
+    expect(onErrorMock).toHaveBeenCalledWith('ai.voiceUnavailable');
   });
 
   it('records and transcribes successfully when stopped', async () => {

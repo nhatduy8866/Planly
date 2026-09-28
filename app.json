@@ -54,14 +54,12 @@
           "androidAlarmSounds": [
             "./assets/alarm/sounds/planly_classic.wav",
             "./assets/alarm/sounds/planly_sunrise.wav",
-            "./assets/alarm/sounds/planly_gentle.wav",
             "./assets/alarm/sounds/planly_pulse.wav",
             "./assets/alarm/sounds/planly_digital.wav"
           ],
           "iosAlarmSounds": [
             "./assets/alarm/sounds/planly_classic.wav",
             "./assets/alarm/sounds/planly_sunrise.wav",
-            "./assets/alarm/sounds/planly_gentle.wav",
             "./assets/alarm/sounds/planly_pulse.wav",
             "./assets/alarm/sounds/planly_digital.wav"
           ]

@@ -79,9 +79,9 @@ describe('PreferencesProvider reminder mode', () => {
       JSON.stringify({
         acceptedPrivacyPolicyVersion: 1,
         alarmBackground: { name: 'night.jpg', uri: 'file:///night.jpg' },
-        alarmBackgroundPreset: 'cosmos',
+        alarmBackgroundPreset: 'aurora',
         alarmSound: { name: 'bell.mp3', uri: 'file:///bell.mp3' },
-        alarmSoundPreset: 'gentle',
+        alarmSoundPreset: 'pulse',
         alarmVibrationEnabled: false,
         hasSeenOnboarding: true,
         reminderDeliveryMode: 'alarm',
@@ -100,10 +100,24 @@ describe('PreferencesProvider reminder mode', () => {
       name: 'bell.mp3',
       uri: 'file:///bell.mp3',
     });
-    expect(preferences.alarmBackgroundPreset).toBe('cosmos');
-    expect(preferences.alarmSoundPreset).toBe('gentle');
+    expect(preferences.alarmBackgroundPreset).toBe('aurora');
+    expect(preferences.alarmSoundPreset).toBe('pulse');
     expect(preferences.alarmVibrationEnabled).toBe(false);
     expect(preferences.hasSeenOnboarding).toBe(true);
+  });
+
+  it('falls back safely when removed alarm media presets were saved', async () => {
+    mockGetItem.mockResolvedValue(
+      JSON.stringify({
+        alarmBackgroundPreset: 'cosmos',
+        alarmSoundPreset: 'gentle',
+      }),
+    );
+
+    await renderProvider();
+
+    expect(preferences.alarmBackgroundPreset).toBe('dawn');
+    expect(preferences.alarmSoundPreset).toBe('classic');
   });
 
   it('persists onboarding completion', async () => {

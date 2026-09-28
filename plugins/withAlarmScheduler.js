@@ -20,6 +20,13 @@ const silentSoundPath = path.join(
   'assets',
   'alarm-scheduler-silence.caf',
 );
+const managedAndroidAlarmSounds = [
+  'planly_classic.wav',
+  'planly_digital.wav',
+  'planly_gentle.wav',
+  'planly_pulse.wav',
+  'planly_sunrise.wav',
+];
 
 function normalizeIosAlarmSounds(value) {
   if (value == null) return [];
@@ -111,6 +118,15 @@ function withAlarmScheduler(config, props = {}) {
         'raw',
       );
       fs.mkdirSync(rawDirectory, { recursive: true });
+
+      const configuredSoundNames = new Set(
+        androidAlarmSounds.map((sound) => path.basename(sound).toLowerCase()),
+      );
+      managedAndroidAlarmSounds.forEach((soundName) => {
+        if (configuredSoundNames.has(soundName)) return;
+        const staleSoundPath = path.join(rawDirectory, soundName);
+        if (fs.existsSync(staleSoundPath)) fs.unlinkSync(staleSoundPath);
+      });
 
       androidAlarmSounds.forEach((sound) => {
         const absolutePath = path.resolve(projectRoot, sound);
